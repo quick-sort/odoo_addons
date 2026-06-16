@@ -111,6 +111,7 @@ import operator
 from collections import defaultdict
 from functools import wraps
 
+# pylint: disable=W7950
 from odoo.addons.component.core import AbstractComponent, Component
 
 _logger = logging.getLogger(__name__)
