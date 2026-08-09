@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- File browser: kanban mixes directories and files; clicking a
+         directory descends into it (action_open_children). -->
+    <record id="view_one_storage_entry_kanban" model="ir.ui.view">
+        <field name="name">one.storage.entry.kanban</field>
+        <field name="model">one.storage.entry</field>
+        <field name="arch" type="xml">
+            <kanban create="true" sample="1"
+                    action="action_open_children" type="object">
+                <field name="name"/>
+                <field name="entry_type"/>
+                <field name="is_dir"/>
+                <field name="mimetype"/>
+                <field name="complete_name"/>
+                <field name="backend_id"/>
+                <field name="child_ids"/>
+                <field name="file_size"/>
+                <templates>
+                    <t t-name="menu">
+                        <a t-if="!record.is_dir.raw_value"
+                           t-attf-href="/one_storage/entry/#{record.id.raw_value}/download"
+                           download="" class="dropdown-item">Download</a>
+                    </t>
+                    <t t-name="card" class="o_kanban_attachment flex-row">
+                        <aside class="o_kanban_image m-1">
+                            <div class="o_kanban_image_wrapper d-flex align-items-center justify-content-center">
+                                <i t-if="record.is_dir.raw_value"
+                                   class="fa fa-folder fa-3x text-warning"
+                                   title="Directory" role="img"/>
+                                <div t-else=""
+                                     class="o_image o_image_thumbnail"
+                                     t-att-data-mimetype="record.mimetype.value"/>
+                            </div>
+                        </aside>
+                        <main class="ms-1">
+                            <div class="o_kanban_details_wrapper d-flex flex-column">
+                                <field name="name" class="text-truncate fw-bold fs-5"/>
+                                <div class="text-muted small text-truncate">
+                                    <field name="complete_name"/>
+                                </div>
+                                <div class="d-flex align-items-center">
+                                    <small t-if="record.is_dir.raw_value" class="text-muted me-3">
+                                        <i class="fa fa-folder-o" title="Sub-entries" role="img"/> <field name="child_ids" widget="list.counter"/>
+                                    </small>
+                                    <small t-else="" class="text-muted me-3">
+                                        <field name="file_size" widget="integer"/>
+                                    </small>
+                                    <field name="backend_id" class="ms-auto badge text-bg-secondary"/>
+                                </div>
+                            </div>
+                        </main>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <record id="view_one_storage_entry_list" model="ir.ui.view">
+        <field name="name">one.storage.entry.list</field>
+        <field name="model">one.storage.entry</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="entry_type"/>
+                <field name="mimetype"/>
+                <field name="file_size"/>
+                <field name="backend_id"/>
+                <field name="state"/>
+                <field name="last_sync"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_one_storage_entry_form" model="ir.ui.view">
+        <field name="name">one.storage.entry.form</field>
+        <field name="model">one.storage.entry</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_sync_from_backend" type="object"
+                            string="Sync from Backend" class="oe_highlight"
+                            invisible="entry_type != 'directory'"/>
+                    <button name="action_download" type="object"
+                            string="Download" class="oe_highlight"
+                            invisible="entry_type == 'directory'"/>
+                    <button name="action_resync" type="object" string="Resync"
+                            invisible="entry_type == 'directory'"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name" placeholder="entry name"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="entry_type"/>
+                            <field name="parent_id" options="{'no_create': True}"
+                                   invisible="id == False"/>
+                            <field name="backend_id" options="{'no_create': True}"
+                                   readonly="id == False" invisible="id == False"/>
+                            <field name="backend_path" readonly="id == False"
+                                   invisible="id == False"/>
+                        </group>
+                        <group invisible="entry_type == 'directory'">
+                            <field name="mimetype" readonly="id == False"/>
+                            <field name="file_size" readonly="id == False"/>
+                            <field name="checksum" readonly="id == False"
+                                   invisible="id == False"/>
+                            <field name="url" readonly="id == False"/>
+                            <field name="state" readonly="id == False"/>
+                            <field name="last_sync" readonly="id == False"
+                                   invisible="id == False"/>
+                        </group>
+                    </group>
+                    <notebook invisible="entry_type != 'directory'">
+                        <page string="Content">
+                            <field name="child_ids">
+                                <list>
+                                    <field name="name"/>
+                                    <field name="entry_type"/>
+                                    <field name="mimetype"/>
+                                    <field name="file_size"/>
+                                    <field name="state"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Mount Points">
+                            <field name="mount_ids">
+                                <list>
+                                    <field name="name"/>
+                                    <field name="backend_id"/>
+                                    <field name="backend_path"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_one_storage_entry" model="ir.actions.act_window">
+        <field name="name">Files</field>
+        <field name="res_model">one.storage.entry</field>
+        <field name="view_mode">kanban,list,form</field>
+        <field name="domain">[("parent_id", "=", False)]</field>
+        <field name="context">{"default_entry_type": "directory"}</field>
+    </record>
+</odoo>

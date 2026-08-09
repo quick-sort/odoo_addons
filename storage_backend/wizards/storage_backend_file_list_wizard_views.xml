@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+    <record id="storage_backend_file_list_wizard_view_form" model="ir.ui.view">
+        <field name="name">storage.backend.file.list.wizard.form</field>
+        <field name="model">storage.backend.file.list.wizard</field>
+        <field name="arch" type="xml">
+            <form string="List Files">
+                <field name="has_more" invisible="1" />
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="backend_id" readonly="1" />
+                            <field name="backend_type" readonly="1" />
+                            <field name="directory_path" readonly="1" />
+                            <field name="subpath" />
+                            <field name="limit" />
+                        </group>
+                        <group>
+                            <field name="file_count" readonly="1" />
+                        </group>
+                    </group>
+                    <div
+                        class="alert alert-warning text-center"
+                        role="alert"
+                        invisible="has_more == False"
+                    >
+                        Only the first
+                        <field name="limit" readonly="1" class="oe_inline" />
+                        files are shown. Increase the limit to load more.
+                    </div>
+                    <notebook>
+                        <page string="Files">
+                            <field name="line_ids" colspan="4" nolabel="1">
+                                <list create="false" delete="false">
+                                    <field
+                                        name="is_directory"
+                                        readonly="1"
+                                        icon="fa-folder"
+                                        invisible="1"
+                                    />
+                                    <field
+                                        name="name"
+                                        readonly="1"
+                                        decoration-bf="is_directory"
+                                        decoration-info="is_directory"
+                                    />
+                                    <field name="relative_path" readonly="1" />
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+                <footer>
+                    <button
+                        type="object"
+                        name="action_list_files"
+                        string="Refresh"
+                        class="btn-primary"
+                    />
+                    <button
+                        string="Close"
+                        special="cancel"
+                        class="btn-secondary"
+                        data-hotkey="z"
+                    />
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record
+        id="action_storage_backend_file_list_wizard"
+        model="ir.actions.act_window"
+    >
+        <field name="name">List Files</field>
+        <field name="res_model">storage.backend.file.list.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+        <field name="binding_model_id" ref="model_storage_backend" />
+        <field name="context">{'default_backend_id': active_id}</field>
+    </record>
+</odoo>

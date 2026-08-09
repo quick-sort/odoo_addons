@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_one_storage_mount_tree" model="ir.ui.view">
+        <field name="name">one.storage.mount.tree</field>
+        <field name="model">one.storage.mount</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="entry_id"/>
+                <field name="backend_id"/>
+                <field name="backend_path"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_one_storage_mount_form" model="ir.ui.view">
+        <field name="name">one.storage.mount.form</field>
+        <field name="model">one.storage.mount</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name" placeholder="Mount name"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="entry_id" options="{'no_create': True}"/>
+                            <field name="backend_id" options="{'no_create': True}"/>
+                            <field name="backend_path"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_one_storage_mount" model="ir.actions.act_window">
+        <field name="name">Mount Points</field>
+        <field name="res_model">one.storage.mount</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>
