@@ -24,17 +24,4 @@
         <field name="privilege_id" ref="res_groups_privilege_one_storage"/>
         <field name="user_ids" eval="[(4, ref('base.user_root')), (4, ref('base.user_admin'))]"/>
     </record>
-
-    <!-- Multi-company isolation: a user only sees entries in their own companies. -->
-    <record id="entry_rule_company" model="ir.rule">
-        <field name="name">One Storage Entry: multi-company</field>
-        <field name="model_id" ref="model_one_storage_entry"/>
-        <field name="domain_force">[('company_id', 'in', company_ids)]</field>
-    </record>
-
-    <record id="operation_rule_company" model="ir.rule">
-        <field name="name">One Storage Operation: multi-company</field>
-        <field name="model_id" ref="model_one_storage_operation"/>
-        <field name="domain_force">[('company_id', 'in', company_ids)]</field>
-    </record>
 </odoo>

@@ -9,6 +9,7 @@ directories nest via ``parent_id`` and may carry mount points; files carry
 bytes metadata and resolve their storage through the parent chain.
 """
 
+import errno
 import hashlib
 import logging
 import mimetypes
@@ -57,10 +58,6 @@ class OneStorageEntry(models.Model):
     )
     sequence = fields.Integer(default=10)
     active = fields.Boolean(default=True)
-    company_id = fields.Many2one(
-        comodel_name="res.company",
-        default=lambda self: self.env.company,
-    )
 
     parent_id = fields.Many2one(
         comodel_name="one.storage.entry",
@@ -158,25 +155,17 @@ class OneStorageEntry(models.Model):
                     _("An entry named '%s' already exists here.", entry.name)
                 )
 
-    @api.constrains("parent_id", "company_id")
-    def _check_single_root_per_company(self):
-        """Each company has at most one root entry (parent_id is null)."""
+    @api.constrains("parent_id")
+    def _check_single_root(self):
+        """At most one root entry (parent_id is null) exists globally."""
         for entry in self:
             if entry.parent_id:
                 continue
             clash = self.search(
-                [
-                    ("parent_id", "=", False),
-                    ("company_id", "=", entry.company_id.id),
-                    ("id", "!=", entry.id),
-                ],
-                limit=1,
+                [("parent_id", "=", False), ("id", "!=", entry.id)], limit=1
             )
             if clash:
-                raise ValidationError(
-                    _("Company %s already has a root folder."),
-                    entry.company_id.display_name,
-                )
+                raise ValidationError(_("A root folder already exists."))
 
     @api.constrains("parent_id")
     def _check_parent_recursion(self):
@@ -287,30 +276,20 @@ class OneStorageEntry(models.Model):
         return self.search([("parent_id", "=", self.id)], order="sequence, name")
 
     @api.model
-    def _get_or_create_root(self, company=None):
-        """Return the single root folder for ``company``.
+    def _get_or_create_root(self):
+        """Return the single global root folder.
 
-        Creates a default local-filesystem backend bound to the company and
-        the root entry if they do not yet exist. Idempotent.
+        Bound to the default storage backend (see
+        :meth:`storage.backend._get_or_create_default`). Idempotent.
         """
-        company = company or self.env.company
-        root = self.search(
-            [("parent_id", "=", False), ("company_id", "=", company.id)], limit=1
-        )
+        root = self.search([("parent_id", "=", False)], limit=1)
         if root:
             return root
-        backend = self.env["storage.backend"].create(
-            {
-                "name": _("%s storage") % company.name,
-                "backend_type": "filesystem",
-                "directory_path": "company_%s" % company.id,
-            }
-        )
+        backend = self.env["storage.backend"]._get_or_create_default()
         return self.create(
             {
-                "name": company.name,
+                "name": "One Storage",
                 "entry_type": "directory",
-                "company_id": company.id,
                 "backend_id": backend.id,
             }
         )
@@ -350,6 +329,18 @@ class OneStorageEntry(models.Model):
     # ------------------------------------------------------------------
     # Sync from backend (async batch)
     # ------------------------------------------------------------------
+    def action_mount(self):
+        """Open the wizard to mount a backend onto this directory."""
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Mount Backend"),
+            "res_model": "one.storage.entry.mount.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {"default_entry_id": self.id},
+        }
+
     def action_sync_from_backend(self):
         """Enqueue a job that materializes backend entries as file entries."""
         for entry in self:
@@ -361,32 +352,54 @@ class OneStorageEntry(models.Model):
             )._sync_from_backend()
 
     def _sync_from_backend(self):
-        """Create/update file entries from the backend's actual content."""
+        """Materialize backend entries as file/directory entries, recursively.
+
+        Walks the whole subtree under ``self`` in the resolved backend and
+        mirrors it: directories become ``directory`` entries (recursed into),
+        files become ``file`` entries carrying ``file_size`` and ``mimetype``.
+        Idempotent — existing entries are kept and only missing ones are added.
+        """
         self.ensure_one()
         if not self.is_dir:
             return
-        backend, rel_path = self._resolve_backend()
+        try:
+            backend, rel_path = self._resolve_backend()
+        except ValidationError as err:
+            _logger.warning("Sync failed for %s: %s", self.complete_name, err)
+            return
+        self._sync_from_backend_path(backend, rel_path)
+
+    def _sync_from_backend_path(self, backend, rel_path):
+        """Sync one directory level of ``backend`` under ``self``.
+
+        ``rel_path`` is this entry's path inside ``backend``. Each backend
+        child is created as a file or directory entry; subdirectories are
+        recursed into with their explicit path so we never re-resolve the
+        parent chain.
+        """
+        self.ensure_one()
         try:
             entries = backend.list_files(rel_path, detail=True)
         except Exception as err:  # noqa: BLE001
             _logger.warning("Sync failed for %s: %s", self.complete_name, err)
             return
-        existing = {n.name: n for n in self.child_ids}
+        existing = {child.name: child for child in self.child_ids}
         for entry_name, size in entries:
-            if entry_name in existing:
-                continue
-            if backend.list_files(posixpath.join(rel_path, entry_name)):
-                # has children => a directory, materialized through the tree
-                continue
-            self.env["one.storage.entry"].create(
-                {
-                    "name": entry_name,
-                    "entry_type": "file",
-                    "parent_id": self.id,
-                    "file_size": size or 0,
-                    "mimetype": mimetypes.guess_type(entry_name)[0],
-                }
-            )
+            child_path = posixpath.join(rel_path, entry_name) if rel_path else entry_name
+            is_subdir = bool(backend.list_files(child_path))
+            child = existing.get(entry_name)
+            if child is None:
+                child = self.env["one.storage.entry"].create(
+                    {
+                        "name": entry_name,
+                        "entry_type": "directory" if is_subdir else "file",
+                        "parent_id": self.id,
+                        "file_size": size or 0,
+                        "mimetype": mimetypes.guess_type(entry_name)[0],
+                    }
+                )
+            if is_subdir:
+                child._sync_from_backend_path(backend, child_path)
 
     # ------------------------------------------------------------------
     # CRUD hooks: keep the backend in sync with file entry lifecycle
@@ -435,7 +448,7 @@ class OneStorageEntry(models.Model):
             if entry.is_dir or not (entry.backend_id and entry.backend_path):
                 continue
             try:
-                if not entry.backend_id.exists(entry.backend_path):
+                if not entry.backend_id.file_exists(entry.backend_path):
                     entry.state = "draft"
                     continue
                 size = entry.backend_id.get_size(entry.backend_path)
@@ -482,6 +495,144 @@ class OneStorageEntry(models.Model):
         return True
 
     # ------------------------------------------------------------------
+    # Public file API (for external addons)
+    #
+    # Pathlib-style CRUD over the VFS tree. External addons navigate with
+    # `_get_or_create_root()` / `resolve_path()` then operate on the returned
+    # entry records. Failures raise Python OSError subclasses
+    # (FileNotFoundError, IsADirectoryError, ...) so callers can handle them
+    # like real filesystem errors. Note: existence is `file_exists()`, NOT
+    # `exists()`, which is Odoo's recordset filter.
+    # ------------------------------------------------------------------
+    def read_bytes(self):
+        """Return this file's raw bytes. Mirrors pathlib.Path.read_bytes."""
+        self.ensure_one()
+        if self.is_dir:
+            raise IsADirectoryError(self.complete_name)
+        return self.backend_id.get(self.backend_path)
+
+    def write_bytes(self, data):
+        """Write raw bytes to this file, creating or overwriting it."""
+        self.ensure_one()
+        if self.is_dir:
+            raise IsADirectoryError(self.complete_name)
+        self.set_content(data, binary=True)
+        return self
+
+    def mkdir(self, name, parents=False):
+        """Create a child directory and return the new entry.
+
+        With ``parents=True``, ``name`` may contain ``/`` and every missing
+        level is created (existing directory levels are reused). Raises
+        ``FileExistsError`` when a plain target already exists and
+        ``NotADirectoryError`` when ``self`` is not a directory or an
+        intermediate level names a file.
+        """
+        self.ensure_one()
+        if not self.is_dir:
+            raise NotADirectoryError(self.complete_name)
+        if parents:
+            current = self
+            for segment in name.split("/"):
+                current = current._mkdir_step(segment)
+            return current
+        return self._mkdir_step(name, exist_ok=False)
+
+    def _mkdir_step(self, name, exist_ok=True):
+        child = self.search(
+            [("parent_id", "=", self.id), ("name", "=", name)], limit=1
+        )
+        if child:
+            if not child.is_dir:
+                raise NotADirectoryError(self.complete_name)
+            if exist_ok:
+                return child
+            raise FileExistsError(self.complete_name)
+        return self.create(
+            {"name": name, "entry_type": "directory", "parent_id": self.id}
+        )
+
+    def create_file(self, name, data=None):
+        """Create a file entry under this directory and return it.
+
+        When ``data`` is given it is written to the backend immediately;
+        otherwise the entry starts empty (``state='draft'``). Raises
+        ``FileExistsError`` if ``name`` already exists here.
+        """
+        self.ensure_one()
+        if not self.is_dir:
+            raise NotADirectoryError(self.complete_name)
+        if self.search(
+            [("parent_id", "=", self.id), ("name", "=", name)], limit=1
+        ):
+            raise FileExistsError(self.complete_name)
+        entry = self.create(
+            {"name": name, "entry_type": "file", "parent_id": self.id}
+        )
+        if data is not None:
+            entry.write_bytes(data)
+        return entry
+
+    def remove(self):
+        """Delete this file and its backend bytes. Mirrors os.remove."""
+        self.ensure_one()
+        if self.is_dir:
+            raise IsADirectoryError(self.complete_name)
+        self.unlink()
+
+    def rmdir(self):
+        """Delete this directory; it must be empty. Mirrors os.rmdir."""
+        self.ensure_one()
+        if not self.is_dir:
+            raise NotADirectoryError(self.complete_name)
+        if self.child_ids:
+            raise OSError(
+                errno.ENOTEMPTY, "Directory not empty", self.complete_name
+            )
+        self.unlink()
+
+    def stat(self):
+        """Return metadata as a dict.
+
+        For files, backend existence is validated (``FileNotFoundError``
+        when the bytes are missing) and ``size`` is read live. Directories
+        may be lazy (no backend counterpart until a file is written), so
+        their stat is purely logical.
+        """
+        self.ensure_one()
+        if self.is_dir:
+            return {
+                "is_dir": True,
+                "size": None,
+                "mimetype": self.mimetype,
+                "checksum": self.checksum,
+                "mtime": self.last_sync,
+            }
+        backend = self.backend_id
+        if not backend or not backend.file_exists(self.backend_path):
+            raise FileNotFoundError(self.complete_name)
+        return {
+            "is_dir": False,
+            "size": backend.get_size(self.backend_path),
+            "mimetype": self.mimetype,
+            "checksum": self.checksum,
+            "mtime": self.last_sync,
+        }
+
+    def file_exists(self):
+        """Whether this entry's bytes exist on the backend.
+
+        Directories always report True (logical existence); a file reports
+        False while its backend bytes are absent (state 'draft').
+        """
+        self.ensure_one()
+        if self.is_dir:
+            return True
+        if not self.backend_id:
+            return False
+        return self.backend_id.file_exists(self.backend_path)
+
+    # ------------------------------------------------------------------
     # UI actions
     # ------------------------------------------------------------------
     def action_resync(self):
@@ -493,6 +644,42 @@ class OneStorageEntry(models.Model):
             "type": "ir.actions.act_url",
             "url": "/one_storage/entry/%s/download" % self.id,
             "target": "self",
+        }
+
+    def action_edit(self):
+        """Open the entry's form view."""
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": self.name,
+            "res_model": "one.storage.entry",
+            "view_mode": "form",
+            "res_id": self.id,
+            "target": "current",
+        }
+
+    def action_delete(self):
+        """Open the delete confirmation wizard."""
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Delete Entry"),
+            "res_model": "one.storage.entry.delete.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {"default_entry_id": self.id},
+        }
+
+    def action_upload(self):
+        """Open the upload wizard to overwrite this file's content."""
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Upload"),
+            "res_model": "one.storage.entry.upload.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {"default_entry_id": self.id},
         }
 
     # ------------------------------------------------------------------

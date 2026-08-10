@@ -6,3 +6,6 @@ access_one_storage_mount_user,one.storage.mount user,model_one_storage_mount,one
 access_one_storage_mount_manager,one.storage.mount manager,model_one_storage_mount,one_storage.group_one_storage_manager,1,1,1,1
 access_one_storage_operation_user,one.storage.operation user,model_one_storage_operation,one_storage.group_one_storage_user,1,1,1,0
 access_one_storage_operation_manager,one.storage.operation manager,model_one_storage_operation,one_storage.group_one_storage_manager,1,1,1,1
+access_one_storage_entry_mount_wizard,one.storage.entry.mount.wizard,model_one_storage_entry_mount_wizard,one_storage.group_one_storage_user,1,1,1,1
+access_one_storage_entry_delete_wizard,one.storage.entry.delete.wizard,model_one_storage_entry_delete_wizard,one_storage.group_one_storage_user,1,1,1,1
+access_one_storage_entry_upload_wizard,one.storage.entry.upload.wizard,model_one_storage_entry_upload_wizard,one_storage.group_one_storage_user,1,1,1,1

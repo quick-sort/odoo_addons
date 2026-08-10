@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_knowledge_splitter_tree" model="ir.ui.view">
+        <field name="name">knowledge.splitter.tree</field>
+        <field name="model">knowledge.splitter</field>
+        <field name="arch" type="xml">
+            <list string="Splitters">
+                <field name="name"/>
+                <field name="splitter_type"/>
+                <field name="chunk_size"/>
+                <field name="chunk_overlap"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_knowledge_splitter_form" model="ir.ui.view">
+        <field name="name">knowledge.splitter.form</field>
+        <field name="model">knowledge.splitter</field>
+        <field name="arch" type="xml">
+            <form string="Splitter">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="splitter_type"/>
+                        </group>
+                        <group>
+                            <field name="active"/>
+                            <field name="chunk_size"/>
+                            <field name="chunk_overlap"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_knowledge_splitter" model="ir.actions.act_window">
+        <field name="name">Splitters</field>
+        <field name="res_model">knowledge.splitter</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>

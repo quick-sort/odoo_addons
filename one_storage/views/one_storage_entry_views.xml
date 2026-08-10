@@ -6,7 +6,7 @@
         <field name="name">one.storage.entry.kanban</field>
         <field name="model">one.storage.entry</field>
         <field name="arch" type="xml">
-            <kanban create="true" sample="1"
+            <kanban create="true" sample="1" js_class="one_storage_entry_kanban"
                     action="action_open_children" type="object">
                 <field name="name"/>
                 <field name="entry_type"/>
@@ -18,9 +18,19 @@
                 <field name="file_size"/>
                 <templates>
                     <t t-name="menu">
+                        <a name="action_edit" type="object" role="menuitem"
+                           class="dropdown-item">Edit</a>
+                        <a t-if="record.is_dir.raw_value"
+                           name="action_mount" type="object" role="menuitem"
+                           class="dropdown-item">Mount</a>
+                        <a t-if="!record.is_dir.raw_value"
+                           name="action_upload" type="object" role="menuitem"
+                           class="dropdown-item">Upload</a>
                         <a t-if="!record.is_dir.raw_value"
                            t-attf-href="/one_storage/entry/#{record.id.raw_value}/download"
                            download="" class="dropdown-item">Download</a>
+                        <a name="action_delete" type="object" role="menuitem"
+                           class="dropdown-item text-danger">Delete</a>
                     </t>
                     <t t-name="card" class="o_kanban_attachment flex-row">
                         <aside class="o_kanban_image m-1">
@@ -140,11 +150,62 @@
         </field>
     </record>
 
+    <record id="view_one_storage_entry_search" model="ir.ui.view">
+        <field name="name">one.storage.entry.search</field>
+        <field name="model">one.storage.entry</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="backend_id"/>
+                <filter name="filter_directories" string="Directories"
+                        domain="[('entry_type', '=', 'directory')]"/>
+                <filter name="filter_files" string="Files"
+                        domain="[('entry_type', '=', 'file')]"/>
+                <separator/>
+                <filter name="group_backend" string="Backend"
+                        context="{'group_by': 'backend_id'}"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="view_one_storage_entry_root_list" model="ir.ui.view">
+        <field name="name">one.storage.entry.root.list</field>
+        <field name="model">one.storage.entry</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="backend_id"/>
+                <field name="mount_ids" widget="list.counter" string="Mounts"/>
+                <field name="child_ids" widget="list.counter" string="Sub-entries"/>
+                <field name="active" widget="boolean_toggle"/>
+            </list>
+        </field>
+    </record>
+
     <record id="action_one_storage_entry" model="ir.actions.act_window">
         <field name="name">Files</field>
         <field name="res_model">one.storage.entry</field>
         <field name="view_mode">kanban,list,form</field>
         <field name="domain">[("parent_id", "=", False)]</field>
         <field name="context">{"default_entry_type": "directory"}</field>
+    </record>
+
+    <record id="action_one_storage_entry_root" model="ir.actions.act_window">
+        <field name="name">Root Folders</field>
+        <field name="res_model">one.storage.entry</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[("parent_id", "=", False)]</field>
+        <field name="context">{"default_entry_type": "directory"}</field>
+        <field name="search_view_id" ref="view_one_storage_entry_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create a root folder
+            </p>
+            <p>
+                A root folder is the top-level entry of the virtual file tree.
+                Each company has at most one root folder, bound to a storage backend.
+            </p>
+        </field>
     </record>
 </odoo>

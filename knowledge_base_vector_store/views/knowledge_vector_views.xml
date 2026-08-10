@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_knowledge_vector_tree" model="ir.ui.view">
+        <field name="name">knowledge.vector.tree</field>
+        <field name="model">knowledge.vector</field>
+        <field name="arch" type="xml">
+            <list string="Vector Store Configurations">
+                <field name="name"/>
+                <field name="chunkset_id"/>
+                <field name="model_id"/>
+                <field name="vector_store_id"/>
+                <field name="vector_size"/>
+                <field name="chunk_count"/>
+                <field name="state" widget="badge"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_knowledge_vector_form" model="ir.ui.view">
+        <field name="name">knowledge.vector.form</field>
+        <field name="model">knowledge.vector</field>
+        <field name="arch" type="xml">
+            <form string="Vector Store Configuration">
+                <header>
+                    <button
+                        name="action_build"
+                        type="object"
+                        string="Build"
+                        class="btn-primary"
+                        invisible="state == 'building'"
+                    />
+                    <button
+                        name="action_drop"
+                        type="object"
+                        string="Drop Index"
+                        invisible="state != 'vectorized'"
+                    />
+                    <field name="state" widget="statusbar" statusbar_visible="draft,vectorized"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="chunkset_id"/>
+                            <field name="model_id"/>
+                        </group>
+                        <group>
+                            <field name="vector_store_id"/>
+                            <field name="vector_size"/>
+                            <field name="chunk_count"/>
+                            <field name="state"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_knowledge_vector" model="ir.actions.act_window">
+        <field name="name">Vector Store Configurations</field>
+        <field name="res_model">knowledge.vector</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>

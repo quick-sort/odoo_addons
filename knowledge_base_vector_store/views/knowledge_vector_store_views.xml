@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_knowledge_vector_store_tree" model="ir.ui.view">
+        <field name="name">knowledge.vector.store.tree</field>
+        <field name="model">knowledge.vector.store</field>
+        <field name="arch" type="xml">
+            <list string="Vector Stores">
+                <field name="name"/>
+                <field name="vector_store_type"/>
+                <field name="host"/>
+                <field name="database"/>
+                <field name="api_url"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_knowledge_vector_store_form" model="ir.ui.view">
+        <field name="name">knowledge.vector.store.form</field>
+        <field name="model">knowledge.vector.store</field>
+        <field name="arch" type="xml">
+            <form string="Vector Store">
+                <header>
+                    <button
+                        name="action_test_config"
+                        type="object"
+                        string="Test Connection"
+                    />
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="vector_store_type"/>
+                        </group>
+                        <group>
+                            <field name="active"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="PostgreSQL / pgvector">
+                            <group>
+                                <group>
+                                    <field name="host"/>
+                                    <field name="port"/>
+                                    <field name="database"/>
+                                </group>
+                                <group>
+                                    <field name="username"/>
+                                    <field name="password" password="True"/>
+                                </group>
+                            </group>
+                        </page>
+                        <page string="Qdrant">
+                            <group>
+                                <group>
+                                    <field name="api_url"/>
+                                </group>
+                                <group>
+                                    <field name="api_key" password="True"/>
+                                </group>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_knowledge_vector_store" model="ir.actions.act_window">
+        <field name="name">Vector Stores</field>
+        <field name="res_model">knowledge.vector.store</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>

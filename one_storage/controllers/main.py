@@ -24,3 +24,22 @@ class OneStorageController(http.Controller):
             ("Content-Length", str(len(data))),
         ]
         return request.make_response(data, headers=headers)
+
+    @http.route(
+        "/one_storage/entry/<int:entry_id>/preview",
+        type="http",
+        auth="user",
+        methods=["GET"],
+    )
+    def preview_node(self, entry_id, **kw):
+        entry = request.env["one.storage.entry"].browse(entry_id)
+        entry.ensure_one()
+        if not entry.exists() or entry.is_dir:
+            raise request.not_found()
+        data = entry.backend_id.get(entry.backend_path)
+        headers = [
+            ("Content-Type", entry.mimetype or "application/octet-stream"),
+            ("Content-Disposition", "inline"),
+            ("Content-Length", str(len(data))),
+        ]
+        return request.make_response(data, headers=headers)

@@ -52,10 +52,6 @@ class OneStorageOperation(models.Model):
     job_uuid = fields.Char(readonly=True)
     user_id = fields.Many2one(comodel_name="res.users", default=lambda self: self.env.user)
     result_message = fields.Text(readonly=True)
-    company_id = fields.Many2one(
-        comodel_name="res.company",
-        default=lambda self: self.env.company,
-    )
 
     def action_run(self):
         for op in self:

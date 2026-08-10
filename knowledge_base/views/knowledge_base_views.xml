@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_knowledge_base_tree" model="ir.ui.view">
+        <field name="name">knowledge.base.tree</field>
+        <field name="model">knowledge.base</field>
+        <field name="arch" type="xml">
+            <list string="Knowledge Bases">
+                <field name="complete_name"/>
+                <field name="sequence"/>
+                <field name="source_ids" widget="many2many_tags"/>
+                <field name="state" widget="badge"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_knowledge_base" model="ir.actions.act_window">
+        <field name="name">Knowledge Bases</field>
+        <field name="res_model">knowledge.base</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'search_default_group_parent': 1}</field>
+    </record>
+
+    <record id="view_knowledge_source_tree" model="ir.ui.view">
+        <field name="name">knowledge.source.tree</field>
+        <field name="model">knowledge.source</field>
+        <field name="arch" type="xml">
+            <list string="Sources">
+                <field name="kb_id"/>
+                <field name="source_type"/>
+                <field name="name"/>
+                <field name="extractor_id"/>
+                <field name="output_format"/>
+                <field name="state" widget="badge"/>
+                <field name="last_extraction"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_knowledge_source" model="ir.actions.act_window">
+        <field name="name">Sources</field>
+        <field name="res_model">knowledge.source</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="view_knowledge_base_form" model="ir.ui.view">
+        <field name="name">knowledge.base.form</field>
+        <field name="model">knowledge.base</field>
+        <field name="arch" type="xml">
+            <form string="Knowledge Base">
+                <header>
+                    <button
+                        name="action_extract_all"
+                        type="object"
+                        string="Extract All"
+                        class="btn-primary"
+                        invisible="state in ('extracting', 'error')"
+                    />
+                    <field name="state" widget="statusbar" statusbar_visible="scope,extracted"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button
+                            name="%(action_knowledge_source)d"
+                            type="action"
+                            context="{'default_kb_id': id}"
+                            class="oe_stat_button"
+                            icon="fa-file-o"
+                        >
+                            <div class="o_stat_info">
+                                <field name="source_count" widget="statinfo"/>
+                                <span class="o_stat_text">Sources</span>
+                            </div>
+                        </button>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="name" string="Knowledge Base Name"/>
+                            <field name="parent_id"/>
+                            <field name="sequence"/>
+                            <field name="complete_name" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="md_backend_id" string="Extraction Backend"/>
+                            <field name="extractor_id" string="Default Extractor"/>
+                            <field name="state"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Sources">
+                            <field
+                                name="source_ids"
+                                context="{'default_kb_id': id}"
+                            >
+                                <list editable="bottom">
+                                    <field name="source_type"/>
+                                    <field name="entry_id"/>
+                                    <field name="url"/>
+                                    <field name="extractor_id"/>
+                                    <field name="output_format"/>
+                                    <field name="content_path"/>
+                                    <field name="state" widget="badge"/>
+                                    <field name="last_extraction"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Sub Knowledge Bases">
+                            <field
+                                name="child_ids"
+                                context="{'default_parent_id': id}"
+                            >
+                                <list editable="bottom">
+                                    <field name="name"/>
+                                    <field name="sequence"/>
+                                    <field name="state" widget="badge"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_knowledge_base_search" model="ir.ui.view">
+        <field name="name">knowledge.base.search</field>
+        <field name="model">knowledge.base</field>
+        <field name="arch" type="xml">
+            <search string="Knowledge Bases">
+                <field name="name"/>
+                <field name="complete_name"/>
+                <field name="state"/>
+                <filter
+                    string="With sources"
+                    name="with_sources"
+                    domain="[('source_ids', '!=', False)]"
+                />
+                <group>
+                    <filter string="State" name="group_state" context="{'group_by': 'state'}"/>
+                    <filter string="Parent" name="group_parent" context="{'group_by': 'parent_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+</odoo>

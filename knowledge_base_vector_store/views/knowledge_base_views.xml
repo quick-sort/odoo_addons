@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_knowledge_base_form" model="ir.ui.view">
+        <field name="name">knowledge.base.form</field>
+        <field name="model">knowledge.base</field>
+        <field name="inherit_id" ref="knowledge_base.view_knowledge_base_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Chunking &amp; Vectorization">
+                    <group string="Chunking Configurations">
+                        <field
+                            name="chunkset_ids"
+                            context="{'default_kb_id': id}"
+                        >
+                            <list editable="bottom">
+                                <field name="name"/>
+                                <field name="splitter_id"/>
+                                <field name="chunk_count"/>
+                                <field name="state" widget="badge"/>
+                            </list>
+                        </field>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>

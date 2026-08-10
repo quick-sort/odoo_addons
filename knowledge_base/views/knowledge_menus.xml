@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem
+        id="knowledge_menu_root"
+        name="Knowledge"
+        sequence="30"
+    />
+
+    <menuitem
+        id="knowledge_menu_base"
+        parent="knowledge_menu_root"
+        name="Knowledge Bases"
+        action="action_knowledge_base"
+        sequence="10"
+    />
+
+    <menuitem
+        id="knowledge_menu_configuration"
+        parent="knowledge_menu_root"
+        name="Configuration"
+        sequence="90"
+    >
+        <menuitem
+            id="knowledge_menu_extractor"
+            name="Extractors"
+            action="action_knowledge_extractor"
+            sequence="10"
+        />
+    </menuitem>
+</odoo>
