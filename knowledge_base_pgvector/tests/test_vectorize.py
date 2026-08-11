@@ -1,16 +1,26 @@
 # Copyright 2026 Rui
 # License LGPL-3.0 or later (http://www.gnu.org/licenses/lgpl.html)
 
+"""Vectorization workflow tests.
+
+The vector store client is stubbed (``FakeStore``) so no live pgvector
+instance is needed; only the ``pgvector`` selection entry is exercised. A
+real extractor is not required either: content is written directly to the
+backend, so the source's extractor is left unset.
+"""
+
+import os
+import shutil
+import unittest
 from unittest import mock
 
 from odoo.exceptions import UserError
 
+from odoo.addons.component.tests.common import TransactionComponentCase
 from odoo.addons.knowledge_base_vector_store.models.knowledge_vector_store import (
     KnowledgeVectorStore,
 )
 from odoo.addons.llm.models.llm_provider import LLMProvider
-
-from .common import KnowledgeVectorCase
 
 
 class FakeStore:
@@ -41,7 +51,41 @@ class FakeStore:
         self.indexes.pop(index_name, None)
 
 
-class TestVectorize(KnowledgeVectorCase):
+@unittest.skipUnless(
+    __import__("importlib").util.find_spec("odoo.addons.knowledge_base_recursive_splitter"),
+    "recursive splitter addon is not installed",
+)
+class TestVectorize(TransactionComponentCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.tmp_name = "kvs_test_%s" % os.getpid()
+        cls.md_backend = cls.env["storage.backend"].create(
+            {
+                "name": "Test MD Backend",
+                "backend_type": "filesystem",
+                "directory_path": cls.tmp_name,
+            }
+        )
+        base_dir = cls.md_backend._get_adapter()._basedir()
+        cls.tmpdir = os.path.join(base_dir, cls.tmp_name)
+        cls.env["one.storage.entry"].search([("parent_id", "=", False)]).unlink()
+        cls.root_folder = cls.env["one.storage.entry"].create(
+            {
+                "name": "root",
+                "entry_type": "directory",
+                "backend_id": cls.md_backend.id,
+            }
+        )
+        cls.kb = cls.env["knowledge.base"].create(
+            {"name": "Test KB", "md_backend_id": cls.md_backend.id}
+        )
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmpdir, ignore_errors=True)
+        super().tearDownClass()
+
     def setUp(self):
         super().setUp()
         self.fake = FakeStore()
@@ -62,13 +106,47 @@ class TestVectorize(KnowledgeVectorCase):
         self.patcher_services.start()
         self.addCleanup(self.patcher_services.stop)
 
-    def _build_vector(self, chunkset=None, model_use="embedding"):
-        chunkset = chunkset or self._create_chunkset()
-        provider = self.env["llm.provider"].create(
+    # -- helpers (mirrors the old KnowledgeVectorCase) --------------------
+    def _add_file_source(self, name, content):
+        entry = self.env["one.storage.entry"].create(
+            {"name": name, "entry_type": "file", "parent_id": self.root_folder.id}
+        )
+        entry.set_content(content)
+        return self.env["knowledge.source"].create(
+            {"kb_id": self.kb.id, "source_type": "file", "entry_id": entry.id}
+        )
+
+    def _seed_extracted(self, content):
+        source = self._add_file_source("doc.md", content)
+        source.write({"state": "extracted"})
+        self.md_backend.add(
+            "%s/content.md" % source.id,
+            content.encode("utf-8"),
+        )
+        return source
+
+    def _create_splitter(self, chunk_size=30):
+        return self.env["knowledge.splitter"].create(
             {
-                "name": "Test Provider",
-                "service": "openai",
+                "name": "Test Splitter",
+                "splitter_type": "recursive",
+                "chunk_size": chunk_size,
+                "chunk_overlap": 5,
             }
+        )
+
+    def _create_chunkset(self, splitter):
+        return self.env["knowledge.chunkset"].create(
+            {
+                "kb_id": self.kb.id,
+                "name": "Test Chunkset",
+                "splitter_id": splitter.id,
+            }
+        )
+
+    def _build_vector(self, chunkset, model_use="embedding"):
+        provider = self.env["llm.provider"].create(
+            {"name": "Test Provider", "service": "openai"}
         )
         model = self.env["llm.model"].create(
             {
@@ -78,10 +156,7 @@ class TestVectorize(KnowledgeVectorCase):
             }
         )
         vector_store = self.env["knowledge.vector.store"].create(
-            {
-                "name": "Test Store",
-                "vector_store_type": "pgvector",
-            }
+            {"name": "Test Store", "vector_store_type": "pgvector"}
         )
         return self.env["knowledge.vector"].create(
             {
@@ -93,6 +168,7 @@ class TestVectorize(KnowledgeVectorCase):
             }
         )
 
+    # -- tests -------------------------------------------------------------
     def test_vectorize_embeds_all_chunks(self):
         content = "\n\n".join(["Chunked content line %d." % i for i in range(30)])
         source = self._seed_extracted(content)
@@ -136,7 +212,8 @@ class TestVectorize(KnowledgeVectorCase):
         self.assertTrue(any(hit["chunk_id"] for hit in hits))
 
     def test_vectorize_without_chunks_raises(self):
-        chunkset = self._create_chunkset()
+        # Chunkset with no chunks yet (never chunked).
+        chunkset = self._create_chunkset(self._create_splitter(chunk_size=30))
         vector = self._build_vector(chunkset)
         with self.assertRaises(UserError):
             vector._vectorize()

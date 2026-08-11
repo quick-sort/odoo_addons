@@ -37,29 +37,6 @@
                         </group>
                     </group>
                     <notebook>
-                        <page string="PostgreSQL / pgvector">
-                            <group>
-                                <group>
-                                    <field name="host"/>
-                                    <field name="port"/>
-                                    <field name="database"/>
-                                </group>
-                                <group>
-                                    <field name="username"/>
-                                    <field name="password" password="True"/>
-                                </group>
-                            </group>
-                        </page>
-                        <page string="Qdrant">
-                            <group>
-                                <group>
-                                    <field name="api_url"/>
-                                </group>
-                                <group>
-                                    <field name="api_key" password="True"/>
-                                </group>
-                            </group>
-                        </page>
                     </notebook>
                 </sheet>
             </form>

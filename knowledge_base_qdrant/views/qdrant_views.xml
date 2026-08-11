@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_knowledge_vector_store_form_qdrant" model="ir.ui.view">
+        <field name="name">knowledge.vector.store.form.qdrant</field>
+        <field name="model">knowledge.vector.store</field>
+        <field name="inherit_id" ref="knowledge_base_vector_store.view_knowledge_vector_store_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Qdrant"
+                      invisible="vector_store_type != 'qdrant'">
+                    <group>
+                        <group>
+                            <field name="api_url"/>
+                        </group>
+                        <group>
+                            <field name="api_key" password="True"/>
+                        </group>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>

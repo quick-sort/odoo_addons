@@ -8,11 +8,10 @@ from odoo.addons.component.tests.common import TransactionComponentCase
 
 
 class KnowledgeVectorCase(TransactionComponentCase):
-    """Shared setup for chunking/vectorization tests.
+    """Shared setup for chunking tests.
 
-    Builds a storage backend + one_storage tree, an extractor (markitdown),
-    and a KB with one extracted source, so chunking tests can start from a
-    ready ``content.md``.
+    Builds a storage backend + one_storage tree and a KB with one extracted
+    source, so chunking tests can start from a ready ``content.md``.
     """
 
     @classmethod
@@ -36,14 +35,10 @@ class KnowledgeVectorCase(TransactionComponentCase):
                 "backend_id": cls.md_backend.id,
             }
         )
-        cls.extractor = cls.env["knowledge.extractor"].create(
-            {"name": "Test Extractor", "extractor_type": "markitdown"}
-        )
         cls.kb = cls.env["knowledge.base"].create(
             {
                 "name": "Test KB",
                 "md_backend_id": cls.md_backend.id,
-                "extractor_id": cls.extractor.id,
             }
         )
 

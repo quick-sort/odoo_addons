@@ -56,8 +56,12 @@ class KnowledgeVectorStore(models.Model):
 
     @api.model
     def _get_available_vector_stores(self):
-        """Usages of the vector stores shipped with this addon."""
-        return ["pgvector", "qdrant"]
+        """Usages of the vector stores shipped with this addon.
+
+        Empty here: concrete stores (pgvector, qdrant...) live in their own
+        extending addons, which override this to register their usages.
+        """
+        return []
 
     def _get_client(self):
         self.ensure_one()

@@ -62,11 +62,13 @@ class KnowledgeExtractor(models.Model):
     def _get_available_extractors(self):
         """Usages of the extractors shipped with this addon.
 
-        Extending addons override this to register new extractors, e.g.::
+        Empty here: concrete extractors (markitdown, mineru, trafilatura...)
+        live in their own extending addons, which override this to register
+        their usages, e.g.::
 
             return super()._get_available_extractors() + ["new_extractor"]
         """
-        return ["markitdown", "mineru", "trafilatura"]
+        return []
 
     def _get_adapter(self):
         """Return the component implementing this extractor's ``usage``."""

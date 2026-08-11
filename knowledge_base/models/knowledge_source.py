@@ -70,18 +70,14 @@ class KnowledgeSource(models.Model):
     )
     last_extraction = fields.Datetime()
 
-    _sql_constraints = [
-        (
-            "file_url_exclusive",
-            "CHECK (source_type <> 'file' OR entry_id IS NOT NULL)",
-            "A file source must reference a one_storage entry.",
-        ),
-        (
-            "url_url_exclusive",
-            "CHECK (source_type <> 'url' OR url IS NOT NULL)",
-            "A URL source must have a URL.",
-        ),
-    ]
+    _file_url_exclusive = models.Constraint(
+        "CHECK (source_type <> 'file' OR entry_id IS NOT NULL)",
+        "A file source must reference a one_storage entry.",
+    )
+    _url_url_exclusive = models.Constraint(
+        "CHECK (source_type <> 'url' OR url IS NOT NULL)",
+        "A URL source must have a URL.",
+    )
 
     @api.depends("entry_id.name", "url")
     def _compute_name(self):

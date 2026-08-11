@@ -33,13 +33,10 @@ class KnowledgeChunk(models.Model):
     path = fields.Char(compute="_compute_path", store=True)
     file_size = fields.Integer()
 
-    _sql_constraints = [
-        (
-            "chunkset_source_seq_uniq",
-            "UNIQUE (chunkset_id, source_id, sequence)",
-            "A chunk sequence must be unique within a chunkset and source.",
-        ),
-    ]
+    _chunkset_source_seq_uniq = models.Constraint(
+        "UNIQUE (chunkset_id, source_id, sequence)",
+        "A chunk sequence must be unique within a chunkset and source.",
+    )
 
     @api.depends("chunkset_id", "source_id", "sequence")
     def _compute_path(self):
