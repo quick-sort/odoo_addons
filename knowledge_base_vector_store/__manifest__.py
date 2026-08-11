@@ -16,7 +16,6 @@
         "component",
         "queue_job",
         "storage_backend",
-        "server_environment",
     ],
     "external_dependencies": {},
     "data": [

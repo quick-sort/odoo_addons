@@ -3,9 +3,7 @@
 
 """External vector store instance.
 
-Polymorphic host for the vector databases (pgvector, qdrant...). Connection
-details live in server_environment fields so they can be configured per
-deployment without touching the DB.
+Polymorphic host for the vector databases (pgvector, qdrant...).
 """
 
 from odoo import api, fields, models
@@ -14,7 +12,7 @@ from odoo import api, fields, models
 class KnowledgeVectorStore(models.Model):
     _name = "knowledge.vector.store"
     _description = "Knowledge Vector Store"
-    _inherit = ["collection.base", "server.env.mixin"]
+    _inherit = ["collection.base"]
     _backend_name = "knowledge_vector_store"
 
     name = fields.Char(required=True)
@@ -31,21 +29,6 @@ class KnowledgeVectorStore(models.Model):
     password = fields.Char()
     api_url = fields.Char(string="API URL")
     api_key = fields.Char(string="API Key")
-
-    @property
-    def _server_env_fields(self):
-        base_fields = super()._server_env_fields
-        fields_dict = {
-            "host": {},
-            "port": {},
-            "database": {},
-            "username": {},
-            "password": {},
-            "api_url": {},
-            "api_key": {},
-        }
-        fields_dict.update(base_fields)
-        return fields_dict
 
     @api.model
     def _selection_vector_store_type(self):
