@@ -1,0 +1,23 @@
+.o_color_dot {
+    display: inline-block;
+    border-radius: 50%;
+    width: 12px;
+    height: 12px;
+    min-width: 12px;
+    background-color: map-get($grays, "200");
+    box-shadow: inset 0 0 0 1px rgba($black, 0.2);
+
+    &.o_color_danger { background-color: map-get($theme-colors, "danger"); }
+    &.o_color_warning { background-color: map-get($theme-colors, "warning"); }
+    &.o_color_success { background-color: map-get($theme-colors, "success"); }
+    &.o_color_info { background-color: map-get($theme-colors, "info"); }
+    &.o_color_primary { background-color: map-get($theme-colors, "primary"); }
+    &.o_color_secondary { background-color: map-get($theme-colors, "secondary"); }
+    &.o_color_dark { background-color: map-get($theme-colors, "dark"); }
+}
+
+.o_field_color_selection {
+    display: inline-flex;
+    width: auto;
+    align-items: baseline;
+}

@@ -41,6 +41,15 @@ class BaseStorageAdapter(AbstractComponent):
     def get_size(self, relative_path):
         raise NotImplementedError
 
+    def stat(self, relative_path):
+        """Return metadata for ``relative_path``.
+
+        :param relative_path: path to inspect
+        :return: dict with at least ``size`` (bytes) and ``is_dir`` (bool);
+                 adapters may add ``mtime`` (epoch seconds) and other fields.
+        """
+        raise NotImplementedError
+
     def find_files(self, pattern, relative_path="", **kwargs):
         """Find files matching given pattern.
 

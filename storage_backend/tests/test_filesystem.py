@@ -84,6 +84,24 @@ class FileSystemCapabilitiesCase(CommonCase):
             for name in names:
                 backend.delete(name)
 
+    def test_stat_file_and_dir(self):
+        backend = self.backend
+        filename = "stat_test.bin"
+        backend.add(filename, self.filedata, binary=False)
+        try:
+            info = backend.stat(filename)
+            self.assertFalse(info["is_dir"])
+            self.assertEqual(
+                info["size"], len(base64.b64decode(self.filedata))
+            )
+            self.assertIn("mtime", info)
+            self.assertIn("mode", info)
+            # the basedir is itself a directory
+            dir_info = backend.stat("")
+            self.assertTrue(dir_info["is_dir"])
+        finally:
+            backend.delete(filename)
+
     def test_gzip_roundtrip(self):
         backend = self.backend
         backend.gzip_extensions = "txt"

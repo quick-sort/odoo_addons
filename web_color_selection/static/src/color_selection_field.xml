@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <!-- Label Edit Selection: badge style -->
+    <t t-name="web_color_selection.LabelEditSelectionField">
+        <t t-if="props.readonly">
+            <span t-if="currentValue"
+                t-attf-class="badge text-bg-{{ badgeClass }}"
+                t-esc="label"/>
+        </t>
+        <t t-else="">
+            <Dropdown menuClass="'o_color_selection_menu'">
+                <button class="btn p-0 border-0">
+                    <span t-if="currentValue"
+                        t-attf-class="badge text-bg-{{ badgeClass }}"
+                        t-esc="label"/>
+                    <span t-if="!currentValue" class="badge text-bg-secondary">—</span>
+                </button>
+                <t t-set-slot="content">
+                    <t t-foreach="options" t-as="option" t-key="option[0]">
+                        <CheckboxItem
+                            class="'d-flex align-items-center'"
+                            onSelected="() => this.updateRecord(option[0])"
+                            checked="option[0] === currentValue">
+                            <span t-attf-class="badge text-bg-{{ props.colors[option[0]] or 'secondary' }} ms-2"
+                                t-esc="option[1]"/>
+                        </CheckboxItem>
+                    </t>
+                </t>
+            </Dropdown>
+        </t>
+    </t>
+
+    <!-- Color Selection: dot style -->
+    <t t-name="web_color_selection.ColorSelectionField">
+        <t t-if="props.readonly">
+            <span class="d-inline-flex align-items-center">
+                <span t-if="currentValue"
+                    class="o_color_dot"
+                    t-att-class="colorClass(currentValue)"
+                    t-att-style="colorStyle(currentValue)"/>
+                <span t-if="props.showLabel and currentValue" class="ms-1" t-esc="label"/>
+            </span>
+        </t>
+        <t t-else="">
+            <Dropdown menuClass="'o_color_selection_menu'">
+                <button class="btn btn-link d-flex align-items-center p-0">
+                    <span class="o_color_dot"
+                        t-att-class="colorClass(currentValue)"
+                        t-att-style="colorStyle(currentValue)"/>
+                    <span t-if="props.showLabel" class="ms-1" t-esc="label || ''"/>
+                </button>
+                <t t-set-slot="content">
+                    <t t-foreach="options" t-as="option" t-key="option[0]">
+                        <CheckboxItem
+                            class="'d-flex align-items-center'"
+                            onSelected="() => this.updateRecord(option[0])"
+                            checked="option[0] === currentValue">
+                            <span class="o_color_dot ms-2"
+                                t-att-class="colorClass(option[0])"
+                                t-att-style="colorStyle(option[0])"/>
+                            <span class="ms-1" t-esc="option[1]"/>
+                        </CheckboxItem>
+                    </t>
+                </t>
+            </Dropdown>
+        </t>
+    </t>
+
+</templates>

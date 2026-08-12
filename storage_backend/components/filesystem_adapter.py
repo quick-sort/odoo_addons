@@ -5,6 +5,7 @@
 import logging
 import os
 import shutil
+import stat as stat_mod
 
 from odoo.exceptions import AccessError
 
@@ -71,6 +72,16 @@ class FileSystemStorageBackend(Component):
 
     def get_size(self, relative_path):
         return os.path.getsize(self._fullpath(relative_path))
+
+    def stat(self, relative_path):
+        full_path = self._fullpath(relative_path)
+        info = os.stat(full_path)
+        return {
+            "size": info.st_size,
+            "is_dir": stat_mod.S_ISDIR(info.st_mode),
+            "mtime": info.st_mtime,
+            "mode": info.st_mode,
+        }
 
     def delete(self, relative_path):
         full_path = self._fullpath(relative_path)

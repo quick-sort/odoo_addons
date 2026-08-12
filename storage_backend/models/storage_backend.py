@@ -174,6 +174,10 @@ class StorageBackend(models.Model):
         physical, _ = self._gzip_physical(relative_path)
         return self._forward("get_size", physical)
 
+    def stat(self, relative_path):
+        physical, _ = self._gzip_physical(relative_path)
+        return self._forward("stat", physical)
+
     def delete(self, relative_path):
         physical, _ = self._gzip_physical(relative_path)
         return self._forward("delete", physical)
