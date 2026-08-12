@@ -35,37 +35,81 @@ class TestAdapterLookup(OneStorageCommon):
             unknown._get_adapter()
 
 
-class TestMountRouting(OneStorageCommon):
-    """Mount points rebind a folder subtree to another backend."""
+class TestBindMount(OneStorageCommon):
+    """A directory whose ``target_id`` points at a backend mirror root is a
+    bind mount: operating on it operates on the mirror tree, and one backend
+    can be bound at several paths."""
 
-    def test_mount_takes_precedence_over_folder_backend(self):
-        # second backend + a mount under root
+    def _make_second_backend_root(self):
         second = self.env["storage.backend"].create(
-            {"name": "Second FS", "backend_type": "filesystem",
-             "directory_path": "second_fs"}
-        )
-        self.env["one.storage.mount"].create(
             {
-                "name": "mounted",
-                "entry_id": self.root_folder.id,
-                "backend_id": second.id,
-                "backend_path": "share",
+                "name": "Second FS",
+                "backend_type": "filesystem",
+                "directory_path": "second_fs_%s" % self.tmp_name,
             }
         )
-        backend, rel = self.root_folder._resolve_backend()
-        self.assertEqual(backend, second)
-        self.assertEqual(rel, "share")
+        # A directory carrying backend_id is the mirror root for that backend.
+        return second, self.env["one.storage.entry"].create(
+            {
+                "name": "second_root",
+                "entry_type": "directory",
+                "parent_id": self.root_folder.id,
+                "backend_id": second.id,
+            }
+        )
 
-    def test_folder_backend_used_when_no_mount(self):
-        backend, rel = self.root_folder._resolve_backend()
+    def test_resolve_backend_finds_mirror_root(self):
+        backend, mirror = self.root_folder._resolve_backend()
         self.assertEqual(backend, self.backend)
-        self.assertEqual(rel, "")
+        self.assertEqual(mirror, self.root_folder)
+        self.assertEqual(self.root_folder._backend_relpath(), "")
 
-    def test_resolve_path_to_file(self):
+    def test_file_relpath_built_from_parent_chain(self):
         self._write_on_disk("note.txt", b"data")
         entry = self.env["one.storage.entry"].create(
             {"name": "note.txt", "entry_type": "file", "parent_id": self.root_folder.id}
         )
         resolved = self.root_folder.resolve_path(["note.txt"])
         self.assertEqual(resolved, entry)
-        self.assertEqual(entry.backend_path, "note.txt")
+        self.assertEqual(entry._backend_relpath(), "note.txt")
+
+    def test_bind_shows_mirror_children(self):
+        second, mirror_root = self._make_second_backend_root()
+        base_dir = second._get_adapter()._basedir()
+        import os
+
+        sub = os.path.join(base_dir, "second_fs_%s" % self.tmp_name)
+        os.makedirs(sub, exist_ok=True)
+        with open(os.path.join(sub, "shared.txt"), "wb") as fh:
+            fh.write(b"hi")
+
+        # Bind the mirror root to another directory under root.
+        bind = self.env["one.storage.entry"].create(
+            {"name": "bind", "entry_type": "directory", "parent_id": self.root_folder.id}
+        )
+        bind.target_id = mirror_root
+
+        # Listing the bind lazily mirrors the backend under the *target*.
+        names = bind.list_children().mapped("name")
+        self.assertIn("shared.txt", names)
+        # And listing the mirror root shows the same child.
+        self.assertIn("shared.txt", mirror_root.list_children().mapped("name"))
+
+    def test_one_backend_bindable_to_multiple_paths(self):
+        second, mirror_root = self._make_second_backend_root()
+        bind_a = self.env["one.storage.entry"].create(
+            {"name": "bind_a", "entry_type": "directory", "parent_id": self.root_folder.id}
+        )
+        bind_b = self.env["one.storage.entry"].create(
+            {"name": "bind_b", "entry_type": "directory", "parent_id": self.root_folder.id}
+        )
+        bind_a.target_id = mirror_root
+        bind_b.target_id = mirror_root
+        self.assertEqual(bind_a._follow(), mirror_root)
+        self.assertEqual(bind_b._follow(), mirror_root)
+
+    def test_read_only_mirror_blocks_writes(self):
+        second, mirror_root = self._make_second_backend_root()
+        mirror_root.read_only = True
+        with self.assertRaises(Exception):
+            mirror_root.create_file("x.txt", b"x")

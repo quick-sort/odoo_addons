@@ -25,11 +25,6 @@
               parent="menu_one_storage_config"
               action="storage_backend.act_open_storage_backend_view"
               sequence="10"/>
-    <menuitem id="menu_one_storage_mounts"
-              name="Mount Points"
-              parent="menu_one_storage_config"
-              action="action_one_storage_mount"
-              sequence="20"/>
     <menuitem id="menu_one_storage_operations"
               name="Batch Operations"
               parent="menu_one_storage_config"

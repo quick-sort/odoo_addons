@@ -17,14 +17,14 @@ class TestFileApi(OneStorageCommon):
         entry = self.root_folder.create_file("a.txt", b"old")
         entry.write_bytes(b"new content")
         self.assertEqual(entry.read_bytes(), b"new content")
-        self.assertEqual(entry.backend_id.get(entry.backend_path), b"new content")
+        self.assertEqual(self.backend.get("a.txt"), b"new content")
         self.assertEqual(entry.state, "synced")
 
     def test_create_file_without_data_starts_draft(self):
         entry = self.root_folder.create_file("empty.bin")
         self.assertEqual(entry.state, "draft")
         self.assertFalse(entry.file_exists())
-        self.assertFalse(entry.backend_id.file_exists(entry.backend_path))
+        self.assertFalse(self.backend.file_exists("empty.bin"))
 
     def test_create_file_existing_raises(self):
         self.root_folder.create_file("a.txt", b"x")

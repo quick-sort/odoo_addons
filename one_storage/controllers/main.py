@@ -17,7 +17,7 @@ class OneStorageController(http.Controller):
         entry.ensure_one()
         if not entry.exists() or entry.is_dir:
             raise request.not_found()
-        data = entry.backend_id.get(entry.backend_path)
+        data = entry.read_bytes()
         headers = [
             ("Content-Type", entry.mimetype or "application/octet-stream"),
             ("Content-Disposition", 'attachment; filename="%s"' % entry.name),
@@ -36,7 +36,7 @@ class OneStorageController(http.Controller):
         entry.ensure_one()
         if not entry.exists() or entry.is_dir:
             raise request.not_found()
-        data = entry.backend_id.get(entry.backend_path)
+        data = entry.read_bytes()
         headers = [
             ("Content-Type", entry.mimetype or "application/octet-stream"),
             ("Content-Disposition", "inline"),

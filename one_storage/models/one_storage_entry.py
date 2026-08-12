@@ -4,9 +4,18 @@
 """Unified inode-like entry model.
 
 A single ``one.storage.entry`` represents either a directory (``is_dir``) or
-a file inside the virtual folder tree, mirroring a real filesystem inode:
-directories nest via ``parent_id`` and may carry mount points; files carry
-bytes metadata and resolve their storage through the parent chain.
+a file inside the virtual folder tree, mirroring a real filesystem inode.
+
+A directory that carries a ``backend_id`` is the **root of a backend mirror**:
+its subtree mirrors that ``storage.backend`` (root ``/``). Files created under
+it are stored in that backend; their relative path is derived on demand from
+their logical path under the mirror root.
+
+**Bind mounts**: any directory whose ``target_id`` points at a backend root
+entry becomes an alias for that mirror — listing, reading and writing it
+transparently operates on the mirror tree. One backend root can be the target
+of many directories, so the same backend can appear at several paths.
+``_follow`` resolves a bind (or symlink) to the real entry behind it.
 """
 
 import errno
@@ -19,17 +28,6 @@ from odoo import _, api, fields, models
 from odoo.exceptions import ValidationError
 
 _logger = logging.getLogger(__name__)
-
-
-def _join_backend_path(base, *segments):
-    """Join ``base`` (a backend root path) with ``segments`` (folder names).
-
-    Returns ``base`` when there are no segments, otherwise
-    ``posixpath.join(base or "", *segments)``.
-    """
-    if not segments:
-        return base or ""
-    return posixpath.join(base or "", *segments)
 
 
 class OneStorageEntry(models.Model):
@@ -76,22 +74,19 @@ class OneStorageEntry(models.Model):
         recursive=True,
     )
 
-    # Directories: explicit backend binding for the subtree (optional).
-    # Files: denormalized, computed from the parent chain.
+    # Directories carrying a backend_id are the root of a backend mirror.
+    # Files resolve their backend by walking up to the nearest such directory.
     backend_id = fields.Many2one(
         comodel_name="storage.backend",
-        compute="_compute_backend_info",
-        store=True,
-        readonly=False,
-        help="Storage backend for this entry. On a directory this binds the "
-        "whole subtree; on a file it is resolved from the parent chain.",
+        help="Storage backend mirrored by this directory's subtree. Set on a "
+        "directory to mark it as a backend mirror root.",
     )
-    backend_path = fields.Char(
-        compute="_compute_backend_info",
-        store=True,
-        readonly=False,
-        help="Path of this entry inside its backend. On a directory this is "
-        "the root path for its own files; on a file it is resolved.",
+    # Read/write policy for the mirror. Lives on the backend root entry so one
+    # backend has one policy across every path it is bound to.
+    read_only = fields.Boolean(
+        default=False,
+        help="When set on a backend mirror root, the whole mirror is "
+        "read-only: writes, deletes and creation are rejected.",
     )
 
     # File-only metadata
@@ -105,17 +100,14 @@ class OneStorageEntry(models.Model):
     )
     last_sync = fields.Datetime()
 
-    # Directory-only: mount points graft another backend onto this subtree.
-    mount_ids = fields.One2many(
-        comodel_name="one.storage.mount",
-        inverse_name="entry_id",
-    )
-
-    # Symlink-only: the entry this link points to (within the same tree).
+    # A directory whose ``target_id`` points at a backend root entry becomes a
+    # bind mount for that mirror (an alias). Also covers plain symlinks.
     target_id = fields.Many2one(
         comodel_name="one.storage.entry",
-        help="Target entry for symlinks. Resolving the link transparently "
-        "follows this reference, like a POSIX symlink.",
+        help="Target entry this one aliases. For a directory pointing at a "
+        "backend mirror root, this is a bind mount: operating on this entry "
+        "transparently operates on the mirror tree. One target may be aliased "
+        "by many entries, so a backend can appear at several paths.",
     )
 
     _parent_name_uniq = models.Constraint(
@@ -175,75 +167,77 @@ class OneStorageEntry(models.Model):
     # ------------------------------------------------------------------
     # Backend resolution
     # ------------------------------------------------------------------
-    def _resolve_backend(self):
-        """Return ``(backend, relative_path)`` for a directory.
+    def _resolve_chain(self):
+        """Return the ancestor chain (root-first) read in one query.
 
-        Walk up the tree looking for the closest mount point first; if none
-        applies, fall back to the closest directory carrying a ``backend_id``.
-        ``relative_path`` is the directory's path inside the resolved backend.
-
-        Uses ``parent_path`` so the whole ancestor chain is read in one shot
-        instead of one query per level.
+        ``parent_path`` is ``"root_id/.../self_id"``; we read every node once
+        and return them ordered from the top of the tree down to ``self``.
         """
         self.ensure_one()
-        if not self.is_dir:
-            return self.parent_id._resolve_backend()
         ids = [int(x) for x in (self.parent_path or "").split("/") if x]
-        chain = self.browse(ids)
-        by_id = {node.id: node for node in chain}
-        segments = []
-        for node in (by_id[i] for i in reversed(ids)):
-            mount = node.mount_ids.filtered("active")[:1]
-            if mount:
-                return mount.backend_id, _join_backend_path(
-                    mount.backend_path, *reversed(segments)
-                )
+        chain = {node.id: node for node in self.browse(ids)}
+        return [chain[i] for i in ids]
+
+    def _resolve_backend(self):
+        """Return ``(backend, mirror_root)`` for this entry.
+
+        Walks up the ancestor chain to the nearest node carrying a
+        ``backend_id`` (a backend mirror root). ``mirror_root`` is that node.
+        """
+        self.ensure_one()
+        for node in reversed(self._resolve_chain()):
             if node.backend_id:
-                return node.backend_id, _join_backend_path(
-                    node.backend_path, *reversed(segments)
-                )
-            segments.append(node.name)
+                return node.backend_id, node
         raise ValidationError(
-            _("Folder '%s' is not bound to any storage backend.", self.complete_name)
+            _("Entry '%s' is not under a storage backend mirror.", self.complete_name)
         )
 
-    @api.depends("entry_type", "name", "parent_id", "parent_id.mount_ids")
-    def _compute_backend_info(self):
-        for entry in self:
-            if entry.is_dir:
-                # Directories keep their explicit backend binding; only files
-                # are resolved from the parent chain.
-                continue
-            if not entry.parent_id:
-                continue
-            backend, rel_path = entry.parent_id._resolve_backend()
-            entry.backend_id = backend
-            entry.backend_path = (
-                posixpath.join(rel_path, entry.name) if rel_path else entry.name
-            )
+    def _backend_relpath(self):
+        """Path of this entry inside its backend, relative to the mirror root.
 
-    @api.onchange("name", "parent_id", "entry_type")
-    def _onchange_backend_info(self):
-        for entry in self:
-            if entry.is_dir or not entry.parent_id:
+        The mirror root maps to ``""``; a direct child ``x`` maps to ``x``;
+        nested directories join with ``/``. Computed from the logical parent
+        chain, never stored.
+        """
+        self.ensure_one()
+        chain = self._resolve_chain()
+        # Walk from the leaf up; stop after the mirror root so its own name is
+        # not included. Segments are collected leaf-first, then reversed.
+        segments = []
+        root_found = False
+        for node in reversed(chain):
+            if root_found:
+                break
+            if node.backend_id:
+                root_found = True
                 continue
-            backend, rel_path = entry.parent_id._resolve_backend()
-            entry.backend_id = backend
-            entry.backend_path = (
-                posixpath.join(rel_path, entry.name) if rel_path else entry.name
+            segments.append(node.name)
+        return posixpath.join(*reversed(segments)) if segments else ""
+
+    def _assert_writable(self):
+        """Raise if this entry's backend mirror is read-only."""
+        self.ensure_one()
+        try:
+            _, mirror_root = self._resolve_backend()
+        except ValidationError:
+            return
+        if mirror_root.read_only:
+            raise ValidationError(
+                _("Backend mirror '%s' is read-only.", mirror_root.complete_name)
             )
 
     def _follow(self):
-        """Resolve symlinks, returning the real entry behind a link.
+        """Resolve bind mounts / symlinks, returning the real entry.
 
-        Non-symlink entries return themselves. Guarded against cycles so a
-        link pointing (directly or transitively) to itself returns the link
-        rather than looping forever.
+        An entry with ``target_id`` is an alias for its target. Non-alias
+        entries return themselves. Guarded against cycles so an alias pointing
+        (directly or transitively) to itself returns the alias rather than
+        looping forever.
         """
         self.ensure_one()
         seen = set()
         current = self
-        while current.entry_type == "symlink" and current.target_id:
+        while current.target_id:
             if current.id in seen:
                 break
             seen.add(current.id)
@@ -272,8 +266,16 @@ class OneStorageEntry(models.Model):
         return current
 
     def list_children(self):
-        """Return the mixed child entries (dirs and files) under this folder."""
-        return self.search([("parent_id", "=", self.id)], order="sequence, name")
+        """Return child entries under this folder, following bind mounts.
+
+        For a backend mirror directory the backend is first scanned so new
+        backend children appear without an explicit sync (lazy mirror).
+        """
+        target = self._follow()
+        target._sync_children()
+        return self.search(
+            [("parent_id", "=", target.id)], order="sequence, name"
+        )
 
     @api.model
     def _get_or_create_root(self):
@@ -327,29 +329,34 @@ class OneStorageEntry(models.Model):
         }
 
     # ------------------------------------------------------------------
-    # Sync from backend (async batch)
+    # Mirror sync
     # ------------------------------------------------------------------
-    def action_mount(self):
-        """Open the wizard to mount a backend onto this directory."""
-        self.ensure_one()
-        return {
-            "type": "ir.actions.act_window",
-            "name": _("Mount Backend"),
-            "res_model": "one.storage.entry.mount.wizard",
-            "view_mode": "form",
-            "target": "new",
-            "context": {"default_entry_id": self.id},
-        }
-
     def action_sync_from_backend(self):
         """Enqueue a job that materializes backend entries as file entries."""
         for entry in self:
+            target = entry._follow()
+            if not target.is_dir:
+                continue
+            target.with_delay(
+                channel="root.one_storage",
+                description=_("Sync folder %s") % target.complete_name,
+            )._sync_from_backend()
+
+    def _sync_children(self):
+        """Lazily mirror one directory level from the backend.
+
+        For directories inside a backend mirror, scan the backend and create
+        any child entries that are missing (idempotent). No-op for entries not
+        under a mirror, so plain folders are untouched.
+        """
+        for entry in self:
             if not entry.is_dir:
                 continue
-            entry.with_delay(
-                channel="root.one_storage",
-                description=_("Sync folder %s") % entry.complete_name,
-            )._sync_from_backend()
+            try:
+                backend, _mirror = entry._resolve_backend()
+            except ValidationError:
+                continue
+            entry._sync_from_backend_path(backend, entry._backend_relpath())
 
     def _sync_from_backend(self):
         """Materialize backend entries as file/directory entries, recursively.
@@ -363,11 +370,11 @@ class OneStorageEntry(models.Model):
         if not self.is_dir:
             return
         try:
-            backend, rel_path = self._resolve_backend()
+            backend, _mirror = self._resolve_backend()
         except ValidationError as err:
             _logger.warning("Sync failed for %s: %s", self.complete_name, err)
             return
-        self._sync_from_backend_path(backend, rel_path)
+        self._sync_from_backend_path(backend, self._backend_relpath())
 
     def _sync_from_backend_path(self, backend, rel_path):
         """Sync one directory level of ``backend`` under ``self``.
@@ -412,14 +419,6 @@ class OneStorageEntry(models.Model):
                 entry._refresh_metadata()
         return entries
 
-    def write(self, vals):
-        res = super().write(vals)
-        if "parent_id" in vals or "name" in vals or "entry_type" in vals:
-            for entry in self:
-                if not entry.is_dir:
-                    entry._refresh_metadata()
-        return res
-
     def unlink(self):
         for entry in self:
             if entry.is_dir:
@@ -427,13 +426,16 @@ class OneStorageEntry(models.Model):
                     raise ValidationError(
                         _("Folder '%s' is not empty.", entry.name)
                     )
-            else:
-                try:
-                    entry.backend_id.delete(entry.backend_path)
-                except Exception as err:  # noqa: BLE001
-                    _logger.warning(
-                        "Could not delete %s on backend: %s", entry.backend_path, err
-                    )
+                continue
+            entry._assert_writable()
+            backend, _mirror = entry._resolve_backend()
+            rel_path = entry._backend_relpath()
+            try:
+                backend.delete(rel_path)
+            except Exception as err:  # noqa: BLE001
+                _logger.warning(
+                    "Could not delete %s on backend: %s", rel_path, err
+                )
         return super().unlink()
 
     # ------------------------------------------------------------------
@@ -445,13 +447,18 @@ class OneStorageEntry(models.Model):
 
     def _refresh_metadata(self):
         for entry in self:
-            if entry.is_dir or not (entry.backend_id and entry.backend_path):
+            if entry.is_dir:
                 continue
             try:
-                if not entry.backend_id.file_exists(entry.backend_path):
+                backend, _mirror = entry._resolve_backend()
+            except ValidationError:
+                continue
+            rel_path = entry._backend_relpath()
+            try:
+                if not backend.file_exists(rel_path):
                     entry.state = "draft"
                     continue
-                size = entry.backend_id.get_size(entry.backend_path)
+                size = backend.get_size(rel_path)
             except Exception:  # noqa: BLE001
                 entry.state = "draft"
                 continue
@@ -471,11 +478,14 @@ class OneStorageEntry(models.Model):
         rather than this synchronous path.
         """
         for entry in self:
-            if entry.is_dir or not entry.backend_id:
+            if entry.is_dir:
                 raise ValidationError(
-                    _("Entry %s has no backend to write to.", entry.display_name)
+                    _("Entry %s is a folder, not a file.", entry.display_name)
                 )
-            entry.backend_id.add(entry.backend_path, data, binary=binary)
+            entry._assert_writable()
+            backend, _mirror = entry._resolve_backend()
+            rel_path = entry._backend_relpath()
+            backend.add(rel_path, data, binary=binary)
             if not binary:
                 import base64
 
@@ -507,16 +517,19 @@ class OneStorageEntry(models.Model):
     def read_bytes(self):
         """Return this file's raw bytes. Mirrors pathlib.Path.read_bytes."""
         self.ensure_one()
-        if self.is_dir:
+        real = self._follow()
+        if real.is_dir:
             raise IsADirectoryError(self.complete_name)
-        return self.backend_id.get(self.backend_path)
+        backend, _mirror = real._resolve_backend()
+        return backend.get(real._backend_relpath())
 
     def write_bytes(self, data):
         """Write raw bytes to this file, creating or overwriting it."""
         self.ensure_one()
-        if self.is_dir:
+        real = self._follow()
+        if real.is_dir:
             raise IsADirectoryError(self.complete_name)
-        self.set_content(data, binary=True)
+        real.set_content(data, binary=True)
         return self
 
     def mkdir(self, name, parents=False):
@@ -529,16 +542,18 @@ class OneStorageEntry(models.Model):
         intermediate level names a file.
         """
         self.ensure_one()
-        if not self.is_dir:
+        real = self._follow()
+        if not real.is_dir:
             raise NotADirectoryError(self.complete_name)
         if parents:
-            current = self
+            current = real
             for segment in name.split("/"):
                 current = current._mkdir_step(segment)
             return current
-        return self._mkdir_step(name, exist_ok=False)
+        return real._mkdir_step(name, exist_ok=False)
 
     def _mkdir_step(self, name, exist_ok=True):
+        self._assert_writable()
         child = self.search(
             [("parent_id", "=", self.id), ("name", "=", name)], limit=1
         )
@@ -560,14 +575,16 @@ class OneStorageEntry(models.Model):
         ``FileExistsError`` if ``name`` already exists here.
         """
         self.ensure_one()
-        if not self.is_dir:
+        real = self._follow()
+        if not real.is_dir:
             raise NotADirectoryError(self.complete_name)
+        real._assert_writable()
         if self.search(
-            [("parent_id", "=", self.id), ("name", "=", name)], limit=1
+            [("parent_id", "=", real.id), ("name", "=", name)], limit=1
         ):
             raise FileExistsError(self.complete_name)
         entry = self.create(
-            {"name": name, "entry_type": "file", "parent_id": self.id}
+            {"name": name, "entry_type": "file", "parent_id": real.id}
         )
         if data is not None:
             entry.write_bytes(data)
@@ -576,20 +593,22 @@ class OneStorageEntry(models.Model):
     def remove(self):
         """Delete this file and its backend bytes. Mirrors os.remove."""
         self.ensure_one()
-        if self.is_dir:
+        real = self._follow()
+        if real.is_dir:
             raise IsADirectoryError(self.complete_name)
-        self.unlink()
+        real.unlink()
 
     def rmdir(self):
         """Delete this directory; it must be empty. Mirrors os.rmdir."""
         self.ensure_one()
-        if not self.is_dir:
+        real = self._follow()
+        if not real.is_dir:
             raise NotADirectoryError(self.complete_name)
-        if self.child_ids:
+        if real.child_ids:
             raise OSError(
                 errno.ENOTEMPTY, "Directory not empty", self.complete_name
             )
-        self.unlink()
+        real.unlink()
 
     def stat(self):
         """Return metadata as a dict.
@@ -600,23 +619,25 @@ class OneStorageEntry(models.Model):
         their stat is purely logical.
         """
         self.ensure_one()
-        if self.is_dir:
+        real = self._follow()
+        if real.is_dir:
             return {
                 "is_dir": True,
                 "size": None,
-                "mimetype": self.mimetype,
-                "checksum": self.checksum,
-                "mtime": self.last_sync,
+                "mimetype": real.mimetype,
+                "checksum": real.checksum,
+                "mtime": real.last_sync,
             }
-        backend = self.backend_id
-        if not backend or not backend.file_exists(self.backend_path):
+        backend, _mirror = real._resolve_backend()
+        rel_path = real._backend_relpath()
+        if not backend.file_exists(rel_path):
             raise FileNotFoundError(self.complete_name)
         return {
             "is_dir": False,
-            "size": backend.get_size(self.backend_path),
-            "mimetype": self.mimetype,
-            "checksum": self.checksum,
-            "mtime": self.last_sync,
+            "size": backend.get_size(rel_path),
+            "mimetype": real.mimetype,
+            "checksum": real.checksum,
+            "mtime": real.last_sync,
         }
 
     def file_exists(self):
@@ -626,11 +647,14 @@ class OneStorageEntry(models.Model):
         False while its backend bytes are absent (state 'draft').
         """
         self.ensure_one()
-        if self.is_dir:
+        real = self._follow()
+        if real.is_dir:
             return True
-        if not self.backend_id:
+        try:
+            backend, _mirror = real._resolve_backend()
+        except ValidationError:
             return False
-        return self.backend_id.file_exists(self.backend_path)
+        return backend.file_exists(real._backend_relpath())
 
     # ------------------------------------------------------------------
     # UI actions
@@ -697,9 +721,11 @@ class OneStorageEntry(models.Model):
     def _batch_delete(self):
         self.ensure_one()
         try:
-            self.backend_id.delete(self.backend_path)
+            backend, _mirror = self._resolve_backend()
+            rel_path = self._backend_relpath()
+            backend.delete(rel_path)
         except Exception as err:  # noqa: BLE001
-            _logger.warning("Batch delete failed for %s: %s", self.backend_path, err)
+            _logger.warning("Batch delete failed for %s: %s", self.complete_name, err)
         self.unlink()
 
     def action_batch_move(self, dest_entry):
@@ -713,10 +739,14 @@ class OneStorageEntry(models.Model):
 
     def _batch_move(self, dest_entry_id):
         self.ensure_one()
-        dest_entry = self.env["one.storage.entry"].browse(dest_entry_id)
-        dest_backend, dest_rel = dest_entry._resolve_backend()
+        dest_entry = self.env["one.storage.entry"].browse(dest_entry_id)._follow()
+        dest_entry._assert_writable()
+        dest_backend, _dest_mirror = dest_entry._resolve_backend()
+        dest_rel = dest_entry._backend_relpath()
         dest_path = posixpath.join(dest_rel, self.name) if dest_rel else self.name
-        data = self.backend_id.get(self.backend_path)
+        src_backend, _src_mirror = self._resolve_backend()
+        src_path = self._backend_relpath()
+        data = src_backend.get(src_path)
         dest_backend.add(dest_path, data)
-        self.backend_id.delete(self.backend_path)
-        self.write({"parent_id": dest_entry_id})
+        src_backend.delete(src_path)
+        self.write({"parent_id": dest_entry.id})

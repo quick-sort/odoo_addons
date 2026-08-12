@@ -20,9 +20,6 @@
                     <t t-name="menu">
                         <a name="action_edit" type="object" role="menuitem"
                            class="dropdown-item">Edit</a>
-                        <a t-if="record.is_dir.raw_value"
-                           name="action_mount" type="object" role="menuitem"
-                           class="dropdown-item">Mount</a>
                         <a t-if="!record.is_dir.raw_value"
                            name="action_upload" type="object" role="menuitem"
                            class="dropdown-item">Upload</a>
@@ -108,9 +105,11 @@
                             <field name="parent_id" options="{'no_create': True}"
                                    invisible="id == False"/>
                             <field name="backend_id" options="{'no_create': True}"
-                                   readonly="id == False" invisible="id == False"/>
-                            <field name="backend_path" readonly="id == False"
-                                   invisible="id == False"/>
+                                   invisible="entry_type != 'directory'"/>
+                            <field name="read_only"
+                                   invisible="entry_type != 'directory'"/>
+                            <field name="target_id" options="{'no_create': True}"
+                                   invisible="entry_type != 'directory'"/>
                         </group>
                         <group invisible="entry_type == 'directory'">
                             <field name="mimetype" readonly="id == False"/>
@@ -132,15 +131,6 @@
                                     <field name="mimetype"/>
                                     <field name="file_size"/>
                                     <field name="state"/>
-                                </list>
-                            </field>
-                        </page>
-                        <page string="Mount Points">
-                            <field name="mount_ids">
-                                <list>
-                                    <field name="name"/>
-                                    <field name="backend_id"/>
-                                    <field name="backend_path"/>
                                 </list>
                             </field>
                         </page>
@@ -176,7 +166,6 @@
                 <field name="sequence" widget="handle"/>
                 <field name="name"/>
                 <field name="backend_id"/>
-                <field name="mount_ids" widget="list.counter" string="Mounts"/>
                 <field name="child_ids" widget="list.counter" string="Sub-entries"/>
                 <field name="active" widget="boolean_toggle"/>
             </list>

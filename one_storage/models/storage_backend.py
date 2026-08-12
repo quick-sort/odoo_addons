@@ -34,8 +34,26 @@ class StorageBackendDefault(models.Model):
             {
                 "name": _("One Storage Default"),
                 "backend_type": "filesystem",
-                "directory_path": "one_storage",
             }
         )
         Icp.set_param(self._default_param_key(), str(backend.id))
         return backend
+
+    def _get_or_create_root_entry(self):
+        """Return the ``one.storage.entry`` mirroring this backend's root ``/``.
+
+        A backend's mirror root is the directory carrying ``backend_id = self``.
+        Only directories (not the files under them) hold that key, so the search
+        locates the unique root. Bind-mounting this backend elsewhere is done by
+        pointing a directory's ``target_id`` at this root entry.
+
+        Does not create a root automatically — an admin chooses where a backend
+        is mirrored by creating a directory and setting its ``backend_id``. The
+        default backend's root is provisioned by
+        :meth:`one.storage.entry._get_or_create_root`.
+        """
+        self.ensure_one()
+        return self.env["one.storage.entry"].search(
+            [("backend_id", "=", self.id), ("entry_type", "=", "directory")],
+            limit=1,
+        )

@@ -28,8 +28,7 @@ class TestUploadDeleteWizards(OneStorageCommon):
         )
         wizard.action_apply()
         self.assertEqual(self.file_entry.file_size, len(b"new content"))
-        data = self.backend.get(self.file_entry.backend_path)
-        self.assertEqual(data, b"new content")
+        self.assertEqual(self.backend.get("doc.txt"), b"new content")
         self.assertEqual(self.file_entry.state, "synced")
 
     def test_upload_wizard_rejects_directory(self):
