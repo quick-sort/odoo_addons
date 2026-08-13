@@ -173,7 +173,8 @@ class KnowledgeVector(models.Model):
             text = ""
             if payload.get("chunk_path"):
                 try:
-                    text = backend.get(payload["chunk_path"]).decode("utf-8")
+                    with backend.open(payload["chunk_path"], "rb") as stream:
+                        text = stream.read().decode("utf-8")
                 except Exception:  # noqa: BLE001
                     text = ""
             results.append(

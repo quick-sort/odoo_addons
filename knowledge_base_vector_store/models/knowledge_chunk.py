@@ -52,4 +52,5 @@ class KnowledgeChunk(models.Model):
         """Read this chunk's text from the KB md backend."""
         self.ensure_one()
         backend = self.chunkset_id.kb_id.md_backend_id
-        return backend.get(self.path).decode("utf-8")
+        with backend.open(self.path, "rb") as stream:
+            return stream.read().decode("utf-8")

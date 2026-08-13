@@ -61,29 +61,25 @@ class SFTPStorageBackendAdapter(Component):
     _inherit = "base.storage.adapter"
     _usage = "sftp"
 
-    def add(self, relative_path, data, **kwargs):
-        with sftp(self.collection) as client:
-            full_path = self._fullpath(relative_path)
-            dirname = os.path.dirname(full_path)
-            if dirname:
-                try:
-                    client.stat(dirname)
-                except OSError as e:
-                    if e.errno == errno.ENOENT:
-                        sftp_mkdirs(client, dirname)
-                    else:
-                        raise  # pragma: no cover
-            remote_file = client.open(full_path, "w")
-            remote_file.write(data)
-            remote_file.close()
-
-    def get(self, relative_path, **kwargs):
+    @contextmanager
+    def open(self, relative_path, mode="rb", **kwargs):
         full_path = self._fullpath(relative_path)
         with sftp(self.collection) as client:
-            file_data = client.open(full_path, "r")
-            data = file_data.read()
-            file_data.close()
-        return data
+            if "w" in mode:
+                dirname = os.path.dirname(full_path)
+                if dirname:
+                    try:
+                        client.stat(dirname)
+                    except OSError as e:
+                        if e.errno == errno.ENOENT:
+                            sftp_mkdirs(client, dirname)
+                        else:
+                            raise  # pragma: no cover
+            remote_file = client.open(full_path, mode)
+            try:
+                yield remote_file
+            finally:
+                remote_file.close()
 
     def list(self, relative_path="", limit=None, detail=False):
         full_path = self._fullpath(relative_path)

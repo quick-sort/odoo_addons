@@ -2,12 +2,11 @@
 # License LGPL-3.0 or later (http://www.gnu.org/licenses/lgpl.html)
 
 import json
+from unittest import mock
 
 from odoo.exceptions import ValidationError
 
-from odoo.addons.knowledge_base.models.knowledge_extractor import (
-    KnowledgeExtractor,
-)
+from odoo.addons.knowledge_base.models.knowledge_source import KnowledgeSource
 
 from .common import KnowledgeBaseCase
 
@@ -42,9 +41,14 @@ class TestSourceValidation(KnowledgeBaseCase):
 
 
 class TestExtractionFlow(KnowledgeBaseCase):
-    def _stub_adapter(self, output, fmt="md", err=None):
-        """Return a patch object replacing _get_adapter with a stub."""
-        from unittest import mock
+    def _stub_extractor(self, output, fmt="md", err=None):
+        """Patch ``_get_extractor`` to return an in-memory stub extractor.
+
+        No concrete extractor addon is installed in this test DB, so we replace
+        the extractor lookup rather than create a ``knowledge.extractor`` record
+        (whose ``extractor_type`` selection is empty without one). The stub
+        returns an adapter that produces ``output`` (or raises ``err``).
+        """
 
         class StubAdapter:
             _output_format = fmt
@@ -54,23 +58,37 @@ class TestExtractionFlow(KnowledgeBaseCase):
                     raise err
                 return output
 
-        return mock.patch.object(
-            KnowledgeExtractor,
-            "_get_adapter",
-            lambda self: StubAdapter(),
-        )
+        class StubExtractor:
+            def _get_adapter(self):
+                return StubAdapter()
 
-    def test_extract_md(self):
+            def _get_output_format(self):
+                return StubAdapter()._output_format
+
+        patcher = mock.patch.object(
+            KnowledgeSource, "_get_extractor", lambda self: StubExtractor()
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def _create_extracted_kb(self, filename, content, output, fmt="md", err=None):
+        """KB with one file source and a stubbed extractor, ready to extract."""
         kb = self._create_kb()
-        self._write_entry("readme.md", "# Hello\n\nSome content.")
+        self._write_entry(filename, content)
         entry = self.env["one.storage.entry"].search(
-            [("name", "=", "readme.md")], limit=1
+            [("name", "=", filename)], limit=1
         )
         self.env["knowledge.source"].create(
             {"kb_id": kb.id, "source_type": "file", "entry_id": entry.id}
         )
-        with self._stub_adapter("# Hello from extractor"):
-            kb._extract_all()
+        self._stub_extractor(output, fmt=fmt, err=err)
+        return kb
+
+    def test_extract_md(self):
+        kb = self._create_extracted_kb(
+            "readme.md", "# Hello\n\nSome content.", "# Hello from extractor"
+        )
+        kb._extract_all()
         source = kb.source_ids
         self.assertEqual(source.state, "extracted")
         self.assertEqual(kb.state, "extracted")
@@ -80,17 +98,11 @@ class TestExtractionFlow(KnowledgeBaseCase):
         )
 
     def test_extract_json(self):
-        kb = self._create_kb()
-        self._write_entry("report.pdf", b"PDF bytes")
-        entry = self.env["one.storage.entry"].search(
-            [("name", "=", "report.pdf")], limit=1
-        )
-        self.env["knowledge.source"].create(
-            {"kb_id": kb.id, "source_type": "file", "entry_id": entry.id}
-        )
         structured = {"blocks": [{"type": "text", "content": "hi"}]}
-        with self._stub_adapter(structured, fmt="json"):
-            kb._extract_all()
+        kb = self._create_extracted_kb(
+            "report.pdf", b"PDF bytes", structured, fmt="json"
+        )
+        kb._extract_all()
         source = kb.source_ids
         self.assertEqual(source.output_format, "json")
         self.assertTrue(source.content_path.endswith("content.json"))
@@ -99,15 +111,9 @@ class TestExtractionFlow(KnowledgeBaseCase):
         )
 
     def test_extract_error_marks_error_state(self):
-        kb = self._create_kb()
-        self._write_entry("broken.docx", b"broken")
-        entry = self.env["one.storage.entry"].search(
-            [("name", "=", "broken.docx")], limit=1
+        kb = self._create_extracted_kb(
+            "broken.docx", b"broken", None, err=RuntimeError("boom")
         )
-        self.env["knowledge.source"].create(
-            {"kb_id": kb.id, "source_type": "file", "entry_id": entry.id}
-        )
-        with self._stub_adapter(None, err=RuntimeError("boom")):
-            kb._extract_all()
+        kb._extract_all()
         self.assertEqual(kb.source_ids.state, "error")
         self.assertEqual(kb.state, "error")

@@ -49,7 +49,9 @@ class KnowledgeBaseCase(TransactionComponentCase):
                 "parent_id": parent.id,
             }
         )
-        entry.set_content(content, binary=False if isinstance(content, str) else True)
+        if isinstance(content, str):
+            content = content.encode("utf-8")
+        entry.set_content(content, binary=True)
         return entry
 
     def _create_extractor(self, extractor_type="markitdown", **kw):
@@ -66,4 +68,5 @@ class KnowledgeBaseCase(TransactionComponentCase):
         return self.env["knowledge.base"].create(vals)
 
     def _read_backend(self, path):
-        return self.md_backend.get(path).decode("utf-8")
+        with self.md_backend.open(path, "rb") as stream:
+            return stream.read().decode("utf-8")

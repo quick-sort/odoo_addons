@@ -37,6 +37,15 @@ class OneStorageCommon(TransactionComponentCase):
         shutil.rmtree(cls.tmpdir, ignore_errors=True)
         super().tearDownClass()
 
+    def setUp(self):
+        super().setUp()
+        # Filesystem writes are not transactional, so earlier tests' files
+        # leak into this test's backend directory. Clear it so lazy mirroring
+        # (list_children/_sync_children) only ever sees this test's files.
+        if os.path.isdir(self.tmpdir):
+            shutil.rmtree(self.tmpdir)
+        os.makedirs(self.tmpdir, exist_ok=True)
+
     def _write_on_disk(self, relpath, content):
         full = os.path.join(self.tmpdir, relpath)
         os.makedirs(os.path.dirname(full), exist_ok=True)

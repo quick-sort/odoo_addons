@@ -4,15 +4,20 @@
 # @author Simone Orsi <simone.orsi@camptocamp.com>
 # License LGPL-3.0 or later (http://www.gnu.org/licenses/lgpl).
 
-import io
 import logging
 import os
+import tempfile
+from contextlib import contextmanager
 
 from odoo import exceptions
 
 from odoo.addons.component.core import Component
 
 _logger = logging.getLogger(__name__)
+
+# Spooled temporary files hold up to this many bytes in memory before
+# spilling to disk, bounding memory for large uploads.
+_SPOOL_MAX_SIZE = 8 * 1024 * 1024
 
 try:
     import boto3
@@ -92,20 +97,32 @@ class S3StorageAdapter(Component):
         except ClientError as error:
             raise exceptions.UserError(str(error)) from error
 
-    def add(self, relative_path, bin_data, mimetype=None, **kwargs):
+    @contextmanager
+    def open(self, relative_path, mode="rb", **kwargs):
         s3object = self._get_object(relative_path)
-        file_params = self._aws_upload_fileobj_params(mimetype=mimetype, **kwargs)
-        with io.BytesIO() as fileobj:
-            fileobj.write(bin_data)
-            fileobj.seek(0)
+        if "r" in mode:
+            body = s3object.get()["Body"]
             try:
-                s3object.upload_fileobj(fileobj, **file_params)
-            except ClientError as error:
-                # log verbose error from s3, return short message for user
-                _logger.exception(f"Error during storage of the file {relative_path}")
-                raise exceptions.UserError(
-                    self.env._(f"The file could not be stored: {str(error)}")
-                ) from error
+                yield body
+            finally:
+                body.close()
+        else:
+            file_params = self._aws_upload_fileobj_params(**kwargs)
+            with tempfile.SpooledTemporaryFile(
+                max_size=_SPOOL_MAX_SIZE, mode="w+b"
+            ) as spool:
+                yield spool
+                spool.seek(0)
+                try:
+                    s3object.upload_fileobj(spool, **file_params)
+                except ClientError as error:
+                    # log verbose error from s3, return short message for user
+                    _logger.exception(
+                        "Error during storage of the file %s", relative_path
+                    )
+                    raise exceptions.UserError(
+                        self.env._("The file could not be stored: %s") % str(error)
+                    ) from error
 
     def _aws_upload_fileobj_params(self, mimetype=None, **kw):
         extra_args = {}
@@ -118,10 +135,6 @@ class S3StorageAdapter(Component):
         if extra_args:
             return {"ExtraArgs": extra_args}
         return {}
-
-    def get(self, relative_path):
-        s3object = self._get_object(relative_path)
-        return s3object.get()["Body"].read()
 
     def list(self, relative_path="", limit=None, detail=False):
         bucket = self._get_bucket()

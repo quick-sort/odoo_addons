@@ -43,11 +43,15 @@ class FileSystemCase(CommonCase, BackendStorageTestMixin):
 
 
 class FileSystemCapabilitiesCase(CommonCase):
+    def _write(self, backend, name, data=None):
+        with backend.open(name, "wb") as stream:
+            stream.write(data if data is not None else base64.b64decode(self.filedata))
+
     def test_exists_and_get_size(self):
         backend = self.backend
         filename = "caps_test.bin"
         self.assertFalse(backend.file_exists(filename))
-        backend.add(filename, self.filedata, binary=False)
+        self._write(backend, filename)
         self.assertTrue(backend.file_exists(filename))
         self.assertEqual(
             backend.get_size(filename),
@@ -60,7 +64,7 @@ class FileSystemCapabilitiesCase(CommonCase):
         backend = self.backend
         names = ["d1.txt", "d2.txt"]
         for name in names:
-            backend.add(name, self.filedata, binary=False)
+            self._write(backend, name)
         try:
             items = backend.list_files(detail=True)
             sizes = dict(items)
@@ -77,7 +81,7 @@ class FileSystemCapabilitiesCase(CommonCase):
         backend = self.backend
         names = ["l1.txt", "l2.txt", "l3.txt"]
         for name in names:
-            backend.add(name, self.filedata, binary=False)
+            self._write(backend, name)
         try:
             self.assertEqual(len(backend.list_files(limit=2)), 2)
         finally:
@@ -87,7 +91,7 @@ class FileSystemCapabilitiesCase(CommonCase):
     def test_stat_file_and_dir(self):
         backend = self.backend
         filename = "stat_test.bin"
-        backend.add(filename, self.filedata, binary=False)
+        self._write(backend, filename)
         try:
             info = backend.stat(filename)
             self.assertFalse(info["is_dir"])
@@ -106,20 +110,19 @@ class FileSystemCapabilitiesCase(CommonCase):
         backend = self.backend
         backend.gzip_extensions = "txt"
         filename = "gzip_test.txt"
+        raw = base64.b64decode(self.filedata)
         try:
-            backend.add(filename, self.filedata, binary=False)
-            # logical path round-trips through get()
-            self.assertEqual(
-                backend.get(filename, binary=False),
-                self.filedata,
-            )
+            self._write(backend, filename, raw)
+            # logical path round-trips through open()
+            with backend.open(filename, "rb") as stream:
+                self.assertEqual(stream.read(), raw)
             # physical path carries a .gz suffix holding compressed bytes
             self.assertTrue(backend.file_exists(filename + ".gz"))
             self.assertEqual(
                 backend.get_size(filename),
-                len(base64.b64decode(self.filedata)),
+                len(raw),
             )
-            raw = gzip.decompress(
+            physical_raw = gzip.decompress(
                 open(
                     os.path.join(
                         backend._get_adapter()._basedir(),
@@ -128,7 +131,7 @@ class FileSystemCapabilitiesCase(CommonCase):
                     "rb",
                 ).read()
             )
-            self.assertEqual(raw, base64.b64decode(self.filedata))
+            self.assertEqual(physical_raw, raw)
             # logical listing strips the .gz suffix back off
             items = backend.list_files()
             self.assertIn(filename, items)
@@ -145,9 +148,8 @@ class FileSystemDemoUserAccessCase(CommonCase):
 
     def test_cannot_add_file(self):
         with self.assertRaises(AccessError):
-            self.backend.add(
-                self.filename, self.filedata, mimetype="text/plain", binary=False
-            )
+            with self.backend.open(self.filename, "wb") as stream:
+                stream.write(base64.b64decode(self.filedata))
 
     def test_cannot_list_file(self):
         with self.assertRaises(AccessError):
@@ -155,7 +157,8 @@ class FileSystemDemoUserAccessCase(CommonCase):
 
     def test_cannot_read_file(self):
         with self.assertRaises(AccessError):
-            self.backend.get(self.filename, binary=False)
+            with self.backend.open(self.filename, "rb") as stream:
+                stream.read()
 
     def test_cannot_delete_file(self):
         with self.assertRaises(AccessError):

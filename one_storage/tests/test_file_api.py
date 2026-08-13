@@ -17,7 +17,8 @@ class TestFileApi(OneStorageCommon):
         entry = self.root_folder.create_file("a.txt", b"old")
         entry.write_bytes(b"new content")
         self.assertEqual(entry.read_bytes(), b"new content")
-        self.assertEqual(self.backend.get("a.txt"), b"new content")
+        with self.backend.open("a.txt", "rb") as stream:
+            self.assertEqual(stream.read(), b"new content")
         self.assertEqual(entry.state, "synced")
 
     def test_create_file_without_data_starts_draft(self):

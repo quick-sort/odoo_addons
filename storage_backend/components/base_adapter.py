@@ -6,6 +6,7 @@
 
 import os
 import re
+from contextlib import contextmanager
 
 from odoo.addons.component.core import AbstractComponent
 
@@ -20,10 +21,15 @@ class BaseStorageAdapter(AbstractComponent):
             return relative_path
         return os.path.join(dp, relative_path)
 
-    def add(self, relative_path, data, **kwargs):
-        raise NotImplementedError
+    @contextmanager
+    def open(self, relative_path, mode="rb", **kwargs):
+        """Open ``relative_path`` for streaming binary I/O.
 
-    def get(self, relative_path, **kwargs):
+        :param relative_path: logical path of the file inside the backend
+        :param mode: ``"rb"`` (read) or ``"wb"`` (write)
+        :return: a binary file-like object; the adapter finalizes
+                 (flush/close/upload) when the context manager exits.
+        """
         raise NotImplementedError
 
     def list(self, relative_path="", limit=None, detail=False):

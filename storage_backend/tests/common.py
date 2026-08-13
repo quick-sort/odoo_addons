@@ -10,22 +10,23 @@ from odoo.addons.component.tests.common import TransactionComponentCase
 
 class BackendStorageTestMixin:
     def _test_setting_and_getting_data(self):
+        raw = base64.b64decode(self.filedata)
         # Check that the directory is empty
         files = self.backend.list_files()
         self.assertNotIn(self.filename, files)
 
         # Add a new file
-        self.backend.add(
-            self.filename, self.filedata, mimetype="text/plain", binary=False
-        )
+        with self.backend.open(self.filename, "wb") as stream:
+            stream.write(raw)
 
         # Check that the file exist
         files = self.backend.list_files()
         self.assertIn(self.filename, files)
 
         # Retrieve the file added
-        data = self.backend.get(self.filename, binary=False)
-        self.assertEqual(data, self.filedata)
+        with self.backend.open(self.filename, "rb") as stream:
+            data = stream.read()
+        self.assertEqual(data, raw)
 
         # Delete the file
         self.backend.delete(self.filename)

@@ -1,18 +1,21 @@
 # Copyright 2021 ACSONE SA/NV (<http://acsone.eu>)
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl.html).
 import errno
-import io
 import logging
 import os
 import ssl
+import tempfile
 from contextlib import contextmanager
-from io import BytesIO
 
 from odoo.exceptions import UserError
 
 from odoo.addons.component.core import Component
 
 _logger = logging.getLogger(__name__)
+
+# Spooled temporary files hold up to this many bytes in memory before
+# spilling to disk, bounding memory for large uploads/downloads.
+_SPOOL_MAX_SIZE = 8 * 1024 * 1024
 
 try:
     import ftplib
@@ -111,35 +114,41 @@ class FTPStorageBackendAdapter(Component):
     _inherit = "base.storage.adapter"
     _usage = "ftp"
 
-    def add(self, relative_path, data, **kwargs):
-        with ftp(self.collection) as client:
-            full_path = self._fullpath(relative_path)
-            dirname = os.path.dirname(full_path)
-            if dirname:
-                try:
-                    client.cwd(dirname)
-                except OSError as e:
-                    if e.errno == errno.ENOENT:
-                        ftp_mkdirs(client, dirname)
-                    else:
-                        raise  # pragma: no cover
-            with io.BytesIO(data) as tmp_file:
-                try:
-                    client.storbinary("STOR " + full_path, tmp_file)
-                except ftplib.Error as e:
-                    raise ValueError(repr(e)) from e
-                except OSError as e:
-                    raise ValueError(repr(e)) from e
-
-    def get(self, relative_path, **kwargs):
+    @contextmanager
+    def open(self, relative_path, mode="rb", **kwargs):
         full_path = self._fullpath(relative_path)
-        with ftp(self.collection) as client, BytesIO() as buff:
-            try:
-                client.retrbinary("RETR " + full_path, buff.write)
-                data = buff.getvalue()
-            except ftplib.Error as e:
-                raise FileNotFoundError(repr(e)) from e
-        return data
+        with ftp(self.collection) as client:
+            if "w" in mode:
+                dirname = os.path.dirname(full_path)
+                if dirname:
+                    try:
+                        client.cwd(dirname)
+                    except OSError as e:
+                        if e.errno == errno.ENOENT:
+                            ftp_mkdirs(client, dirname)
+                        else:
+                            raise  # pragma: no cover
+                with tempfile.SpooledTemporaryFile(
+                    max_size=_SPOOL_MAX_SIZE, mode="w+b"
+                ) as spool:
+                    yield spool
+                    spool.seek(0)
+                    try:
+                        client.storbinary("STOR " + full_path, spool)
+                    except ftplib.Error as e:
+                        raise ValueError(repr(e)) from e
+                    except OSError as e:
+                        raise ValueError(repr(e)) from e
+            else:
+                with tempfile.SpooledTemporaryFile(
+                    max_size=_SPOOL_MAX_SIZE, mode="w+b"
+                ) as spool:
+                    try:
+                        client.retrbinary("RETR " + full_path, spool.write)
+                    except ftplib.Error as e:
+                        raise FileNotFoundError(repr(e)) from e
+                    spool.seek(0)
+                    yield spool
 
     def list(self, relative_path="", limit=None, detail=False):
         full_path = self._fullpath(relative_path)

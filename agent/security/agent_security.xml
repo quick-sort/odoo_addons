@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="module_category_agent" model="ir.module.category">
+        <field name="name">Agent</field>
+        <field name="sequence">40</field>
+    </record>
+
+    <record id="group_agent_user" model="res.groups">
+        <field name="name">User</field>
+        <field name="sequence">10</field>
+        <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+        <field name="category_id" ref="module_category_agent"/>
+    </record>
+
+    <record id="group_agent_manager" model="res.groups">
+        <field name="name">Manager</field>
+        <field name="sequence">20</field>
+        <field name="implied_ids" eval="[(4, ref('agent.group_agent_user'))]"/>
+        <field name="category_id" ref="module_category_agent"/>
+        <field name="user_ids" eval="[(4, ref('base.user_root')), (4, ref('base.user_admin'))]"/>
+    </record>
+</odoo>

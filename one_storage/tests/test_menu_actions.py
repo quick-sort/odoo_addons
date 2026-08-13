@@ -28,7 +28,8 @@ class TestUploadDeleteWizards(OneStorageCommon):
         )
         wizard.action_apply()
         self.assertEqual(self.file_entry.file_size, len(b"new content"))
-        self.assertEqual(self.backend.get("doc.txt"), b"new content")
+        with self.backend.open("doc.txt", "rb") as stream:
+            self.assertEqual(stream.read(), b"new content")
         self.assertEqual(self.file_entry.state, "synced")
 
     def test_upload_wizard_rejects_directory(self):
@@ -59,6 +60,7 @@ class TestUploadDeleteWizards(OneStorageCommon):
 
 class TestPreviewRoute(HttpCase):
     def test_preview_route_serves_inline(self):
+        self.authenticate("admin", "admin")
         # Clear any seeded root so the single-root constraint holds.
         self.env["one.storage.entry"].search([("parent_id", "=", False)]).unlink()
         tmp_name = "one_storage_preview_test_%s" % self.env.cr.dbname

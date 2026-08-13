@@ -4,13 +4,14 @@
 # @author Simone Orsi <simone.orsi@camptocamp.com>
 # License LGPL-3.0 or later (http://www.gnu.org/licenses/lgpl).
 
-import base64
 import fnmatch
 import functools
 import gzip
 import inspect
 import logging
+import os
 import warnings
+from contextlib import contextmanager
 
 from odoo import fields, models
 
@@ -124,22 +125,29 @@ class StorageBackend(models.Model):
                 return base
         return name
 
-    def add(self, relative_path, data, binary=True, **kwargs):
-        if not binary:
-            data = base64.b64decode(data)
-        physical, use_gzip = self._gzip_physical(relative_path)
-        if use_gzip:
-            data = gzip.compress(data)
-        return self._forward("add", physical, data, **kwargs)
+    @contextmanager
+    def open(self, relative_path, mode="rb", **kwargs):
+        """Open ``relative_path`` for streaming binary I/O.
 
-    def get(self, relative_path, binary=True, **kwargs):
+        ``mode`` is ``"rb"`` (read) or ``"wb"`` (write). The logical path is
+        mapped to its physical counterpart and gzip extensions are
+        transparently (de)compressed. Yields a binary file-like object; the
+        adapter finalizes (flush/close/upload) when the context manager exits.
+        """
+        self.ensure_one()
+        if mode not in ("rb", "wb"):
+            raise ValueError("mode must be 'rb' or 'wb', got %r" % mode)
         physical, use_gzip = self._gzip_physical(relative_path)
-        data = self._forward("get", physical, **kwargs)
-        if use_gzip and data:
-            data = gzip.decompress(data)
-        if not binary and data:
-            data = base64.b64encode(data)
-        return data
+        with self._forward("open", physical, mode, **kwargs) as stream:
+            if not use_gzip:
+                yield stream
+                return
+            if "r" in mode:
+                with gzip.GzipFile(fileobj=stream, mode="rb") as gz:
+                    yield gz
+            else:
+                with gzip.GzipFile(fileobj=stream, mode="wb") as gz:
+                    yield gz
 
     def list_files(self, relative_path="", pattern=False, limit=False, detail=False):
         items = self._forward(
@@ -171,8 +179,23 @@ class StorageBackend(models.Model):
         return self._forward("exists", physical)
 
     def get_size(self, relative_path):
-        physical, _ = self._gzip_physical(relative_path)
-        return self._forward("get_size", physical)
+        physical, use_gzip = self._gzip_physical(relative_path)
+        size = self._forward("get_size", physical)
+        if not (use_gzip and size):
+            return size
+        # gzip trailer's last 4 bytes are ISIZE: the uncompressed length
+        # modulo 2**32 (little-endian), exact for single-member files under
+        # 4 GiB. Backends whose read stream is not seekable (e.g. S3's
+        # streaming body) fall back to the physical (compressed) size.
+        try:
+            with self._forward("open", physical, "rb") as raw:
+                raw.seek(-4, os.SEEK_END)
+                return int.from_bytes(raw.read(4), "little")
+        except Exception:
+            _logger.debug(
+                "cannot read gzip footer for %s; using physical size", physical
+            )
+            return size
 
     def stat(self, relative_path):
         physical, _ = self._gzip_physical(relative_path)

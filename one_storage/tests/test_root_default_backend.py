@@ -53,6 +53,8 @@ class TestRootDefaultBackendWithAdapter(OneStorageCommon):
     def test_default_backend_is_filesystem(self):
         backend = self.env["storage.backend"]._get_or_create_default()
         self.assertEqual(backend.backend_type, "filesystem")
-        backend.add("ping.txt", b"pong")
-        self.assertEqual(backend.get("ping.txt"), b"pong")
+        with backend.open("ping.txt", "wb") as stream:
+            stream.write(b"pong")
+        with backend.open("ping.txt", "rb") as stream:
+            self.assertEqual(stream.read(), b"pong")
         backend.delete("ping.txt")

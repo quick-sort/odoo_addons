@@ -18,11 +18,13 @@ of many directories, so the same backend can appear at several paths.
 ``_follow`` resolves a bind (or symlink) to the real entry behind it.
 """
 
+import base64
 import errno
 import hashlib
 import logging
 import mimetypes
 import posixpath
+import shutil
 
 from odoo import _, api, fields, models
 from odoo.exceptions import ValidationError
@@ -147,7 +149,7 @@ class OneStorageEntry(models.Model):
                     _("An entry named '%s' already exists here.", entry.name)
                 )
 
-    @api.constrains("parent_id")
+    @api.constrains("parent_id", "name")
     def _check_single_root(self):
         """At most one root entry (parent_id is null) exists globally."""
         for entry in self:
@@ -474,8 +476,8 @@ class OneStorageEntry(models.Model):
     def set_content(self, data, binary=True):
         """Push raw bytes to the backend and refresh metadata.
 
-        Large uploads should go through the async batch operation model
-        rather than this synchronous path.
+        Large uploads should go through the async batch operation model or
+        :meth:`write_stream` rather than this synchronous path.
         """
         for entry in self:
             if entry.is_dir:
@@ -485,13 +487,9 @@ class OneStorageEntry(models.Model):
             entry._assert_writable()
             backend, _mirror = entry._resolve_backend()
             rel_path = entry._backend_relpath()
-            backend.add(rel_path, data, binary=binary)
-            if not binary:
-                import base64
-
-                raw = base64.b64decode(data)
-            else:
-                raw = data
+            raw = data if binary else base64.b64decode(data)
+            with backend.open(rel_path, "wb") as stream:
+                stream.write(raw)
             checksum = hashlib.sha1(raw).hexdigest()
             entry.write(
                 {
@@ -514,22 +512,89 @@ class OneStorageEntry(models.Model):
     # like real filesystem errors. Note: existence is `file_exists()`, NOT
     # `exists()`, which is Odoo's recordset filter.
     # ------------------------------------------------------------------
-    def read_bytes(self):
-        """Return this file's raw bytes. Mirrors pathlib.Path.read_bytes."""
+    def _file_backend_relpath(self):
+        """Return ``(backend, rel_path)`` for this file, following aliases.
+
+        Raises ``IsADirectoryError`` when the resolved entry is a folder.
+        """
         self.ensure_one()
         real = self._follow()
         if real.is_dir:
             raise IsADirectoryError(self.complete_name)
         backend, _mirror = real._resolve_backend()
-        return backend.get(real._backend_relpath())
+        return backend, real._backend_relpath()
+
+    def open(self, mode="rb", **kwargs):
+        """Open this file's backend stream for streaming binary I/O.
+
+        ``mode`` is ``"rb"`` or ``"wb"`` (see :meth:`storage.backend.open`).
+        """
+        backend, rel_path = self._file_backend_relpath()
+        return backend.open(rel_path, mode, **kwargs)
+
+    def iter_chunks(self, chunk_size=64 * 1024):
+        """Iterate this file's content in ``chunk_size``-byte chunks.
+
+        The backend stream is resolved and opened eagerly (before the first
+        chunk is read) so HTTP callers streaming the returned iterator do not
+        trigger ORM/DB access after the request cursor has been released.
+        """
+        backend, rel_path = self._file_backend_relpath()
+        ctx = backend.open(rel_path, "rb")
+        stream = ctx.__enter__()
+
+        def _chunks():
+            try:
+                while True:
+                    chunk = stream.read(chunk_size)
+                    if not chunk:
+                        break
+                    yield chunk
+            finally:
+                ctx.__exit__(None, None, None)
+
+        return _chunks()
+
+    def read_bytes(self):
+        """Return this file's raw bytes. Mirrors pathlib.Path.read_bytes."""
+        with self.open("rb") as stream:
+            return stream.read()
 
     def write_bytes(self, data):
         """Write raw bytes to this file, creating or overwriting it."""
         self.ensure_one()
-        real = self._follow()
-        if real.is_dir:
-            raise IsADirectoryError(self.complete_name)
-        real.set_content(data, binary=True)
+        self._file_backend_relpath()  # raises IsADirectoryError for folders
+        self.set_content(data, binary=True)
+        return self
+
+    def write_stream(self, fileobj, chunk_size=64 * 1024):
+        """Stream ``fileobj`` (a binary file-like) to the backend.
+
+        Computes checksum and size incrementally while copying, then
+        refreshes metadata. Suitable for large uploads.
+        """
+        self.ensure_one()
+        self._assert_writable()
+        backend, rel_path = self._file_backend_relpath()
+        digest = hashlib.sha1()
+        size = 0
+        with backend.open(rel_path, "wb") as stream:
+            while True:
+                chunk = fileobj.read(chunk_size)
+                if not chunk:
+                    break
+                stream.write(chunk)
+                digest.update(chunk)
+                size += len(chunk)
+        self.write(
+            {
+                "file_size": size,
+                "mimetype": mimetypes.guess_type(self.name)[0] or self.mimetype,
+                "checksum": digest.hexdigest(),
+                "state": "synced",
+                "last_sync": fields.Datetime.now(),
+            }
+        )
         return self
 
     def mkdir(self, name, parents=False):
@@ -746,7 +811,9 @@ class OneStorageEntry(models.Model):
         dest_path = posixpath.join(dest_rel, self.name) if dest_rel else self.name
         src_backend, _src_mirror = self._resolve_backend()
         src_path = self._backend_relpath()
-        data = src_backend.get(src_path)
-        dest_backend.add(dest_path, data)
+        with src_backend.open(src_path, "rb") as src, dest_backend.open(
+            dest_path, "wb"
+        ) as dst:
+            shutil.copyfileobj(src, dst)
         src_backend.delete(src_path)
         self.write({"parent_id": dest_entry.id})

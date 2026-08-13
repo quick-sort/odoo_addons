@@ -20,7 +20,7 @@ class TestChunking(KnowledgeVectorCase):
         self.assertTrue(chunkset.chunk_ids)
         # Files exist on the backend at the documented layout.
         for chunk in chunkset.chunk_ids:
-            self.assertTrue(self.md_backend.exists(chunk.path))
+            self.assertTrue(self.md_backend.file_exists(chunk.path))
             self.assertEqual(
                 chunk.path,
                 "%s/chunks/%s/%s.md"
@@ -55,7 +55,7 @@ class TestChunking(KnowledgeVectorCase):
         self.assertEqual(chunkset.state, "error")
 
     def test_token_splitter_overlap(self):
-        splitter = self._create_splitter(splitter_type="token", chunk_size=10, overlap=2)
+        splitter = self._create_splitter(splitter_type="token", chunk_size=10, chunk_overlap=2)
         chunks = splitter._get_adapter().split("one two three four five six seven eight nine ten eleven twelve")
         self.assertGreater(len(chunks), 1)
         # Overlap means consecutive chunks share words.

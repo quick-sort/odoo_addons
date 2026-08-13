@@ -17,13 +17,13 @@ class OneStorageController(http.Controller):
         entry.ensure_one()
         if not entry.exists() or entry.is_dir:
             raise request.not_found()
-        data = entry.read_bytes()
         headers = [
             ("Content-Type", entry.mimetype or "application/octet-stream"),
             ("Content-Disposition", 'attachment; filename="%s"' % entry.name),
-            ("Content-Length", str(len(data))),
         ]
-        return request.make_response(data, headers=headers)
+        if entry.file_size:
+            headers.append(("Content-Length", str(entry.file_size)))
+        return request.make_response(entry.iter_chunks(), headers=headers)
 
     @http.route(
         "/one_storage/entry/<int:entry_id>/preview",
@@ -36,10 +36,10 @@ class OneStorageController(http.Controller):
         entry.ensure_one()
         if not entry.exists() or entry.is_dir:
             raise request.not_found()
-        data = entry.read_bytes()
         headers = [
             ("Content-Type", entry.mimetype or "application/octet-stream"),
             ("Content-Disposition", "inline"),
-            ("Content-Length", str(len(data))),
         ]
-        return request.make_response(data, headers=headers)
+        if entry.file_size:
+            headers.append(("Content-Length", str(entry.file_size)))
+        return request.make_response(entry.iter_chunks(), headers=headers)

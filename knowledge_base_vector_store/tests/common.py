@@ -52,7 +52,9 @@ class KnowledgeVectorCase(TransactionComponentCase):
         entry = self.env["one.storage.entry"].create(
             {"name": name, "entry_type": "file", "parent_id": parent.id}
         )
-        entry.set_content(content, binary=False if isinstance(content, str) else True)
+        if isinstance(content, str):
+            content = content.encode("utf-8")
+        entry.set_content(content, binary=True)
         return entry
 
     def _add_file_source(self, name, content):
@@ -65,19 +67,17 @@ class KnowledgeVectorCase(TransactionComponentCase):
         """Add a source and write its content.md directly to the backend."""
         source = self._add_file_source("doc.md", content)
         source.write({"state": "extracted"})
-        self.md_backend.add(
-            "%s/content.md" % source.id,
-            content.encode("utf-8"),
-        )
+        with self.md_backend.open("%s/content.md" % source.id, "wb") as stream:
+            stream.write(content.encode("utf-8"))
         return source
 
-    def _create_splitter(self, splitter_type="recursive", chunk_size=500, overlap=50):
+    def _create_splitter(self, splitter_type="recursive", chunk_size=500, chunk_overlap=50):
         return self.env["knowledge.splitter"].create(
             {
                 "name": "Test Splitter",
                 "splitter_type": splitter_type,
                 "chunk_size": chunk_size,
-                "chunk_overlap": overlap,
+                "chunk_overlap": chunk_overlap,
             }
         )
 

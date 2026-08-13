@@ -13,7 +13,7 @@ import json
 import logging
 
 from odoo import _, api, fields, models
-from odoo.exceptions import UserError, ValidationError
+from odoo.exceptions import ValidationError
 
 _logger = logging.getLogger(__name__)
 
@@ -70,15 +70,6 @@ class KnowledgeSource(models.Model):
     )
     last_extraction = fields.Datetime()
 
-    _file_url_exclusive = models.Constraint(
-        "CHECK (source_type <> 'file' OR entry_id IS NOT NULL)",
-        "A file source must reference a one_storage entry.",
-    )
-    _url_url_exclusive = models.Constraint(
-        "CHECK (source_type <> 'url' OR url IS NOT NULL)",
-        "A URL source must have a URL.",
-    )
-
     @api.depends("entry_id.name", "url")
     def _compute_name(self):
         for source in self:
@@ -104,6 +95,16 @@ class KnowledgeSource(models.Model):
                 if source.id
                 else False
             )
+
+    @api.constrains("source_type", "entry_id", "url")
+    def _check_source_reference(self):
+        for source in self:
+            if source.source_type == "file" and not source.entry_id:
+                raise ValidationError(
+                    _("A file source must reference a one_storage entry.")
+                )
+            if source.source_type == "url" and not source.url:
+                raise ValidationError(_("A URL source must have a URL."))
 
     @api.constrains("extractor_id", "source_type")
     def _check_extractor_compatibility(self):
@@ -142,7 +143,7 @@ class KnowledgeSource(models.Model):
             raise ValidationError(
                 _("Source '%s' has no storage entry.", self.name)
             )
-        return entry.backend_id.get(entry.backend_path)
+        return entry.read_bytes()
 
     def _extract(self):
         """Run extraction for this source. Queue job body."""
@@ -158,19 +159,19 @@ class KnowledgeSource(models.Model):
         self.write({"state": "extracting"})
         try:
             output = adapter.extract(self)
-        except Exception as err:  # noqa: BLE001
+        except Exception:  # noqa: BLE001
             _logger.exception("Extraction failed for source %s", self.name)
             self.write({"state": "error"})
-            raise UserError(
-                _("Extraction failed for '%s': %s", self.name, err)
-            ) from err
+            self.kb_id._refresh_state()
+            return
         fmt = getattr(adapter, "_output_format", "md") or "md"
         path = "%s/content.%s" % (self.id, fmt)
         if fmt == "json" and not isinstance(output, (str, bytes)):
             output = json.dumps(output, ensure_ascii=False, default=str)
         if isinstance(output, str):
             output = output.encode("utf-8")
-        self.kb_id.md_backend_id.add(path, output)
+        with self.kb_id.md_backend_id.open(path, "wb") as stream:
+            stream.write(output)
         self.write(
             {"state": "extracted", "last_extraction": fields.Datetime.now()}
         )

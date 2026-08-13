@@ -39,31 +39,26 @@ class FtpCase(CommonCase, BackendStorageTestMixin):
 
     @mock.patch(MOD_PATH + ".ftp_mkdirs")
     @mock.patch(FTP_LIB_PATH)
-    def test_add(self, mocked_ftplib, mocked_mkdirs):
+    def test_open_write(self, mocked_ftplib, mocked_mkdirs):
         client = mocked_ftplib.FTP().__enter__()
         # simulate errors
         exc = OSError()
         # general
         client.cwd.side_effect = exc
         with self.assertRaises(IOError):
-            self.backend.add("fake/path", b"fake data")
+            with self.backend.open("fake/path", "wb") as stream:
+                stream.write(b"fake data")
         # not found
         exc.errno = errno.ENOENT
         client.cwd.side_effect = exc
-        file_data = b"fake data"
-        with mock.patch("io.BytesIO") as tmp_file:
-            self.backend.add("fake/path", file_data)
-            # mkdirs has been called
-            mocked_mkdirs.assert_called()
-            client.storbinary.assert_called()
-            tmp_file.assert_called()
-            tmp_file.assert_called_with(file_data)
-        client.storbinary.assert_called_with(
-            "STOR upload/fake/path", tmp_file().__enter__()
-        )
+        with self.backend.open("fake/path", "wb") as stream:
+            stream.write(b"fake data")
+        # mkdirs has been called
+        mocked_mkdirs.assert_called()
+        client.storbinary.assert_called()
 
     @mock.patch(FTP_LIB_PATH)
-    def test_get(self, mocked_ftplib):
+    def test_open_read(self, mocked_ftplib):
         client = mocked_ftplib.FTP().__enter__()
         content = b"filecontent"
         with open("/tmp/fakefile2.txt", "w+b") as fakefile:
@@ -78,7 +73,8 @@ class FtpCase(CommonCase, BackendStorageTestMixin):
                 buff_write(tmp_file.read())
 
         client.retrbinary.side_effect = side_effect_retrbinary
-        self.assertEqual(self.backend.get("fake/path"), content)
+        with self.backend.open("fake/path", "rb") as stream:
+            self.assertEqual(stream.read(), content)
 
     @mock.patch(FTP_LIB_PATH)
     def test_list(self, mocked_ftplib):
@@ -159,5 +155,6 @@ class FtpCase(CommonCase, BackendStorageTestMixin):
         client.cwd.side_effect = exc
         client.mkd.side_effect = exc
         with self.assertRaises(OSError):
-            self.backend.add("fake/path", b"fake data")
+            with self.backend.open("fake/path", "wb") as stream:
+                stream.write(b"fake data")
         client.mkd.assert_called()

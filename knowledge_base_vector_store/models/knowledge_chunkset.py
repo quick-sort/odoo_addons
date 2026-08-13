@@ -112,7 +112,8 @@ class KnowledgeChunkset(models.Model):
             source.output_format or "md",
         )
         try:
-            raw = backend.get(content_path)
+            with backend.open(content_path, "rb") as stream:
+                raw = stream.read()
         except Exception:  # noqa: BLE001
             _logger.warning("No extracted content at %s, skipping", content_path)
             return
@@ -122,7 +123,8 @@ class KnowledgeChunkset(models.Model):
         for index, part in enumerate(parts, start=1):
             path = "%s/chunks/%s/%s.md" % (source.id, self.id, index)
             data = part.encode("utf-8")
-            backend.add(path, data)
+            with backend.open(path, "wb") as stream:
+                stream.write(data)
             self.env["knowledge.chunk"].create(
                 {
                     "chunkset_id": self.id,

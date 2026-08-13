@@ -119,10 +119,8 @@ class TestVectorize(TransactionComponentCase):
     def _seed_extracted(self, content):
         source = self._add_file_source("doc.md", content)
         source.write({"state": "extracted"})
-        self.md_backend.add(
-            "%s/content.md" % source.id,
-            content.encode("utf-8"),
-        )
+        with self.md_backend.open("%s/content.md" % source.id, "wb") as stream:
+            stream.write(content.encode("utf-8"))
         return source
 
     def _create_splitter(self, chunk_size=30):

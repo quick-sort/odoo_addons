@@ -1,6 +1,8 @@
 # Copyright 2026 One Storage
 # License LGPL-3.0 or later (http://www.gnu.org/licenses/lgpl.html)
 
+from unittest import mock
+
 from odoo.addons.component.exception import NoComponentError
 
 from .common import OneStorageCommon
@@ -10,16 +12,19 @@ class TestAdapterLookup(OneStorageCommon):
     """The storage backend (delegated to storage_backend) provides the
     unified add/get/list/delete interface used by entries."""
 
-    def test_unified_add_get_delete(self):
-        self.backend.add("a/b.txt", b"hello")
-        self.assertEqual(self.backend.get("a/b.txt"), b"hello")
+    def test_unified_open_delete(self):
+        with self.backend.open("a/b.txt", "wb") as stream:
+            stream.write(b"hello")
+        with self.backend.open("a/b.txt", "rb") as stream:
+            self.assertEqual(stream.read(), b"hello")
         names = self.backend.list_files("a")
         self.assertIn("b.txt", names)
         self.backend.delete("a/b.txt")
         self.assertEqual(self.backend.list_files("a"), [])
 
     def test_get_size(self):
-        self.backend.add("img.png", b"payload")
+        with self.backend.open("img.png", "wb") as stream:
+            stream.write(b"payload")
         self.assertEqual(self.backend.get_size("img.png"), len(b"payload"))
 
     def test_validate_config_ok(self):
@@ -29,10 +34,13 @@ class TestAdapterLookup(OneStorageCommon):
         unknown = self.env["storage.backend"].create(
             {"name": "ghost", "backend_type": "filesystem"}
         )
-        # monkeypatch to force an unregistered usage
-        unknown.backend_type = "does_not_exist"
-        with self.assertRaises((NoComponentError, KeyError, ValueError)):
-            unknown._get_adapter()
+        # ``backend_type`` is a server-env computed field, so it cannot be set
+        # to an unregistered usage through the field (the selection rejects it
+        # and there is no column to update). Patch it directly to simulate a
+        # backend whose adapter component is no longer registered.
+        with mock.patch.object(type(unknown), "backend_type", "does_not_exist"):
+            with self.assertRaises(NoComponentError):
+                unknown._get_adapter()
 
 
 class TestBindMount(OneStorageCommon):

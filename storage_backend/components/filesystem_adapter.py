@@ -6,6 +6,7 @@ import logging
 import os
 import shutil
 import stat as stat_mod
+from contextlib import contextmanager
 
 from odoo.exceptions import AccessError
 
@@ -38,19 +39,15 @@ class FileSystemStorageBackend(Component):
             raise AccessError(self.env._("Access to %s is forbidden") % full_path)
         return full_path
 
-    def add(self, relative_path, data, **kwargs):
+    @contextmanager
+    def open(self, relative_path, mode="rb", **kwargs):
         full_path = self._fullpath(relative_path)
-        dirname = os.path.dirname(full_path)
-        if not os.path.isdir(dirname):
-            os.makedirs(dirname)
-        with open(full_path, "wb") as my_file:
-            my_file.write(data)
-
-    def get(self, relative_path, **kwargs):
-        full_path = self._fullpath(relative_path)
-        with open(full_path, "rb") as my_file:
-            data = my_file.read()
-        return data
+        if "w" in mode:
+            dirname = os.path.dirname(full_path)
+            if not os.path.isdir(dirname):
+                os.makedirs(dirname)
+        with open(full_path, mode) as my_file:
+            yield my_file
 
     def list(self, relative_path="", limit=None, detail=False):
         full_path = self._fullpath(relative_path)
@@ -104,7 +101,8 @@ class FileSystemStorageBackend(Component):
         # through the same path the real operations use, then cleaning it up.
         probe_name = ".storage_backend_probe_%d_%d" % (os.getpid(), id(base_dir))
         try:
-            self.add(probe_name, b"storage backend connection test")
+            with self.open(probe_name, "wb") as probe_file:
+                probe_file.write(b"storage backend connection test")
         except OSError as err:
             raise AccessError(
                 self.env._("Could not write to directory %s: %s") % (base_dir, err)

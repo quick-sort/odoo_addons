@@ -16,9 +16,7 @@ class TestBatchOperations(OneStorageCommon):
         with trap_jobs() as trap:
             entry.action_batch_delete()
             trap.assert_jobs_count(1)
-            trap.assert_enqueued_job(
-                self.env["one.storage.entry"]._batch_delete
-            )
+            trap.assert_enqueued_job(entry._batch_delete)
             trap.perform_enqueued_jobs()
         self.assertFalse(entry.exists())
 
@@ -26,9 +24,7 @@ class TestBatchOperations(OneStorageCommon):
         with trap_jobs() as trap:
             self.root_folder.action_sync_from_backend()
             trap.assert_jobs_count(1)
-            trap.assert_enqueued_job(
-                self.env["one.storage.entry"]._sync_from_backend
-            )
+            trap.assert_enqueued_job(self.root_folder._sync_from_backend)
 
     def test_operation_run_creates_job(self):
         op = self.env["one.storage.operation"].create(
