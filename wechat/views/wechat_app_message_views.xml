@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_wechat_app_message_tree" model="ir.ui.view">
+        <field name="name">wechat.app.message.tree</field>
+        <field name="model">wechat.app.message</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="create_date" string="创建时间"/>
+                <field name="app_id"/>
+                <field name="name"/>
+                <field name="msg_type"/>
+                <field name="source" optional="show"/>
+                <field name="send_date"/>
+                <field name="state" widget="badge" decoration-success="state == 'sent'" decoration-danger="state == 'failed'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_wechat_app_message_form" model="ir.ui.view">
+        <field name="name">wechat.app.message.form</field>
+        <field name="model">wechat.app.message</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button string="发布" name="action_publish" type="object" class="oe_highlight" invisible="state == 'sent'"/>
+                    <field name="state" widget="statusbar"/>
+                </header>
+                <sheet>
+                    <field name="company_id" invisible="1"/>
+                    <group col="2">
+                        <group>
+                            <field name="app_id"/>
+                            <field name="name"/>
+                            <field name="msg_type"/>
+                            <field name="url" invisible="msg_type == 'mpnews'" required="msg_type != 'mpnews'"/>
+                            <field name="image_url" invisible="msg_type != 'news'" required="msg_type == 'news'"/>
+                            <field name="btn_text" invisible="msg_type != 'textcard'"/>
+                            <field name="source" invisible="source == 'manual'"/>
+                            <field name="source_ref" invisible="not source_ref"/>
+                        </group>
+                        <group string="接收范围">
+                            <field name="send_to_all"/>
+                            <field name="user_ids" widget="many2many_tags"
+                                   domain="[('company_id', '=', company_id)]"
+                                   invisible="send_to_all == True"/>
+                            <field name="department_ids" widget="many2many_tags"
+                                   domain="[('company_id', '=', company_id)]"
+                                   invisible="send_to_all == True"/>
+                            <field name="touser" invisible="send_to_all == True" placeholder="user1|user2"/>
+                            <field name="toparty" invisible="send_to_all == True" placeholder="1|2"/>
+                            <field name="totag" invisible="send_to_all == True"/>
+                        </group>
+                    </group>
+                    <group string="描述" invisible="msg_type == 'mpnews'">
+                        <field name="description" nolabel="1" placeholder="消息描述内容..."/>
+                    </group>
+                    <group string="图文素材内容" invisible="msg_type != 'mpnews'">
+                        <group>
+                            <field name="thumb_image" widget="image" options="{'size': [0, 200], 'zoom': true}"
+                                   filename="thumb_image_filename" readonly="state == 'sent'"
+                                   required="msg_type == 'mpnews'"/>
+                            <field name="thumb_image_filename" invisible="1"/>
+                            <field name="author"/>
+                            <field name="show_cover_pic"/>
+                            <field name="content_source_url"/>
+                            <field name="digest"/>
+                            <field name="content_image" widget="image" options="{'size': [0, 200], 'zoom': true}"
+                                   filename="content_image_filename" readonly="state == 'sent'"
+                                   invisible="not content_image"/>
+                            <field name="content_image_filename" invisible="1"/>
+                        </group>
+                        <div class="alert alert-info mb-2" role="alert" invisible="state == 'sent'">
+                            企业微信正文渲染要求较严格：仅支持内联(inline)样式，不支持 &lt;style&gt;/&lt;script&gt;/外部CSS；
+                            图片必须使用下方“正文图片上传”得到的URL；避免使用 position:fixed、flex/grid 等复杂布局
+                            （企微PC客户端内置浏览器较旧，兼容性差），建议使用简单的 div/table + 行内style排版。
+                            点击右侧“预览正文”可在浏览器中查看近似渲染效果（不会模拟企微服务端的过滤逻辑）。
+                        </div>
+                        <div class="mb-2">
+                            <button string="预览正文" name="action_preview_content" type="object"
+                                    class="btn btn-secondary" icon="fa-eye"/>
+                        </div>
+                        <!-- 草稿/发送失败：编辑HTML源码；已发送：直接渲染正文，不再显示编辑器 -->
+                        <field name="content" widget="ace" options="{'mode': 'xml'}"
+                               invisible="state == 'sent'"
+                               required="msg_type == 'mpnews' and not content_image"/>
+                        <field name="content" widget="wechat_html_preview" nolabel="1" readonly="1"
+                               options="{'height': 700}" invisible="state != 'sent'"/>
+                    </group>
+                    <group string="发送结果" invisible="state == 'draft'">
+                        <field name="send_date"/>
+                        <field name="thumb_media_id" invisible="msg_type != 'mpnews'"/>
+                        <field name="invalid_user"/>
+                        <field name="invalid_party"/>
+                        <field name="invalid_tag"/>
+                        <field name="result"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record model="ir.actions.act_window" id="wechat_app_message_action">
+        <field name="name">发布历史</field>
+        <field name="res_model">wechat.app.message</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+</odoo>

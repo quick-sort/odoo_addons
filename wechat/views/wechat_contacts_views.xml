@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_wechat_department_tree" model="ir.ui.view">
+        <field name="name">wechat.department.tree</field>
+        <field name="model">wechat.department</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="company_id" optional="show"/>
+                <field name="name"/>
+                <field name="parent_id"/>
+                <field name="wechat_id"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_wechat_department_form" model="ir.ui.view">
+        <field name="name">wechat.department.form</field>
+        <field name="model">wechat.department</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group col="2">
+                        <group>
+                            <field name="company_id" options="{'no_open': True, 'no_create': True}"/>
+                            <field name="name"/>
+                            <field name="parent_id"/>
+                        </group>
+                        <group>
+                            <field name="wechat_id"/>
+                            <field name="department_leader"/>
+                            <field name="wechat_order"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record model="ir.actions.act_window" id="wechat_department_action">
+        <field name="name">企微部门</field>
+        <field name="res_model">wechat.department</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="view_wechat_user_tree" model="ir.ui.view">
+        <field name="name">wechat.user.tree</field>
+        <field name="model">wechat.user</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="company_id" optional="show"/>
+                <field name="name"/>
+                <field name="wechat_id"/>
+                <field name="main_department_id"/>
+                <field name="position"/>
+                <field name="status"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_wechat_user_form" model="ir.ui.view">
+        <field name="name">wechat.user.form</field>
+        <field name="model">wechat.user</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group col="2">
+                        <group>
+                            <field name="company_id" options="{'no_open': True, 'no_create': True}"/>
+                            <field name="name"/>
+                            <field name="wechat_id"/>
+                            <field name="alias"/>
+                            <field name="job_number"/>
+                            <field name="position"/>
+                        </group>
+                        <group>
+                            <field name="main_department_id"/>
+                            <field name="department_ids" widget="many2many_tags"/>
+                            <field name="mobile"/>
+                            <field name="email"/>
+                            <field name="gender"/>
+                            <field name="status"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record model="ir.actions.act_window" id="wechat_user_action">
+        <field name="name">企微成员</field>
+        <field name="res_model">wechat.user</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+</odoo>
