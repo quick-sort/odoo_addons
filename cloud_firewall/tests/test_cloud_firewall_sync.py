@@ -101,7 +101,7 @@ class TestSyncConfig(TransactionCase):
         ):
             self.env["cloud.firewall.target"].cron_sync_all()
 
-    def test_cron_sync_all_skips_when_ip_unchanged(self):
+    def test_cron_sync_all_runs_when_ip_unchanged(self):
         config = self.env["cloud.firewall.sync.config"]._get_singleton()
         config.current_ip = "203.0.113.7"
         with mock.patch.object(
@@ -110,7 +110,8 @@ class TestSyncConfig(TransactionCase):
             type(self.env["cloud.firewall.target"]), "action_sync_now"
         ) as sync_mock:
             self.env["cloud.firewall.target"].cron_sync_all()
-        sync_mock.assert_not_called()
+        # IP 未变化也要检查白名单，必须触发同步
+        sync_mock.assert_called_once()
 
     def test_cron_sync_all_runs_when_ip_changed(self):
         config = self.env["cloud.firewall.sync.config"]._get_singleton()
@@ -285,6 +286,63 @@ class TestSyncConfig(TransactionCase):
             target.action_sync_rules()
         # 本地未推送的规则保留，不因云端缺失被删
         self.assertEqual(len(target.rules_ids), 1)
+
+    def test_rule_delete_syncs_cloud(self):
+        target = self._make_tencent_target()
+        Rule = self.env["cloud.firewall.rule"]
+        Rule.create(
+            {"target_id": target.id, "protocol": "TCP", "port": "ALL",
+             "cidr": "203.0.113.7/32", "remote": True}
+        )
+        gone = Rule.create(
+            {"target_id": target.id, "protocol": "UDP", "port": "ALL",
+             "cidr": "203.0.113.7/32", "remote": True}
+        )
+        fake_adapter = mock.MagicMock()
+        fake_adapter.push_rules.return_value = (0, 1, 0)
+        with mock.patch.object(
+            type(target), "_get_adapter", return_value=fake_adapter
+        ):
+            gone.unlink()
+        args = fake_adapter.push_rules.call_args[0]
+        self.assertEqual(args[0], target)
+        # 只把剩余规则推给云端，被删的 UDP 规则不在其中
+        self.assertEqual(len(args[1]), 1)
+        self.assertEqual(args[1][0]["protocol"], "TCP")
+        self.assertEqual(args[1][0]["cidr"], "203.0.113.7/32")
+
+    def test_rule_delete_last_does_not_clear_cloud(self):
+        target = self._make_tencent_target()
+        only = self.env["cloud.firewall.rule"].create(
+            {"target_id": target.id, "protocol": "TCP", "port": "ALL",
+             "cidr": "203.0.113.7/32", "remote": True}
+        )
+        fake_adapter = mock.MagicMock()
+        with mock.patch.object(
+            type(target), "_get_adapter", return_value=fake_adapter
+        ):
+            only.unlink()
+        # 本地删光时不自动清空云端，避免误删未同步的手工规则
+        fake_adapter.push_rules.assert_not_called()
+
+    def test_rule_delete_skip_ctx_no_push(self):
+        target = self._make_tencent_target()
+        Rule = self.env["cloud.firewall.rule"]
+        Rule.create(
+            {"target_id": target.id, "protocol": "TCP", "port": "ALL",
+             "cidr": "203.0.113.7/32", "remote": True}
+        )
+        gone = Rule.create(
+            {"target_id": target.id, "protocol": "UDP", "port": "ALL",
+             "cidr": "203.0.113.7/32", "remote": True}
+        )
+        fake_adapter = mock.MagicMock()
+        with mock.patch.object(
+            type(target), "_get_adapter", return_value=fake_adapter
+        ):
+            gone.with_context(_cloud_skip_push=True).unlink()
+        # 内部去重等操作携带 skip context，不触发联动推送
+        fake_adapter.push_rules.assert_not_called()
 
     def test_action_push_rules_replaces_old_ip(self):
         target = self._make_tencent_target()

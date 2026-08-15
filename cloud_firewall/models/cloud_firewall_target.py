@@ -111,7 +111,11 @@ class CloudFirewallTarget(models.Model):
         return False
 
     def _dedupe_local_rules(self):
-        """按归一化 (协议, 端口, 来源) 清理本地重复规则（如 /32 与不带 /32 并存）。"""
+        """按归一化 (协议, 端口, 来源) 清理本地重复规则（如 /32 与不带 /32 并存）。
+
+        去重只是修整本地缓存，不触发云端推送（推送由同步/推送流程统一处理）。
+        """
+        skip_ctx = {"_cloud_skip_push": True}
         seen = {}
         for rule in self.rules_ids:
             key = (rule.protocol, rule.port, norm_cidr(rule.cidr))
@@ -119,9 +123,9 @@ class CloudFirewallTarget(models.Model):
             if existing is None:
                 seen[key] = rule
             elif existing.remote and not rule.remote:
-                rule.unlink()
+                rule.with_context(**skip_ctx).unlink()
             else:
-                rule.unlink()
+                rule.with_context(**skip_ctx).unlink()
 
     def action_sync_rules(self):
         """同步规则：拉取云端规则导入/更新本地持久化列表（云端 → 本地）。"""
@@ -257,7 +261,11 @@ class CloudFirewallTarget(models.Model):
 
     @api.model
     def cron_sync_all(self):
-        """定时检查公网 IP：变化时才同步防火墙白名单，未变化则跳过。"""
+        """定时任务：即使公网 IP 未变化也检查白名单是否包含当前 IP。
+
+        逐目标执行 _sync_target：IP 已在本地白名单则跳过，不在则先拉取最新
+        防火墙列表、添加当前 IP 并推送到云端（保证 IP 始终在白名单内）。
+        """
         config = self.env["cloud.firewall.sync.config"]._get_singleton()
         try:
             new_ip = config._fetch_public_ip()
@@ -265,11 +273,11 @@ class CloudFirewallTarget(models.Model):
             _logger.error("云防火墙白名单定时检查失败: %s", exc)
             return
         if config.current_ip and config.current_ip == new_ip:
-            _logger.info("公网 IP 未变化 (%s)，跳过同步", new_ip)
-            return
-        _logger.info(
-            "公网 IP 已变化: %s -> %s，开始同步白名单",
-            config.current_ip or "(无)",
-            new_ip,
-        )
+            _logger.info("公网 IP 未变化 (%s)，检查白名单是否包含当前 IP", new_ip)
+        else:
+            _logger.info(
+                "公网 IP 已变化: %s -> %s，同步白名单",
+                config.current_ip or "(无)",
+                new_ip,
+            )
         self.action_sync_now()
