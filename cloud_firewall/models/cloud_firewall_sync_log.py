@@ -1,7 +1,7 @@
 # Copyright 2026 Rui
 # License LGPL-3.0 or later (http://www.gnu.org/licenses/lgpl.html)
 
-from odoo import fields, models
+from odoo import api, fields, models
 
 from .cloud_firewall_target import STATE_SELECTION
 
@@ -22,3 +22,18 @@ class CloudFirewallSyncLog(models.Model):
     ip_to = fields.Char(string="新 IP")
     state = fields.Selection(STATE_SELECTION, required=True, string="状态")
     message = fields.Text(string="详情")
+
+    @api.model
+    def _gc_unchanged_logs(self):
+        """无变化日志只保留最近 1 天，成功/失败日志永久保留。"""
+        cutoff = fields.Datetime.now().replace(
+            hour=0, minute=0, second=0, microsecond=0
+        ) - fields.Datetime.timedelta(days=1)
+        stale = self.search(
+            [
+                ("state", "=", "unchanged"),
+                ("create_date", "<", cutoff),
+            ]
+        )
+        if stale:
+            stale.unlink()

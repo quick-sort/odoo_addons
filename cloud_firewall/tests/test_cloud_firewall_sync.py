@@ -217,6 +217,46 @@ class TestSyncConfig(TransactionCase):
         cron_mock.assert_called_once()
         self.assertEqual(notification["params"]["type"], "success")
 
+    def test_gc_unchanged_logs_keeps_recent_and_other_states(self):
+        from datetime import timedelta
+
+        from odoo.fields import Datetime
+
+        Log = self.env["cloud.firewall.sync.log"]
+        account = self.env["cloud.account"].create(
+            {"name": "DO 账号", "provider": "digitalocean", "do_api_token": "t"}
+        )
+        target = self.env["cloud.firewall.target"].create(
+            {"name": "fw1", "account_id": account.id, "resource_id": "fw-1"}
+        )
+        now = Datetime.now()
+        old_unchanged = Log.create(
+            {"target_id": target.id, "state": "unchanged", "message": "old"}
+        )
+        recent_unchanged = Log.create(
+            {"target_id": target.id, "state": "unchanged", "message": "recent"}
+        )
+        old_success = Log.create(
+            {"target_id": target.id, "state": "success", "message": "keep"}
+        )
+        old_failed = Log.create(
+            {"target_id": target.id, "state": "failed", "message": "keep"}
+        )
+        # 直接改 create_date 模拟新旧（绕过 readonly）
+        cutoff = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(
+            days=1
+        )
+        old_unchanged.create_date = cutoff - timedelta(hours=1)
+        old_success.create_date = cutoff - timedelta(days=10)
+        old_failed.create_date = cutoff - timedelta(days=10)
+        recent_unchanged.create_date = now - timedelta(hours=1)
+        Log._gc_unchanged_logs()
+        remaining = Log.search([("target_id", "=", target.id)])
+        self.assertIn(old_success.id, remaining.ids)
+        self.assertIn(old_failed.id, remaining.ids)
+        self.assertIn(recent_unchanged.id, remaining.ids)
+        self.assertNotIn(old_unchanged.id, remaining.ids)
+
     def _make_tencent_target(self):
         account = self.env["cloud.account"].create(
             {

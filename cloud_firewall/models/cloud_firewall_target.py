@@ -267,6 +267,7 @@ class CloudFirewallTarget(models.Model):
         config.write(
             {"current_ip": new_ip, "last_sync": fields.Datetime.now()}
         )
+        self.env["cloud.firewall.sync.log"]._gc_unchanged_logs()
         failed = counters["failed"]
         return {
             "type": "ir.actions.client",
