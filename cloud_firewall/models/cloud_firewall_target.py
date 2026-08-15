@@ -214,6 +214,33 @@ class CloudFirewallTarget(models.Model):
             },
         }
 
+    def action_clear_rules(self):
+        """清空防火墙规则：本地持久化列表与云端全部清空。"""
+        self.ensure_one()
+        count = len(self.rules_ids)
+        if not count:
+            raise UserError(_("本地规则列表已经为空，无需清空"))
+        # 先清云端（推送空列表），成功后再清本地：云端失败时本地规则保留可重试，
+        # 避免出现"本地已空、云端还有规则"的半状态
+        try:
+            self._get_adapter().push_rules(self, [])
+        except Exception:
+            _logger.exception(
+                "清空防火墙规则同步云端失败: %s", self.display_name
+            )
+            raise UserError(_("清空云端防火墙规则失败，本地规则已保留，请稍后重试"))
+        self.rules_ids.with_context(_cloud_skip_push=True).unlink()
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": _("清空规则"),
+                "message": _("已清空本地与云端防火墙规则（共 %s 条）", count),
+                "type": "success",
+                "next": {"type": "ir.actions.client", "tag": "reload"},
+            },
+        }
+
     def action_sync_now(self):
         """立即同步：列表按钮与 ir.cron 共用入口。"""
         config = self.env["cloud.firewall.sync.config"]._get_singleton()

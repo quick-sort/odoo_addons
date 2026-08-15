@@ -36,6 +36,10 @@
                     <button name="action_push_rules" type="object" string="推送规则"
                             icon="fa-upload"
                             groups="cloud.group_cloud_manager"/>
+                    <button name="action_clear_rules" type="object" string="清空规则"
+                            icon="fa-trash" class="btn-outline-danger"
+                            groups="cloud.group_cloud_manager"
+                            confirm="确定清空该目标的全部防火墙规则（本地与云端）？此操作不可恢复！"/>
                 </header>
                 <sheet>
                     <div class="oe_title">

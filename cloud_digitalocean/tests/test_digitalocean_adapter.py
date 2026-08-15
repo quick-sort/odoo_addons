@@ -67,6 +67,101 @@ class TestPushRules(TransactionCase):
         self.assertIn("PUT", methods)
         self.assertNotIn("POST", methods)
 
+    def test_push_rules_all_port_matches_cloud_zero(self):
+        from unittest import mock
+
+        adapter = self._adapter()
+        # 云端用 "0" 表示所有端口，本地用 "ALL"：同一规则，不能误判为不同触发删除
+        adapter.list_rules = mock.MagicMock(
+            return_value=[
+                {"protocol": "tcp", "port": "0", "cidr": "1.2.3.4",
+                 "action": "allow",
+                 "description": "Auto whitelist 1.2.3.4 (all ports)"},
+            ]
+        )
+        target = mock.MagicMock(resource_id="fw-1")
+        local = [
+            {"protocol": "TCP", "port": "ALL", "cidr": "1.2.3.4",
+             "action": "ACCEPT",
+             "description": "Auto whitelist 1.2.3.4 (all ports)"},
+        ]
+        added, removed, _updated = adapter.push_rules(target, local)
+        self.assertEqual((added, removed), (0, 0))
+        adapter._do_api.assert_not_called()
+
+    def test_push_rules_uses_put_when_removing_all(self):
+        from unittest import mock
+
+        adapter = self._adapter()
+        # 换 IP：云端旧 IP 全量被替换，先 DELETE 会把防火墙删空触发 422，
+        # 应改用 PUT 一次性替换最终状态
+        adapter.list_rules = mock.MagicMock(
+            return_value=[
+                {"protocol": "tcp", "port": "ALL", "cidr": "198.51.100.1",
+                 "action": "allow", "description": ""},
+                {"protocol": "udp", "port": "ALL", "cidr": "198.51.100.1",
+                 "action": "allow", "description": ""},
+            ]
+        )
+        adapter._do_api.return_value = {"firewall": {"name": "Home"}}
+        target = mock.MagicMock(resource_id="fw-1")
+        local = [
+            {"protocol": "TCP", "port": "ALL", "cidr": "203.0.113.7",
+             "action": "ACCEPT", "description": ""},
+            {"protocol": "UDP", "port": "ALL", "cidr": "203.0.113.7",
+             "action": "ACCEPT", "description": ""},
+        ]
+        added, removed, _updated = adapter.push_rules(target, local)
+        self.assertEqual((added, removed), (2, 2))
+        methods = [args[0][0] for args in adapter._do_api.call_args_list]
+        self.assertIn("PUT", methods)
+        self.assertNotIn("DELETE", methods)
+        put_payload = next(
+            args[1]["json_payload"]
+            for args in adapter._do_api.call_args_list
+            if args[0][0] == "PUT"
+        )
+        self.assertEqual(len(put_payload["inbound_rules"]), 2)
+        self.assertEqual(put_payload["inbound_rules"][0]["ports"], "0")
+
+    def test_push_rules_empty_local_raises(self):
+        from unittest import mock
+
+        adapter = self._adapter()
+        adapter.list_rules = mock.MagicMock(return_value=[])
+        target = mock.MagicMock(resource_id="fw-1")
+        from odoo.exceptions import UserError
+
+        with self.assertRaises(UserError):
+            adapter.push_rules(target, [])
+
+    def test_to_do_rule_uses_zero_for_all_ports(self):
+        adapter = self._adapter()
+        rule = adapter._to_do_rule
+        self.assertEqual(rule({"port": "ALL"})["ports"], "0")
+        self.assertEqual(rule({"port": ""})["ports"], "0")
+        self.assertEqual(rule({"port": "443"})["ports"], "443")
+
+    def test_list_rules_normalizes_zero_port_to_all(self):
+        from unittest import mock
+
+        adapter = self._adapter()
+        adapter._do_api.return_value = {
+            "firewall": {
+                "inbound_rules": [
+                    {"protocol": "tcp", "ports": "0",
+                     "sources": {"addresses": ["1.2.3.4/32"]},
+                     "action": "allow", "description": ""},
+                    {"protocol": "tcp", "ports": "443",
+                     "sources": {"addresses": ["5.6.7.8/32"]},
+                     "action": "allow", "description": "ssh"},
+                ]
+            }
+        }
+        rules = adapter.list_rules(mock.MagicMock(resource_id="fw-1"))
+        self.assertEqual(rules[0]["port"], "ALL")
+        self.assertEqual(rules[1]["port"], "443")
+
 
 class TestComputeInboundRules(TransactionCase):
     def test_removes_expired_marker_and_adds_new(self):

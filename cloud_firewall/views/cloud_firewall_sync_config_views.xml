@@ -9,6 +9,10 @@
                     <button name="action_fetch_current_ip" type="object" string="获取当前 IP"
                             class="btn-primary" icon="fa-globe"
                             groups="cloud.group_cloud_manager"/>
+                    <button name="action_run_cron" type="object" string="执行定时同步"
+                            icon="fa-clock-o"
+                            groups="cloud.group_cloud_manager"
+                            confirm="立即对所有启用的防火墙目标执行一次定时同步？"/>
                 </header>
                 <sheet>
                     <div class="oe_title">

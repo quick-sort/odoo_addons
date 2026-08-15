@@ -19,6 +19,16 @@ def _described_ips(description):
     return {m.group(1) for m in _IP_IN_DESC.finditer(description or "")}
 
 
+def _norm_port(port):
+    """把端口统一为本地约定值。
+
+    DO 用 ``"0"``（或空）表示所有端口，本地/腾讯约定用 ``"ALL"``。不做归一化
+    会导致同一条"所有端口"规则在比较时被误判为不同，触发误删重建。
+    """
+    port = str(port or "")
+    return "ALL" if port.upper() in ("ALL", "0") else port
+
+
 def compute_inbound_rules(current_rules, new_ip):
     """计算期望的 DO 入站规则集。
 
@@ -125,7 +135,7 @@ class DigitalOceanFirewallAdapter(Component):
         return [
             {
                 "protocol": rule.get("protocol"),
-                "port": rule.get("ports"),
+                "port": _norm_port(rule.get("ports")),
                 "cidr": norm_cidr(
                     ", ".join((rule.get("sources") or {}).get("addresses") or [])
                 ),
@@ -141,9 +151,10 @@ class DigitalOceanFirewallAdapter(Component):
 
     @staticmethod
     def _to_do_rule(rule):
+        port = _norm_port(rule.get("port"))
         return {
             "protocol": (rule.get("protocol") or "TCP").lower(),
-            "ports": rule.get("port") or "0",
+            "ports": "0" if port == "ALL" else port,
             "sources": {"addresses": [ensure_cidr(rule.get("cidr") or "")]},
             "action": "allow",
             "description": rule.get("description") or "",
@@ -151,11 +162,16 @@ class DigitalOceanFirewallAdapter(Component):
 
     def push_rules(self, target, local_rules):
         current = self.list_rules(target)
+        if not local_rules:
+            # DO 防火墙必须至少保留一条入站/出站规则，无法清空为无规则状态
+            raise UserError(
+                _("DigitalOcean 防火墙必须至少保留一条规则，无法清空全部规则")
+            )
 
         def key(rule):
             return (
                 str(rule.get("protocol") or "").lower(),
-                str(rule.get("port") or ""),
+                _norm_port(rule.get("port")),
                 norm_cidr(str(rule.get("cidr") or "")),
             )
 
@@ -205,6 +221,23 @@ class DigitalOceanFirewallAdapter(Component):
                 if key(remote) == key_
             ):
                 to_add.append(local)
+
+        # DO 防火墙不允许为空：删除会覆盖全部当前规则（如本地 IP 整体替换、
+        # 云端与本地内容全量差异）时，先 DELETE 会让防火墙瞬间无规则触发 422
+        # "must have at least one rule"，改用 PUT 一次性替换最终状态。
+        if to_delete and len(to_delete) >= len(current):
+            firewall = self._do_api(
+                "GET", f"/firewalls/{target.resource_id}"
+            ).get("firewall", {})
+            payload = {
+                "name": firewall.get("name", ""),
+                "inbound_rules": [self._to_do_rule(rule) for rule in local_rules],
+                "outbound_rules": firewall.get("outbound_rules") or [],
+                "droplet_ids": firewall.get("droplet_ids") or [],
+                "tags": firewall.get("tags") or [],
+            }
+            self._do_api("PUT", f"/firewalls/{target.resource_id}", payload)
+            return len(to_add), len(to_delete), 0
 
         if to_delete:
             self._do_api(

@@ -2,11 +2,14 @@
 # License LGPL-3.0 or later (http://www.gnu.org/licenses/lgpl.html)
 
 import ipaddress
+import logging
 import socket
 from urllib.parse import urlsplit, urlunsplit
 
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
+
+_logger = logging.getLogger(__name__)
 
 DEFAULT_IP_SERVICE_URL = "http://ipaddress.ai/json"
 
@@ -54,6 +57,30 @@ class CloudFirewallSyncConfig(models.Model):
                 "message": _("当前公网 IP: %s", ip),
                 "type": "success",
                 # 弹消息后重载当前视图，让表单刷新显示最新 IP
+                "next": {"type": "ir.actions.client", "tag": "reload"},
+            },
+        }
+
+    def action_run_cron(self):
+        """手工触发定时同步（与 ir.cron 同一入口，供测试与立即执行）。"""
+        self.ensure_one()
+        try:
+            self.env["cloud.firewall.target"].cron_sync_all()
+        except Exception as exc:
+            _logger.exception("手工触发防火墙同步失败")
+            raise UserError(_("执行定时同步失败: %s", exc)) from exc
+        config = self.env["cloud.firewall.sync.config"]._get_singleton()
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": _("定时同步"),
+                "message": _(
+                    "同步完成，当前 IP: %(ip)s，最近同步: %(when)s",
+                    ip=config.current_ip or "-",
+                    when=config.last_sync or "-",
+                ),
+                "type": "success",
                 "next": {"type": "ir.actions.client", "tag": "reload"},
             },
         }

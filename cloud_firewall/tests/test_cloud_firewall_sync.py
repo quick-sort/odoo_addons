@@ -208,6 +208,15 @@ class TestSyncConfig(TransactionCase):
         self.assertEqual(config.current_ip, "203.0.113.99")
         self.assertIn("203.0.113.99", notification["params"]["message"])
 
+    def test_action_run_cron_triggers_sync(self):
+        config = self.env["cloud.firewall.sync.config"]._get_singleton()
+        with mock.patch.object(
+            type(self.env["cloud.firewall.target"]), "cron_sync_all"
+        ) as cron_mock:
+            notification = config.action_run_cron()
+        cron_mock.assert_called_once()
+        self.assertEqual(notification["params"]["type"], "success")
+
     def _make_tencent_target(self):
         account = self.env["cloud.account"].create(
             {
@@ -343,6 +352,51 @@ class TestSyncConfig(TransactionCase):
             gone.with_context(_cloud_skip_push=True).unlink()
         # 内部去重等操作携带 skip context，不触发联动推送
         fake_adapter.push_rules.assert_not_called()
+
+    def test_action_clear_rules_clears_local_and_cloud(self):
+        target = self._make_tencent_target()
+        Rule = self.env["cloud.firewall.rule"]
+        Rule.create(
+            [
+                {"target_id": target.id, "protocol": "TCP", "port": "ALL",
+                 "cidr": "203.0.113.7/32", "remote": True},
+                {"target_id": target.id, "protocol": "UDP", "port": "ALL",
+                 "cidr": "203.0.113.7/32", "remote": True},
+            ]
+        )
+        fake_adapter = mock.MagicMock()
+        fake_adapter.push_rules.return_value = (0, 2, 0)
+        with mock.patch.object(
+            type(target), "_get_adapter", return_value=fake_adapter
+        ):
+            notification = target.action_clear_rules()
+        # 推空列表给云端清空
+        self.assertEqual(fake_adapter.push_rules.call_args[0][1], [])
+        # 本地规则清空
+        self.assertFalse(target.rules_ids)
+        self.assertEqual(notification["params"]["type"], "success")
+        self.assertIn("2 条", notification["params"]["message"])
+
+    def test_action_clear_rules_empty_raises(self):
+        target = self._make_tencent_target()
+        with self.assertRaises(exceptions.UserError):
+            target.action_clear_rules()
+
+    def test_action_clear_rules_push_failure_keeps_local(self):
+        target = self._make_tencent_target()
+        self.env["cloud.firewall.rule"].create(
+            {"target_id": target.id, "protocol": "TCP", "port": "ALL",
+             "cidr": "203.0.113.7/32", "remote": True}
+        )
+        fake_adapter = mock.MagicMock()
+        fake_adapter.push_rules.side_effect = exceptions.UserError("api down")
+        with mock.patch.object(
+            type(target), "_get_adapter", return_value=fake_adapter
+        ):
+            with self.assertRaises(exceptions.UserError):
+                target.action_clear_rules()
+        # 云端失败时本地规则保留，可重试
+        self.assertEqual(len(target.rules_ids), 1)
 
     def test_action_push_rules_replaces_old_ip(self):
         target = self._make_tencent_target()
