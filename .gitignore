@@ -3,6 +3,7 @@ __pycache__/
 *.py[codz]
 *$py.class
 
+.playwright-mcp/
 # C extensions
 *.so
 

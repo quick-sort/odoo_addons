@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_cloud_account_list" model="ir.ui.view">
+        <field name="name">cloud.account.list</field>
+        <field name="model">cloud.account</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="provider"/>
+                <field name="target_count" string="资源数量"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_cloud_account_form" model="ir.ui.view">
+        <field name="name">cloud.account.form</field>
+        <field name="model">cloud.account</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_test_connection" type="object" string="测试连接"
+                            icon="fa-plug"
+                            groups="cloud.group_cloud_manager"/>
+                    <button name="action_fetch_targets" type="object" string="拉取防火墙目标"
+                            class="btn-primary" icon="fa-download"
+                            groups="cloud.group_cloud_manager"/>
+                </header>
+                <sheet>
+                    <widget name="web_ribbon" title="归档" bg_color="text-bg-danger"
+                            invisible="active"/>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name" placeholder="例如：我的 DigitalOcean 账号"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="active" widget="boolean_toggle"/>
+                            <field name="provider"/>
+                        </group>
+                        <group>
+                            <field name="target_count" invisible="1"/>
+                        </group>
+                    </group>
+                    <!-- 云服务商模块通过 xpath 在此注入凭证字段；
+                         cloud_firewall 通过继承视图追加防火墙目标页 -->
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_cloud_account" model="ir.actions.act_window">
+        <field name="name">云账号</field>
+        <field name="res_model">cloud.account</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>

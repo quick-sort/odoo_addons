@@ -18,7 +18,7 @@
                     <button
                         type="action"
                         name="%(storage_backend.action_storage_backend_file_list_wizard)d"
-                        string="List Files"
+                        string="Manage Files"
                         icon="fa-folder-open"
                     />
                     <button

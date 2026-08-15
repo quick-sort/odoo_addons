@@ -4,7 +4,7 @@
         <field name="name">storage.backend.file.list.wizard.form</field>
         <field name="model">storage.backend.file.list.wizard</field>
         <field name="arch" type="xml">
-            <form string="List Files">
+            <form string="Manage Files">
                 <field name="has_more" invisible="1" />
                 <sheet>
                     <group>
@@ -30,6 +30,15 @@
                     </div>
                     <notebook>
                         <page string="Files">
+                            <div class="o_form_statusbar_buttons mb-2">
+                                <button
+                                    type="object"
+                                    name="action_list_files"
+                                    string="Refresh"
+                                    class="btn-primary"
+                                    icon="fa-refresh"
+                                />
+                            </div>
                             <field name="line_ids" colspan="4" nolabel="1">
                                 <list create="false" delete="false">
                                     <field
@@ -45,18 +54,49 @@
                                         decoration-info="is_directory"
                                     />
                                     <field name="relative_path" readonly="1" />
+                                    <button
+                                        name="action_download"
+                                        type="object"
+                                        icon="fa-download"
+                                        title="Download"
+                                        invisible="is_directory"
+                                    />
+                                    <button
+                                        name="action_delete"
+                                        type="object"
+                                        icon="fa-trash-o"
+                                        title="Delete"
+                                        confirm="Delete this file?"
+                                    />
                                 </list>
                             </field>
+                        </page>
+                        <page string="Upload">
+                            <group>
+                                <group>
+                                    <field name="upload_path" />
+                                </group>
+                                <group>
+                                    <field
+                                        name="file_data"
+                                        filename="filename"
+                                    />
+                                    <field name="filename" invisible="1" />
+                                </group>
+                            </group>
+                            <div class="mt-3">
+                                <button
+                                    type="object"
+                                    name="action_upload"
+                                    string="Upload"
+                                    class="btn-primary"
+                                    icon="fa-upload"
+                                />
+                            </div>
                         </page>
                     </notebook>
                 </sheet>
                 <footer>
-                    <button
-                        type="object"
-                        name="action_list_files"
-                        string="Refresh"
-                        class="btn-primary"
-                    />
                     <button
                         string="Close"
                         special="cancel"
@@ -72,7 +112,7 @@
         id="action_storage_backend_file_list_wizard"
         model="ir.actions.act_window"
     >
-        <field name="name">List Files</field>
+        <field name="name">Manage Files</field>
         <field name="res_model">storage.backend.file.list.wizard</field>
         <field name="view_mode">form</field>
         <field name="target">new</field>

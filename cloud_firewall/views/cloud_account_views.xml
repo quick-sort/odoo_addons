@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_cloud_account_form_targets" model="ir.ui.view">
+        <field name="name">cloud.account.form.targets</field>
+        <field name="model">cloud.account</field>
+        <field name="inherit_id" ref="cloud.view_cloud_account_form"/>
+        <field name="arch" type="xml">
+            <group position="after">
+                <notebook invisible="target_count == 0">
+                    <page string="防火墙目标" name="page_targets">
+                        <field name="target_ids" readonly="1">
+                            <list>
+                                <field name="name"/>
+                                <field name="resource_id"/>
+                                <field name="last_sync_state"/>
+                                <field name="last_sync"/>
+                            </list>
+                        </field>
+                    </page>
+                </notebook>
+            </group>
+        </field>
+    </record>
+</odoo>
