@@ -140,6 +140,43 @@ class FileSystemCapabilitiesCase(CommonCase):
             backend.delete(filename)
 
 
+class FileSystemTraversalCase(CommonCase):
+    """Logical paths must never escape the backend root."""
+
+    def _write(self, name):
+        with self.backend.open(name, "wb") as stream:
+            stream.write(b"x")
+
+    def test_absolute_path_is_rejected(self):
+        with self.assertRaises(AccessError):
+            self._write("/etc/passwd")
+
+    def test_parent_traversal_is_rejected(self):
+        with self.assertRaises(AccessError):
+            self._write("../escape.txt")
+
+    def test_sibling_prefix_escape_is_rejected(self):
+        # A sibling of the basedir that shares its name prefix (``storage``
+        # vs ``storageevil``) must not be reachable via ``..``.
+        base = self.backend._get_adapter()._basedir()
+        sibling = os.path.dirname(base) + "evil"
+        rel = os.path.relpath(sibling, base)
+        self.assertTrue(rel.startswith(".."))
+        with self.assertRaises(AccessError):
+            self._write(rel + "/x.txt")
+
+    def test_backslash_is_rejected(self):
+        with self.assertRaises(AccessError):
+            self._write("a\\b.txt")
+
+    def test_clean_relative_path_still_works(self):
+        self._write("ok.txt")
+        try:
+            self.assertTrue(self.backend.file_exists("ok.txt"))
+        finally:
+            self.backend.delete("ok.txt")
+
+
 class FileSystemDemoUserAccessCase(CommonCase):
     @classmethod
     def setUpClass(cls):

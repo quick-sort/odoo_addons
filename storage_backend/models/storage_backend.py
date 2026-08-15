@@ -174,6 +174,23 @@ class StorageBackend(models.Model):
     def move_files(self, files, destination_path, **kw):
         return self._forward("move_files", files, destination_path, **kw)
 
+    def rename(self, relative_path, new_path):
+        """Rename/move ``relative_path`` to ``new_path`` inside the backend.
+
+        Both paths are logical (relative to the backend root); gzip
+        extensions are mapped to their physical counterparts. Native where
+        the adapter supports it (atomic, works for directories), otherwise a
+        stream copy + delete fallback.
+        """
+        physical_src, _ = self._gzip_physical(relative_path)
+        physical_dst, _ = self._gzip_physical(new_path)
+        return self._forward("rename", physical_src, physical_dst)
+
+    def rmdir(self, relative_path):
+        """Remove the empty directory ``relative_path`` (no-op on backends
+        without real directories)."""
+        return self._forward("rmdir", relative_path)
+
     def file_exists(self, relative_path):
         physical, _ = self._gzip_physical(relative_path)
         return self._forward("exists", physical)

@@ -40,8 +40,9 @@ class TestStreaming(OneStorageCommon):
         )
         dest = self.env["one.storage.entry"].create(
             {"name": "dest", "entry_type": "directory",
-             "parent_id": self.root_folder.id, "backend_id": second.id}
+             "parent_id": self.root_folder.id}
         )
+        second.entry_id = dest
         src = self.env["one.storage.entry"].create(
             {"name": "moved.bin", "entry_type": "file",
              "parent_id": self.root_folder.id}

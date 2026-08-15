@@ -137,6 +137,21 @@ class SFTPStorageBackendAdapter(Component):
                 full_path = self._fullpath(sftp_file)
                 client.rename(full_path, dest_file_path)
 
+    def rename(self, relative_path, new_path):
+        full_path = self._fullpath(relative_path)
+        new_full_path = self._fullpath(new_path)
+        with sftp(self.collection) as client:
+            dirname = os.path.dirname(new_full_path)
+            if dirname:
+                try:
+                    client.stat(dirname)
+                except OSError as e:
+                    if e.errno == errno.ENOENT:
+                        sftp_mkdirs(client, dirname)
+                    else:
+                        raise
+            return client.rename(full_path, new_full_path)
+
     def delete(self, relative_path):
         full_path = self._fullpath(relative_path)
         with sftp(self.collection) as client:

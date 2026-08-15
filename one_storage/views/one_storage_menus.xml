@@ -8,18 +8,13 @@
     <menuitem id="menu_one_storage_browser"
               name="Files"
               parent="menu_one_storage_root"
-              action="action_one_storage_entry"
+              action="action_one_storage_entry_browser"
               sequence="10"/>
 
     <menuitem id="menu_one_storage_config"
               name="Configuration"
               parent="menu_one_storage_root"
               sequence="90"/>
-    <menuitem id="menu_one_storage_entry_root"
-              name="Root Folders"
-              parent="menu_one_storage_config"
-              action="action_one_storage_entry_root"
-              sequence="5"/>
     <menuitem id="menu_one_storage_backends"
               name="Storage Backends"
               parent="menu_one_storage_config"

@@ -16,7 +16,15 @@ _logger = logging.getLogger(__name__)
 
 
 def is_safe_path(basedir, path):
-    return os.path.realpath(path).startswith(basedir)
+    """True when ``path`` resolves inside ``basedir``.
+
+    Both sides are canonicalized and the boundary is enforced at a path
+    separator, so a sibling directory that merely shares the base name
+    prefix (e.g. ``storage2`` vs ``storage``) can never pass.
+    """
+    basedir = os.path.realpath(basedir)
+    full_path = os.path.realpath(path)
+    return full_path == basedir or full_path.startswith(basedir + os.sep)
 
 
 class FileSystemStorageBackend(Component):
@@ -122,3 +130,18 @@ class FileSystemStorageBackend(Component):
             destination_file = os.path.join(destination_path, filename)
             result.append(shutil.move(file_path, destination_file))
         return result
+
+    def rename(self, relative_path, new_path):
+        full_path = self._fullpath(relative_path)
+        new_full_path = self._fullpath(new_path)
+        dirname = os.path.dirname(new_full_path)
+        if dirname and not os.path.isdir(dirname):
+            os.makedirs(dirname)
+        return os.rename(full_path, new_full_path)
+
+    def rmdir(self, relative_path):
+        full_path = self._fullpath(relative_path)
+        try:
+            os.rmdir(full_path)
+        except FileNotFoundError:
+            _logger.warning("Directory not found in %s", full_path)

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_one_storage_entry_rename_wizard_form" model="ir.ui.view">
+        <field name="name">one.storage.entry.rename.wizard.form</field>
+        <field name="model">one.storage.entry.rename.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Rename">
+                <group>
+                    <group>
+                        <field name="entry_name" readonly="1" string="Current Name"/>
+                        <field name="new_name" default_focus="1"/>
+                    </group>
+                </group>
+                <footer>
+                    <button name="action_apply" type="object"
+                            string="Rename" class="btn-primary"/>
+                    <button string="Cancel" special="cancel"
+                            class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_one_storage_entry_rename" model="ir.actions.act_window">
+        <field name="name">Rename</field>
+        <field name="res_model">one.storage.entry.rename.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+</odoo>

@@ -6,7 +6,10 @@
 
 import os
 import re
+import shutil
 from contextlib import contextmanager
+
+from odoo.exceptions import AccessError
 
 from odoo.addons.component.core import AbstractComponent
 
@@ -15,7 +18,27 @@ class BaseStorageAdapter(AbstractComponent):
     _name = "base.storage.adapter"
     _collection = "storage.backend"
 
+    def _check_relative_path(self, relative_path):
+        """Reject logical paths that could escape the backend root.
+
+        ``relative_path`` is the caller-supplied path inside the backend, so
+        it must be relative and stay within the root: absolute paths, ``..``
+        components and backslashes (ambiguous on remote/Windows-style
+        backends) are forbidden. Every adapter funnels its entry points
+        through ``_fullpath``, so this single check protects the filesystem,
+        FTP and SFTP adapters alike.
+        """
+        if not isinstance(relative_path, str):
+            raise AccessError(self.env._("Invalid path %r") % (relative_path,))
+        if not relative_path:
+            return
+        if os.path.isabs(relative_path) or "\\" in relative_path:
+            raise AccessError(self.env._("Access to %s is forbidden") % relative_path)
+        if ".." in relative_path.split("/"):
+            raise AccessError(self.env._("Access to %s is forbidden") % relative_path)
+
     def _fullpath(self, relative_path):
+        self._check_relative_path(relative_path)
         dp = self.collection.directory_path
         if not dp or relative_path.startswith(dp):
             return relative_path
@@ -84,6 +107,33 @@ class BaseStorageAdapter(AbstractComponent):
         :return: None
         """
         raise NotImplementedError
+
+    def rename(self, relative_path, new_path):
+        """Rename/move ``relative_path`` to ``new_path`` inside the backend.
+
+        The default implementation streams the file through open() and
+        deletes the source, so every adapter gets working file renames for
+        free. Adapters with a native primitive (os.rename, SFTP rename, ...)
+        should override it — the native version is atomic and also works for
+        directories. Both paths are relative to the backend root and may
+        include directory components (``a/b.txt`` → ``c/d.txt`` moves the
+        file into ``c``); missing destination parents are created.
+
+        :raise FileNotFoundError: when the source does not exist
+        """
+        with self.open(relative_path, "rb") as src, self.open(new_path, "wb") as dst:
+            shutil.copyfileobj(src, dst)
+        self.delete(relative_path)
+
+    def rmdir(self, relative_path):
+        """Remove the empty directory ``relative_path``.
+
+        Default no-op: on backends without real directories (object stores)
+        there is nothing to remove. Adapters with a directory primitive
+        should override it (e.g. ``os.rmdir``) and remove the directory if
+        it exists and is empty.
+        """
+        return None
 
     def delete(self, relative_path):
         raise NotImplementedError

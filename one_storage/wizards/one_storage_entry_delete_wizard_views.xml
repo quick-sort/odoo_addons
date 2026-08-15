@@ -5,17 +5,17 @@
         <field name="model">one.storage.entry.delete.wizard</field>
         <field name="arch" type="xml">
             <form string="Delete Entry">
-                <field name="is_dir" invisible="1"/>
+                <field name="has_dir" invisible="1"/>
                 <group>
                     <div class="alert alert-danger" role="alert">
-                        Are you sure you want to delete
-                        <field name="entry_name" readonly="1" class="oe_inline fw-bold"/>?
-                        <span invisible="is_dir == False">
-                            The file will also be removed from the storage backend.
-                        </span>
+                        <p>Are you sure you want to delete:</p>
+                        <field name="entry_names" readonly="1" class="oe_inline fw-bold"/>
+                        <p>
+                            Files will also be removed from the storage backend.
+                        </p>
                     </div>
+                    <field name="recursive" invisible="has_dir == False"/>
                 </group>
-                <field name="entry_id" invisible="1"/>
                 <footer>
                     <button name="action_apply" type="object"
                             string="Delete" class="btn-danger"/>

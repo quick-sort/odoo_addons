@@ -211,6 +211,17 @@ class FTPStorageBackendAdapter(Component):
                 # Move the file using absolute filepaths
                 client.rename(fp(ftp_file), fp(dest_file_path))
 
+    def rename(self, relative_path, new_path):
+        fp = self._fullpath
+        with ftp(self.collection) as client:
+            dest_dir = os.path.dirname(new_path)
+            if dest_dir:
+                try:
+                    client.size(fp(dest_dir))
+                except ftplib.all_errors:
+                    ftp_mkdirs(client, fp(dest_dir))
+            return client.rename(fp(relative_path), fp(new_path))
+
     def delete(self, relative_path):
         full_path = self._fullpath(relative_path)
         with ftp(self.collection) as client:

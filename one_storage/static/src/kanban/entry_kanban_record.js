@@ -30,14 +30,15 @@ export class EntryKanbanRecord extends KanbanRecord {
     /**
      * Files open the FileViewer preview (txt/image/pdf); directories and
      * non-viewable files fall back to the default behavior (descend / open
-     * the form).
+     * the form). When a selection is in progress (records already selected
+     * or alt/shift-click), the default behavior toggles selection instead.
      */
     onGlobalClick(ev) {
         if (ev.target.closest(CANCEL_GLOBAL_CLICK)) {
             return;
         }
         const record = this.props.record;
-        if (record.data.is_dir) {
+        if (record.data.is_dir || ev.altKey || this.props.getSelection().length > 0) {
             return super.onGlobalClick(...arguments);
         }
         const model = new EntryFileModel(record);

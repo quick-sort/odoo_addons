@@ -13,16 +13,13 @@ class OneStorageController(http.Controller):
         methods=["GET"],
     )
     def download_node(self, entry_id, **kw):
-        entry = request.env["one.storage.entry"].browse(entry_id)
-        entry.ensure_one()
-        if not entry.exists() or entry.is_dir:
+        entry = request.env["one.storage.entry"].browse(entry_id).exists()
+        if not entry or entry.is_dir:
             raise request.not_found()
         headers = [
             ("Content-Type", entry.mimetype or "application/octet-stream"),
             ("Content-Disposition", 'attachment; filename="%s"' % entry.name),
         ]
-        if entry.file_size:
-            headers.append(("Content-Length", str(entry.file_size)))
         return request.make_response(entry.iter_chunks(), headers=headers)
 
     @http.route(
@@ -32,14 +29,11 @@ class OneStorageController(http.Controller):
         methods=["GET"],
     )
     def preview_node(self, entry_id, **kw):
-        entry = request.env["one.storage.entry"].browse(entry_id)
-        entry.ensure_one()
-        if not entry.exists() or entry.is_dir:
+        entry = request.env["one.storage.entry"].browse(entry_id).exists()
+        if not entry or entry.is_dir:
             raise request.not_found()
         headers = [
             ("Content-Type", entry.mimetype or "application/octet-stream"),
             ("Content-Disposition", "inline"),
         ]
-        if entry.file_size:
-            headers.append(("Content-Length", str(entry.file_size)))
         return request.make_response(entry.iter_chunks(), headers=headers)

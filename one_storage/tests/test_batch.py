@@ -20,11 +20,44 @@ class TestBatchOperations(OneStorageCommon):
             trap.perform_enqueued_jobs()
         self.assertFalse(entry.exists())
 
-    def test_folder_sync_enqueues_job(self):
+    def test_backend_sync_enqueues_bfs_jobs(self):
+        self._write_on_disk("a/b/c.txt", b"deep")
         with trap_jobs() as trap:
-            self.root_folder.action_sync_from_backend()
+            self.backend.action_sync_file_tree()
             trap.assert_jobs_count(1)
-            trap.assert_enqueued_job(self.root_folder._sync_from_backend)
+            trap.assert_enqueued_job(
+                self.backend._sync_folder_level, args=(self.root_folder.id,)
+            )
+            trap.perform_enqueued_jobs()
+            # Breadth-first: root's job enqueues "a", "a" enqueues "b",
+            # "b" enqueues "c.txt" — one folder per job per level.
+            a = self.root_folder.child_ids.filtered(lambda c: c.name == "a")
+            trap.assert_enqueued_job(
+                self.backend._sync_folder_level, args=(a.id,)
+            )
+            trap.perform_enqueued_jobs()
+            b = self.env["one.storage.entry"].search(
+                [("name", "=", "b"), ("is_dir", "=", True)]
+            )
+            trap.assert_enqueued_job(
+                self.backend._sync_folder_level, args=(b.id,)
+            )
+            trap.perform_enqueued_jobs()
+        c = self.env["one.storage.entry"].search(
+            [("name", "=", "c.txt"), ("is_dir", "=", False)]
+        )
+        self.assertTrue(c)
+
+    def test_sync_job_skips_deleted_entry(self):
+        """A queued job whose folder was deleted skips instead of failing."""
+        self._write_on_disk("a/b.txt", b"x")
+        with trap_jobs() as trap:
+            self.backend.action_sync_file_tree()
+            trap.perform_enqueued_jobs()  # enqueues job for subdir "a"
+            a = self.root_folder.child_ids.filtered(lambda c: c.name == "a")
+            a.unlink()
+            trap.perform_enqueued_jobs()  # must not raise
+        self.assertFalse(a.exists())
 
     def test_operation_run_creates_job(self):
         op = self.env["one.storage.operation"].create(

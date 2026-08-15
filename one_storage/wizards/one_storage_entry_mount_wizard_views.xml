@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_one_storage_entry_mount_wizard_form" model="ir.ui.view">
+        <field name="name">one.storage.entry.mount.wizard.form</field>
+        <field name="model">one.storage.entry.mount.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Mount Storage Backend">
+                <group>
+                    <group>
+                        <field name="entry_name" readonly="1" string="Folder"/>
+                        <field name="is_mounted" invisible="1"/>
+                        <field name="backend_id"
+                               options="{'no_create': True}"
+                               invisible="is_mounted"/>
+                        <field name="read_only" invisible="is_mounted"/>
+                    </group>
+                </group>
+                <footer>
+                    <button name="action_mount" type="object"
+                            string="Mount" class="btn-primary"
+                            invisible="is_mounted"/>
+                    <button name="action_unmount" type="object"
+                            string="Unmount" class="btn-danger"
+                            confirm="Unmount this backend? Mirrored entries under the folder will be removed from the tree; files stay on the storage."
+                            invisible="not is_mounted"/>
+                    <button string="Cancel" special="cancel"
+                            class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_one_storage_entry_mount" model="ir.actions.act_window">
+        <field name="name">Mount Backend</field>
+        <field name="res_model">one.storage.entry.mount.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+</odoo>

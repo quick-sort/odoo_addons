@@ -44,7 +44,7 @@ class TestAdapterLookup(OneStorageCommon):
 
 
 class TestBindMount(OneStorageCommon):
-    """A directory whose ``target_id`` points at a backend mirror root is a
+    """A directory whose ``binding_id`` points at a backend mirror root is a
     bind mount: operating on it operates on the mirror tree, and one backend
     can be bound at several paths."""
 
@@ -56,15 +56,16 @@ class TestBindMount(OneStorageCommon):
                 "directory_path": "second_fs_%s" % self.tmp_name,
             }
         )
-        # A directory carrying backend_id is the mirror root for that backend.
-        return second, self.env["one.storage.entry"].create(
+        # The backend owns its mirror root via entry_id.
+        mirror_root = self.env["one.storage.entry"].create(
             {
                 "name": "second_root",
                 "entry_type": "directory",
                 "parent_id": self.root_folder.id,
-                "backend_id": second.id,
             }
         )
+        second.entry_id = mirror_root
+        return second, mirror_root
 
     def test_resolve_backend_finds_mirror_root(self):
         backend, mirror = self.root_folder._resolve_backend()
@@ -95,7 +96,7 @@ class TestBindMount(OneStorageCommon):
         bind = self.env["one.storage.entry"].create(
             {"name": "bind", "entry_type": "directory", "parent_id": self.root_folder.id}
         )
-        bind.target_id = mirror_root
+        bind.binding_id = mirror_root
 
         # Listing the bind lazily mirrors the backend under the *target*.
         names = bind.list_children().mapped("name")
@@ -111,8 +112,8 @@ class TestBindMount(OneStorageCommon):
         bind_b = self.env["one.storage.entry"].create(
             {"name": "bind_b", "entry_type": "directory", "parent_id": self.root_folder.id}
         )
-        bind_a.target_id = mirror_root
-        bind_b.target_id = mirror_root
+        bind_a.binding_id = mirror_root
+        bind_b.binding_id = mirror_root
         self.assertEqual(bind_a._follow(), mirror_root)
         self.assertEqual(bind_b._follow(), mirror_root)
 

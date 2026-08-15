@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_one_storage_entry_move_wizard_form" model="ir.ui.view">
+        <field name="name">one.storage.entry.move.wizard.form</field>
+        <field name="model">one.storage.entry.move.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Move Entries">
+                <group>
+                    <group>
+                        <field name="dest_dir_id" options="{'no_create': True}"
+                               default_focus="1"/>
+                    </group>
+                    <group>
+                        <field name="entry_names" readonly="1" string="Entries"
+                               widget="text"/>
+                    </group>
+                </group>
+                <footer>
+                    <button name="action_apply" type="object"
+                            string="Move" class="btn-primary"/>
+                    <button string="Cancel" special="cancel"
+                            class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

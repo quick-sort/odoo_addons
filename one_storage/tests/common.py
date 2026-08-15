@@ -29,8 +29,9 @@ class OneStorageCommon(TransactionComponentCase):
         # owns the tree and binds it to the dedicated test backend.
         cls.env["one.storage.entry"].search([("parent_id", "=", False)]).unlink()
         cls.root_folder = cls.env["one.storage.entry"].create(
-            {"name": "root", "entry_type": "directory", "backend_id": cls.backend.id}
+            {"name": "root", "entry_type": "directory"}
         )
+        cls.backend.entry_id = cls.root_folder
 
     @classmethod
     def tearDownClass(cls):

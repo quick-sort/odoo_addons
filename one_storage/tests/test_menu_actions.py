@@ -45,7 +45,7 @@ class TestUploadDeleteWizards(OneStorageCommon):
         entry_id = self.file_entry.id
         wizard = (
             self.env["one.storage.entry.delete.wizard"]
-            .with_context(default_entry_id=entry_id)
+            .with_context(default_entry_ids=[(6, 0, [entry_id])])
             .create({})
         )
         wizard.action_apply()
@@ -59,7 +59,7 @@ class TestUploadDeleteWizards(OneStorageCommon):
 
 
 class TestPreviewRoute(HttpCase):
-    def test_preview_route_serves_inline(self):
+    def _setup_file(self, payload=b"hello"):
         self.authenticate("admin", "admin")
         # Clear any seeded root so the single-root constraint holds.
         self.env["one.storage.entry"].search([("parent_id", "=", False)]).unlink()
@@ -68,13 +68,42 @@ class TestPreviewRoute(HttpCase):
             {"name": "Preview FS", "backend_type": "filesystem", "directory_path": tmp_name}
         )
         root = self.env["one.storage.entry"].create(
-            {"name": "root", "entry_type": "directory", "backend_id": backend.id}
+            {"name": "root", "entry_type": "directory"}
         )
+        backend.entry_id = root
         file_entry = self.env["one.storage.entry"].create(
             {"name": "note.txt", "entry_type": "file", "parent_id": root.id}
         )
-        file_entry.set_content(base64.b64encode(b"hello"), binary=False)
+        file_entry.set_content(base64.b64encode(payload), binary=False)
+        return file_entry
+
+    def test_preview_route_serves_inline(self):
+        file_entry = self._setup_file()
         res = self.url_open("/one_storage/entry/%s/preview" % file_entry.id, timeout=12)
         self.assertEqual(res.status_code, 200)
         self.assertIn("inline", res.headers.get("Content-Disposition", ""))
         self.assertEqual(res.content, b"hello")
+
+    def test_download_route_unknown_id_is_404(self):
+        self.authenticate("admin", "admin")
+        res = self.url_open("/one_storage/entry/99999999/download", timeout=12)
+        self.assertEqual(res.status_code, 404)
+
+    def test_preview_route_unknown_id_is_404(self):
+        self.authenticate("admin", "admin")
+        res = self.url_open("/one_storage/entry/99999999/preview", timeout=12)
+        self.assertEqual(res.status_code, 404)
+
+    def test_download_route_directory_is_404(self):
+        self.authenticate("admin", "admin")
+        self.env["one.storage.entry"].search([("parent_id", "=", False)]).unlink()
+        backend = self.env["storage.backend"].create(
+            {"name": "Dir FS", "backend_type": "filesystem",
+             "directory_path": "one_storage_dir_test_%s" % self.env.cr.dbname}
+        )
+        root = self.env["one.storage.entry"].create(
+            {"name": "root", "entry_type": "directory"}
+        )
+        backend.entry_id = root
+        res = self.url_open("/one_storage/entry/%s/download" % root.id, timeout=12)
+        self.assertEqual(res.status_code, 404)

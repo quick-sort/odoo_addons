@@ -5,3 +5,6 @@ from . import test_mount_sync
 from . import test_menu_actions
 from . import test_file_api
 from . import test_streaming
+from . import test_sync_prune
+from . import test_vfs_ops
+from . import test_wizards_netdisk
