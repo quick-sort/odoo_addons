@@ -436,16 +436,39 @@ class TestSyncConfig(TransactionCase):
         ):
             state, message = target._sync_target("203.0.113.7")
         self.assertEqual(state, "success")
-        self.assertTrue(target._rule_covers_ip("203.0.113.7"))
+        self.assertEqual(target._covered_protocols("203.0.113.7"), {"TCP", "UDP"})
         pushed = fake_adapter.push_rules.call_args[0][1]
         self.assertTrue(any(r["cidr"] == "203.0.113.7" for r in pushed))
         self.assertTrue(all(r.remote for r in target.rules_ids))
 
-    def test_sync_target_skips_when_ip_present(self):
+    def test_sync_target_backfills_missing_udp(self):
         target = self._make_tencent_target()
+        # 数据库里只有 TCP 没有 UDP：cron 应补齐 UDP 而不是跳过
         self.env["cloud.firewall.rule"].create(
             {"target_id": target.id, "protocol": "TCP", "port": "ALL",
              "cidr": "203.0.113.7/32", "remote": True}
+        )
+        fake_adapter = mock.MagicMock()
+        fake_adapter.push_rules.return_value = (1, 0, 0)
+        with mock.patch.object(
+            type(target), "_get_adapter", return_value=fake_adapter
+        ):
+            state, message = target._sync_target("203.0.113.7")
+        self.assertEqual(state, "success")
+        self.assertEqual(target._covered_protocols("203.0.113.7"), {"TCP", "UDP"})
+        # 推送的是全量（含已有 TCP + 新 UDP）
+        pushed = fake_adapter.push_rules.call_args[0][1]
+        self.assertEqual(len(pushed), 2)
+
+    def test_sync_target_skips_when_ip_present(self):
+        target = self._make_tencent_target()
+        self.env["cloud.firewall.rule"].create(
+            [
+                {"target_id": target.id, "protocol": "TCP", "port": "ALL",
+                 "cidr": "203.0.113.7/32", "remote": True},
+                {"target_id": target.id, "protocol": "UDP", "port": "ALL",
+                 "cidr": "203.0.113.7/32", "remote": True},
+            ]
         )
         fake_adapter = mock.MagicMock()
         with mock.patch.object(
@@ -470,8 +493,47 @@ class TestSyncConfig(TransactionCase):
         ):
             state, message = target._sync_target("203.0.113.7")
         self.assertEqual(state, "success")
-        self.assertTrue(target._rule_covers_ip("203.0.113.7"))
+        self.assertEqual(target._covered_protocols("203.0.113.7"), {"TCP", "UDP"})
         self.assertEqual(fake_adapter.list_rules.call_count, 1)
+
+    def test_sync_target_normalizes_legacy_lowercase_protocol(self):
+        target = self._make_tencent_target()
+        # 旧数据小写协议：归一化后 TCP 齐全只补 UDP，且库内大写化
+        self.env["cloud.firewall.rule"].create(
+            {"target_id": target.id, "protocol": "tcp", "port": "ALL",
+             "cidr": "203.0.113.7/32", "remote": True}
+        )
+        fake_adapter = mock.MagicMock()
+        fake_adapter.push_rules.return_value = (1, 0, 0)
+        with mock.patch.object(
+            type(target), "_get_adapter", return_value=fake_adapter
+        ):
+            target._sync_target("203.0.113.7")
+        self.assertEqual(target._covered_protocols("203.0.113.7"), {"TCP", "UDP"})
+        pushed = fake_adapter.push_rules.call_args[0][1]
+        self.assertEqual(len(pushed), 2)
+
+    def test_action_sync_rules_normalizes_legacy_formats(self):
+        target = self._make_tencent_target()
+        Rule = self.env["cloud.firewall.rule"]
+        # 旧数据：小写协议 + 小写 action + DO 的 "0" 端口
+        Rule.create(
+            {"target_id": target.id, "protocol": "tcp", "port": "ALL",
+             "cidr": "203.0.113.7/32", "action": "allow", "remote": True}
+        )
+        fake_adapter = mock.MagicMock()
+        fake_adapter.list_rules.return_value = [
+            {"protocol": "tcp", "port": "ALL", "cidr": "203.0.113.7",
+             "action": "allow", "description": ""},
+        ]
+        with mock.patch.object(
+            type(target), "_get_adapter", return_value=fake_adapter
+        ):
+            target.action_sync_rules()
+        rules = target.rules_ids
+        self.assertEqual(len(rules), 1)
+        self.assertEqual(rules.protocol, "tcp")  # 远端小写原样导入（provider 域约定）
+        self.assertEqual(rules.action, "ALLOW")
 
 
 @tagged("post_install", "-at_install")

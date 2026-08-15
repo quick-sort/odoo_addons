@@ -162,6 +162,24 @@ class TestPushRules(TransactionCase):
         self.assertEqual(rules[0]["port"], "ALL")
         self.assertEqual(rules[1]["port"], "443")
 
+    def test_list_rules_normalizes_action_and_protocol_case(self):
+        from unittest import mock
+
+        adapter = self._adapter()
+        adapter._do_api.return_value = {
+            "firewall": {
+                "inbound_rules": [
+                    {"protocol": "tcp", "ports": "0",
+                     "sources": {"addresses": ["1.2.3.4/32"]},
+                     "action": "allow", "description": ""},
+                ]
+            }
+        }
+        rules = adapter.list_rules(mock.MagicMock(resource_id="fw-1"))
+        # 本地库统一大写约定：ACCEPT / TCP
+        self.assertEqual(rules[0]["action"], "ACCEPT")
+        self.assertEqual(rules[0]["protocol"], "TCP")
+
 
 class TestComputeInboundRules(TransactionCase):
     def test_removes_expired_marker_and_adds_new(self):

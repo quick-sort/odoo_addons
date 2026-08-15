@@ -134,12 +134,15 @@ class DigitalOceanFirewallAdapter(Component):
         ).get("firewall", {})
         return [
             {
-                "protocol": rule.get("protocol"),
+                "protocol": (rule.get("protocol") or "tcp").upper(),
                 "port": _norm_port(rule.get("ports")),
                 "cidr": norm_cidr(
                     ", ".join((rule.get("sources") or {}).get("addresses") or [])
                 ),
-                "action": rule.get("action") or "allow",
+                # 本地库统一大写 ACCEPT/DROP，发送侧再转回 DO 的 allow/drop
+                "action": "ACCEPT"
+                if (rule.get("action") or "allow").lower() in ("allow", "accept")
+                else "DROP",
                 "description": rule.get("description") or "",
             }
             for rule in firewall.get("inbound_rules") or []

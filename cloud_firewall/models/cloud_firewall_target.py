@@ -61,33 +61,28 @@ class CloudFirewallTarget(models.Model):
             return work.component(usage=self.account_id.provider)
 
     def _sync_target(self, new_ip):
-        """以本地持久化规则列表为准：当前 IP 不在列表里才添加并推送云端。"""
+        """以本地持久化规则列表为准：TCP/UDP 缺哪个补哪个，缺才推送云端。"""
         self.ensure_one()
         self._dedupe_local_rules()
         if not self.rules_ids:
             # 本地尚无规则：先从云端同步一次，再判断
             self.action_sync_rules()
-        if self._rule_covers_ip(new_ip):
-            return "unchanged", "IP 已在白名单"
+        covered = self._covered_protocols(new_ip)
+        missing = [p for p in ("TCP", "UDP") if p not in covered]
+        if not missing:
+            return "unchanged", "IP 已在白名单（TCP/UDP 齐全）"
         Rule = self.env["cloud.firewall.rule"]
         Rule.create(
             [
                 {
                     "target_id": self.id,
-                    "protocol": "TCP",
+                    "protocol": protocol,
                     "port": "ALL",
                     "cidr": new_ip,  # 归一化存储（不带 /32），云端发送时由 adapter 补全
                     "action": "ACCEPT",
                     "description": f"Auto whitelist {new_ip} (all ports)",
-                },
-                {
-                    "target_id": self.id,
-                    "protocol": "UDP",
-                    "port": "ALL",
-                    "cidr": new_ip,
-                    "action": "ACCEPT",
-                    "description": f"Auto whitelist {new_ip} (all ports)",
-                },
+                }
+                for protocol in missing
             ]
         )
         rules = [
@@ -104,11 +99,13 @@ class CloudFirewallTarget(models.Model):
         self.rules_ids.write({"remote": True})
         return "success", f"已加入白名单（新增 {added} 条，移除 {removed} 条）"
 
-    def _rule_covers_ip(self, ip):
+    def _covered_protocols(self, ip):
+        """当前 IP 已有哪些协议的放行规则（按大写协议名）。"""
+        covered = set()
         for rule in self.rules_ids:
             if norm_cidr(rule.cidr).split("/")[0] == ip:
-                return True
-        return False
+                covered.add((rule.protocol or "").upper())
+        return covered
 
     def _dedupe_local_rules(self):
         """按归一化 (协议, 端口, 来源) 清理本地重复规则（如 /32 与不带 /32 并存）。
@@ -118,7 +115,7 @@ class CloudFirewallTarget(models.Model):
         skip_ctx = {"_cloud_skip_push": True}
         seen = {}
         for rule in self.rules_ids:
-            key = (rule.protocol, rule.port, norm_cidr(rule.cidr))
+            key = ((rule.protocol or "").upper(), rule.port, norm_cidr(rule.cidr))
             existing = seen.get(key)
             if existing is None:
                 seen[key] = rule
@@ -134,19 +131,21 @@ class CloudFirewallTarget(models.Model):
         Rule = self.env["cloud.firewall.rule"]
         remote_rules = self._get_adapter().list_rules(self)
         existing = {
-            (r.protocol, r.port, norm_cidr(r.cidr)): r for r in self.rules_ids
+            ((r.protocol or "").upper(), r.port, norm_cidr(r.cidr)): r
+            for r in self.rules_ids
         }
         seen = set()
         created = updated = 0
         for rule in remote_rules:
             cidr = norm_cidr(rule.get("cidr") or "")
-            key = (rule["protocol"] or "TCP", rule.get("port") or "ALL", cidr)
+            protocol = (rule.get("protocol") or "TCP").upper()
+            key = (protocol, rule.get("port") or "ALL", cidr)
             seen.add(key)
             vals = {
-                "protocol": rule["protocol"] or "TCP",
+                "protocol": protocol,
                 "port": rule.get("port") or "ALL",
                 "cidr": cidr,
-                "action": rule.get("action") or "ACCEPT",
+                "action": (rule.get("action") or "ACCEPT").upper(),
                 "description": rule.get("description") or "",
                 "remote": True,
             }
@@ -154,7 +153,7 @@ class CloudFirewallTarget(models.Model):
                 record = existing[key]
                 changed = any(
                     getattr(record, field) != vals[field]
-                    for field in ("port", "action", "description")
+                    for field in ("protocol", "port", "action", "description")
                 )
                 if changed:
                     record.write(vals)
