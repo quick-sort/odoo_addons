@@ -60,7 +60,10 @@ class BaseStorageAdapter(AbstractComponent):
 
         :param relative_path: optional relative path containing files
         :param limit: max number of entries to return
-        :param detail: return ``(name, size)`` pairs when True, names otherwise
+        :param detail: return one dict per entry when True, names otherwise.
+                       Dicts share the ``stat()`` shape: ``name`` plus at
+                       least ``size`` and ``is_dir``; ``mtime`` (epoch
+                       seconds) when the adapter can provide it.
         """
         raise NotImplementedError
 

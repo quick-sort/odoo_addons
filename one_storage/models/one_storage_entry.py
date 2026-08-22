@@ -35,6 +35,16 @@ _logger = logging.getLogger(__name__)
 _FORBIDDEN_NAME_CHARS = ("/", "\\", "\0")
 
 
+def _human_size(size):
+    """Format ``size`` bytes compactly: 8M, 199K, 19B."""
+    for unit, scale in (("T", 1024**4), ("G", 1024**3), ("M", 1024**2), ("K", 1024)):
+        if size >= scale:
+            value = size / scale
+            text = f"{value:.0f}{unit}" if value >= 10 else f"{value:.1f}{unit}"
+            return text
+    return f"{size}B"
+
+
 def _validate_entry_name(name):
     """Raise ``ValidationError`` unless ``name`` is a valid entry name."""
     if (
@@ -94,6 +104,15 @@ class OneStorageEntry(models.Model):
         compute="_compute_child_count",
         string="Sub-entries",
     )
+    total_size = fields.Integer(
+        compute="_compute_total_size",
+        store=True,
+        recursive=True,
+        string="Total Size",
+        help="Sum of file sizes in this subtree.",
+    )
+    display_size = fields.Char(compute="_compute_display_size")
+    display_last_sync = fields.Char(compute="_compute_display_last_sync")
     parent_path = fields.Char(index=True)
     complete_name = fields.Char(
         compute="_compute_complete_name",
@@ -153,6 +172,28 @@ class OneStorageEntry(models.Model):
         for entry in self:
             entry.child_count = len(entry.child_ids)
 
+    @api.depends("file_size", "child_ids.total_size")
+    def _compute_total_size(self):
+        for entry in self:
+            if entry.is_dir:
+                entry.total_size = sum(entry.child_ids.mapped("total_size"))
+            else:
+                entry.total_size = entry.file_size or 0
+
+    def _compute_display_size(self):
+        for entry in self:
+            entry.display_size = _human_size(
+                entry.total_size if entry.is_dir else entry.file_size or 0
+            )
+
+    def _compute_display_last_sync(self):
+        for entry in self:
+            entry.display_last_sync = (
+                fields.Datetime.to_string(entry.last_sync)[5:16].replace("T", " ")
+                if entry.last_sync
+                else ""
+            )
+
     @api.depends("name", "parent_id.complete_name")
     def _compute_complete_name(self):
         for entry in self:
@@ -190,16 +231,34 @@ class OneStorageEntry(models.Model):
     @api.constrains("parent_id", "name")
     def _check_name_unique_in_parent(self):
         for entry in self:
-            domain = [("name", "=", entry.name)]
+            if not self._name_uniqueness_applies(entry):
+                continue
+            domain = [
+                ("name", "=", entry.name),
+                ("binding_id", "=", False),
+            ]
             if entry.parent_id:
                 domain.append(("parent_id", "=", entry.parent_id.id))
             else:
                 domain.append(("parent_id", "=", False))
-            clash = self.search(domain + [("id", "!=", entry.id)], limit=1)
+            clash = self.search(
+                domain
+                + [("id", "!=", entry.id), ("active", "=", True)],
+                limit=1,
+            )
             if clash:
                 raise ValidationError(
                     _("An entry named '%s' already exists here.", entry.name)
                 )
+
+    def _name_uniqueness_applies(self, entry):
+        """Hidden backend mirror roots live outside the user-facing namespace.
+
+        Their name is only an internal label, so they are exempt from the
+        same-parent name uniqueness check — and user-facing entries never
+        clash against them either.
+        """
+        return bool(entry.active)
 
     @api.constrains("parent_id", "name")
     def _check_single_root(self):
@@ -248,6 +307,30 @@ class OneStorageEntry(models.Model):
         chain = {node.id: node for node in self.browse(ids)}
         return [chain[i] for i in ids]
 
+    def _mirror_claims(self):
+        """Map ``mirror_root_id -> backend`` for this entry's ancestors.
+
+        Shared by :meth:`_resolve_backend` and :meth:`_backend_relpath` so
+        both resolve the backend with one search instead of two. The global
+        root is backed by the default storage backend even when no backend
+        explicitly claims it (its ``entry_id`` may point at its own hidden
+        mirror root), so entries placed directly under the global root
+        always resolve.
+        """
+        self.ensure_one()
+        ids = [int(x) for x in (self.parent_path or "").split("/") if x]
+        claims = {
+            backend.entry_id.id: backend
+            for backend in self.env["storage.backend"].sudo().search(
+                [("entry_id", "in", ids)]
+            )
+        }
+        if ids and ids[0] not in claims:
+            root = self.browse(ids[0])
+            if not root.parent_id:
+                claims[ids[0]] = self.env["storage.backend"]._get_or_create_default()
+        return claims
+
     def _resolve_backend(self):
         """Return ``(backend, mirror_root)`` for this entry.
 
@@ -258,12 +341,7 @@ class OneStorageEntry(models.Model):
         """
         self.ensure_one()
         ids = [int(x) for x in (self.parent_path or "").split("/") if x]
-        claims = {
-            backend.entry_id.id: backend
-            for backend in self.env["storage.backend"].sudo().search(
-                [("entry_id", "in", ids)]
-            )
-        }
+        claims = self._mirror_claims()
         for node_id in reversed(ids):
             if node_id in claims:
                 backend = claims[node_id]
@@ -281,12 +359,7 @@ class OneStorageEntry(models.Model):
         """
         self.ensure_one()
         ids = [int(x) for x in (self.parent_path or "").split("/") if x]
-        claims = {
-            backend.entry_id.id
-            for backend in self.env["storage.backend"].sudo().search(
-                [("entry_id", "in", ids)]
-            )
-        }
+        claims = self._mirror_claims()
         # Walk from the leaf up; stop after the mirror root so its own name
         # is not included. Segments are collected leaf-first, then reversed.
         chain = {node.id: node for node in self.browse(ids)}
@@ -396,6 +469,8 @@ class OneStorageEntry(models.Model):
         if backend.entry_id:
             return backend.entry_id
         root = self._get_or_create_root()
+        # The mirror is hidden (active=False); its name is only an internal
+        # label and is exempt from per-parent name uniqueness.
         mirror = self.create(
             {
                 "name": backend.name,
@@ -407,13 +482,14 @@ class OneStorageEntry(models.Model):
         backend.entry_id = mirror
         return mirror
 
-    def action_open_children(self):
+    def action_open_children(self, sync=False):
         """Card click handler for the file browser.
 
-        Directories are lazily synced (one level) then descended
-        (breadcrumb-able); files open their form view. Symlinks are followed
-        to their target first. Used as ``<kanban action="action_open_children"
-        type="object">`` so the whole card is clickable.
+        Directories are descended without touching the backend (the mirror
+        tree is only refreshed explicitly via Refresh / Sync File Tree);
+        files open their form view. Symlinks are followed to their target
+        first. Used as ``<kanban action="action_open_children" type="object">
+        </kanban>`` so the whole card is clickable.
         """
         self.ensure_one()
         target = self._follow()
@@ -426,7 +502,8 @@ class OneStorageEntry(models.Model):
                 "res_id": self.id,
                 "target": "current",
             }
-        target._sync_children()
+        if sync:
+            target._sync_children()
         return {
             "type": "ir.actions.act_window",
             "name": self.name,
@@ -455,11 +532,28 @@ class OneStorageEntry(models.Model):
         for entry in self:
             if not entry.is_dir:
                 continue
-            try:
-                backend, _mirror = entry._resolve_backend()
-            except ValidationError:
+            claims = entry._mirror_claims()
+            ids = [int(x) for x in (entry.parent_path or "").split("/") if x]
+            root_id = next((i for i in reversed(ids) if i in claims), None)
+            if not root_id:
                 continue
-            entry._sync_from_backend_path(backend, entry._backend_relpath())
+            entry._sync_from_backend_path(
+                claims[root_id], entry._relpath_from_claims(ids, root_id)
+            )
+
+    def _relpath_from_claims(self, ids, root_id):
+        """Relative backend path for ``self`` given pre-resolved mirror info."""
+        chain = {node.id: node for node in self.browse(ids)}
+        segments = []
+        root_found = False
+        for node_id in reversed(ids):
+            if root_found:
+                break
+            if node_id == root_id:
+                root_found = True
+                continue
+            segments.append(chain[node_id].name)
+        return posixpath.join(*reversed(segments)) if segments else ""
 
     def _sync_from_backend(self):
         """Materialize backend entries as file/directory entries, recursively.
@@ -472,13 +566,15 @@ class OneStorageEntry(models.Model):
         self.ensure_one()
         if not self.is_dir:
             return
-        try:
-            backend, _mirror = self._resolve_backend()
-        except ValidationError as err:
-            _logger.warning("Sync failed for %s: %s", self.complete_name, err)
+        claims = self._mirror_claims()
+        ids = [int(x) for x in (self.parent_path or "").split("/") if x]
+        root_id = next((i for i in reversed(ids) if i in claims), None)
+        if not root_id:
             return
         self._sync_from_backend_path(
-            backend, self._backend_relpath(), recursive=True
+            claims[root_id],
+            self._relpath_from_claims(ids, root_id),
+            recursive=True,
         )
 
     def _backend_child_is_dir(self, backend, child_path):
@@ -511,19 +607,37 @@ class OneStorageEntry(models.Model):
         try:
             entries = backend.list_files(rel_path, detail=True)
         except Exception as err:  # noqa: BLE001
-            _logger.warning("Sync failed for %s: %s", self.complete_name, err)
+            _logger.exception("Sync failed for %s: %s", self.complete_name, err)
             return
         existing = {child.name: child for child in self.child_ids}
         backend_names = set()
-        for entry_name, size in entries:
-            # S3 adapters report directories as names with a trailing slash.
-            entry_name = entry_name.rstrip("/")
+        to_create = []
+        subdirs = []
+        now = fields.Datetime.now()
+        for item in entries:
+            # Detailed listings share the stat() shape (name/size/is_dir);
+            # names ending with "/" (S3-style directory markers) are
+            # directories by construction. When the adapter cannot tell,
+            # fall back to per-child probes.
+            raw_name = item["name"]
+            entry_name = raw_name.rstrip("/")
+            size = item.get("size") or 0
             backend_names.add(entry_name)
             child_path = posixpath.join(rel_path, entry_name) if rel_path else entry_name
-            is_subdir = self._backend_child_is_dir(backend, child_path)
             child = existing.get(entry_name)
+            if raw_name.endswith("/"):
+                is_subdir = True
+            elif item.get("is_dir") is not None:
+                is_subdir = bool(item["is_dir"])
+            elif child is not None and child.state == "synced":
+                # Already-mirrored children keep their known type: probing
+                # costs one backend round-trip each on adapters without
+                # directory support (e.g. S3's implicit prefixes).
+                is_subdir = child.is_dir
+            else:
+                is_subdir = self._backend_child_is_dir(backend, child_path)
             if child is None:
-                child = self.env["one.storage.entry"].create(
+                to_create.append(
                     {
                         "name": entry_name,
                         "entry_type": "directory" if is_subdir else "file",
@@ -531,24 +645,37 @@ class OneStorageEntry(models.Model):
                         "file_size": size or 0,
                         "mimetype": mimetypes.guess_type(entry_name)[0],
                         "state": "synced",
-                        "last_sync": fields.Datetime.now(),
+                        "last_sync": now,
                     }
                 )
             elif not child.is_dir and not is_subdir:
-                child.write(
-                    {
-                        "file_size": size or 0,
-                        "mimetype": child.mimetype
-                        or mimetypes.guess_type(entry_name)[0],
-                        "state": "synced",
-                        "last_sync": fields.Datetime.now(),
-                    }
-                )
-            # Lazily (default) subdirectories are created empty: their level
-            # is pulled when the user descends into them, so a huge backend
-            # never triggers a recursive full scan on listing.
-            if recursive and is_subdir:
-                child._sync_from_backend_path(backend, child_path, recursive=True)
+                mimetype = child.mimetype or mimetypes.guess_type(entry_name)[0]
+                if child.file_size != (size or 0) or child.mimetype != mimetype:
+                    child.write(
+                        {
+                            "file_size": size or 0,
+                            "mimetype": mimetype,
+                            "state": "synced",
+                            "last_sync": now,
+                        }
+                    )
+                elif child.state != "synced":
+                    child.write({"state": "synced", "last_sync": now})
+            if is_subdir:
+                subdirs.append((entry_name, child_path))
+        created = self.env["one.storage.entry"].create(to_create)
+        # The directory itself was refreshed now: its last_sync records when
+        # this level was last pulled from the backend.
+        self.write({"last_sync": now})
+        # Lazily (default) subdirectories are created empty: their level is
+        # pulled when the user descends into them, so a huge backend never
+        # triggers a recursive full scan on listing.
+        if recursive:
+            by_name = {c.name: c for c in created}
+            for entry_name, child_path in subdirs:
+                child = existing.get(entry_name) or by_name.get(entry_name)
+                if child:
+                    child._sync_from_backend_path(backend, child_path, recursive=True)
         # Prune files whose backend bytes disappeared while they were away.
         # Draft entries are kept: they may be placeholders whose bytes were
         # never pushed. Directories are kept too: logical (empty) folders
@@ -557,7 +684,7 @@ class OneStorageEntry(models.Model):
             if name in backend_names or child.is_dir or child.state != "synced":
                 continue
             try:
-                child.unlink()
+                child.with_context(one_storage_skip_backend_sync=True).unlink()
             except ValidationError as err:
                 _logger.warning(
                     "Prune of %s skipped: %s", child.complete_name, err
@@ -1158,6 +1285,24 @@ class OneStorageEntry(models.Model):
             "target": "self",
         }
 
+    def action_refresh(self):
+        """Re-sync this directory's level from its backend, then reopen it."""
+        self.ensure_one()
+        target = self._follow()
+        target._sync_children()
+        return {
+            "type": "ir.actions.act_window",
+            "name": target.name,
+            "res_model": "one.storage.entry",
+            "view_mode": "kanban,list,form",
+            "domain": [("parent_id", "=", target.id)],
+            "context": {
+                "default_parent_id": target.id,
+                "default_entry_type": "file",
+            },
+            "target": "current",
+        }
+
     def action_edit(self):
         """Open the entry's form view."""
         self.ensure_one()
@@ -1257,40 +1402,10 @@ class OneStorageEntry(models.Model):
     # Async batch operations (queue_job)
     # ------------------------------------------------------------------
     def action_batch_delete(self):
-        for entry in self:
-            delayable = entry.with_delay(
-                channel="root.one_storage",
-                description=_("Delete %s") % entry.display_name,
-            )
-            if entry.is_dir:
-                delayable._batch_rmtree()
-            else:
-                delayable._batch_delete()
-
-    def _batch_delete(self):
-        self.ensure_one()
-        try:
-            backend, _mirror = self._resolve_backend()
-            rel_path = self._backend_relpath()
-            backend.delete(rel_path)
-        except Exception as err:  # noqa: BLE001
-            _logger.warning("Batch delete failed for %s: %s", self.complete_name, err)
-        self.unlink()
-
-    def _batch_rmtree(self):
-        self.ensure_one()
-        self.rmtree()
+        return self.env["one.storage.operation"].start_delete(self)
 
     def action_batch_move(self, dest_entry):
-        for entry in self:
-            if not dest_entry.is_dir:
-                continue
-            entry.with_delay(
-                channel="root.one_storage",
-                description=_("Move %s") % entry.display_name,
-            )._batch_move(dest_entry.id)
-
-    def _batch_move(self, dest_entry_id):
-        self.ensure_one()
-        dest_entry = self.env["one.storage.entry"].browse(dest_entry_id)
-        self.move(dest_entry)
+        dest_entry = dest_entry.filtered("is_dir")
+        if dest_entry:
+            return self.env["one.storage.operation"].start_move(self, dest_entry)
+        return True

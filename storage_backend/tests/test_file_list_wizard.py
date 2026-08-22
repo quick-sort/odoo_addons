@@ -86,8 +86,13 @@ class StorageBackendFileListWizardCase(CommonCase):
         self.assertEqual(attachment.name, self.filename)
 
     def test_line_download_missing_file(self):
-        line = self.wizard.line_ids.new({"name": "no_such_file.bin"})
-        with self.assertRaises((FileNotFoundError, UserError)):
+        line = self.wizard.line_ids.new(
+            {
+                "name": "no_such_file.bin",
+                "wizard_id": self.wizard.id,
+            }
+        )
+        with self.assertRaises(FileNotFoundError):
             line.action_download()
 
     def test_line_delete(self):

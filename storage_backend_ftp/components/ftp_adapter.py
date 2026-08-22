@@ -157,12 +157,18 @@ class FTPStorageBackendAdapter(Component):
                 if detail:
                     try:
                         items = [
-                            (name, int(facts.get("size") or 0))
+                            {
+                                "name": name,
+                                "size": int(facts.get("size") or 0),
+                                "is_dir": facts.get("type") == "dir",
+                            }
                             for name, facts in client.mlsd(full_path)
                         ]
                     except (ftplib.Error, OSError, AttributeError):
                         # MLSD not supported: fall back to NLST without sizes
-                        items = [(name, 0) for name in client.nlst(full_path)]
+                        items = [
+                            {"name": name, "size": 0} for name in client.nlst(full_path)
+                        ]
                 else:
                     items = client.nlst(full_path)
             except OSError as e:

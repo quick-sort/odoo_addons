@@ -29,6 +29,8 @@ class OneStorageEntryMoveWizard(models.TransientModel):
 
     def action_apply(self):
         self.ensure_one()
-        for entry in self.entry_ids:
-            entry.move(self.dest_dir_id)
+        if self.entry_ids:
+            self.env["one.storage.operation"].start_move(
+                self.entry_ids, self.dest_dir_id
+            )
         return {"type": "ir.actions.act_window_close"}

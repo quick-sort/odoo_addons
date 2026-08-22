@@ -1,7 +1,7 @@
 # Copyright 2026 One Storage
 # License LGPL-3.0 or later (http://www.gnu.org/licenses/lgpl.html)
 
-from odoo import _, fields, models
+from odoo import _, api, fields, models
 from odoo.exceptions import ValidationError
 
 
@@ -44,9 +44,15 @@ class OneStorageEntryMountWizard(models.TransientModel):
         compute="_compute_is_mounted",
     )
 
+    @api.depends("entry_id")
     def _compute_is_mounted(self):
         for wizard in self:
-            entry = wizard.entry_id._follow()
+            entry = wizard.entry_id
+            if not entry:
+                wizard.is_mounted = False
+                wizard.mounted_backend_id = False
+                continue
+            entry = entry._follow()
             mirror_backend = entry.binding_id.backend_id or entry.backend_id
             wizard.is_mounted = bool(mirror_backend)
             wizard.mounted_backend_id = mirror_backend

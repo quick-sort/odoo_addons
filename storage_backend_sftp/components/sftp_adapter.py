@@ -7,6 +7,7 @@
 import errno
 import logging
 import os
+import stat
 from contextlib import contextmanager
 from io import StringIO
 
@@ -87,7 +88,12 @@ class SFTPStorageBackendAdapter(Component):
             try:
                 if detail:
                     items = [
-                        (a.filename, a.st_size) for a in client.listdir_attr(full_path)
+                        {
+                            "name": a.filename,
+                            "size": a.st_size,
+                            "is_dir": stat.S_ISDIR(a.st_mode),
+                        }
+                        for a in client.listdir_attr(full_path)
                     ]
                 else:
                     items = client.listdir(full_path)

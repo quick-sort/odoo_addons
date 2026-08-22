@@ -4,6 +4,7 @@
 import base64
 from unittest.mock import patch
 
+from odoo.addons.queue_job.tests.common import trap_jobs
 from odoo.exceptions import ValidationError
 
 from .common import OneStorageCommon
@@ -84,7 +85,9 @@ class TestMoveWizard(OneStorageCommon):
             .with_context(default_entry_ids=[(6, 0, (a | b).ids)])
             .create({"dest_dir_id": dest.id})
         )
-        wizard.action_apply()
+        with trap_jobs() as trap:
+            wizard.action_apply()
+            trap.perform_enqueued_jobs()
         self.assertEqual(a.parent_id, dest)
         self.assertEqual(b.parent_id, dest)
         self.assertTrue(self.backend.file_exists("dest/a.txt"))
@@ -100,7 +103,9 @@ class TestDeleteWizardMulti(OneStorageCommon):
             .with_context(default_entry_ids=[(6, 0, folder.ids)])
             .create({"recursive": True})
         )
-        wizard.action_apply()
+        with trap_jobs() as trap:
+            wizard.action_apply()
+            trap.perform_enqueued_jobs()
         self.assertFalse(folder.exists())
         self.assertFalse(self.backend.file_exists("tree/a.txt"))
 

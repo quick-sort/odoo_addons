@@ -73,6 +73,20 @@ class SftpCase(CommonCase, BackendStorageTestMixin):
             self.assertEqual(stream.read(), "filecontent")
 
     @mock.patch(PARAMIKO_PATH)
+    def test_list_detail_shape(self, mocked_paramiko):
+        client = mocked_paramiko.SFTPClient.from_transport()
+        dir_attr = mock.Mock(st_mode=0o040000 + 0o755, st_size=0)
+        dir_attr.filename = "dir1"
+        file_attr = mock.Mock(st_mode=0o100644, st_size=12)
+        file_attr.filename = "file1.txt"
+        client.listdir_attr.return_value = [dir_attr, file_attr]
+        items = self.backend.list_files(detail=True)
+        by_name = {item["name"]: item for item in items}
+        self.assertIs(by_name["dir1"]["is_dir"], True)
+        self.assertIs(by_name["file1.txt"]["is_dir"], False)
+        self.assertEqual(by_name["file1.txt"]["size"], 12)
+
+    @mock.patch(PARAMIKO_PATH)
     def test_list(self, mocked_paramiko):
         client = mocked_paramiko.SFTPClient.from_transport()
         # simulate errors

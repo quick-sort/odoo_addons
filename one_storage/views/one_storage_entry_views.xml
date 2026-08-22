@@ -17,6 +17,9 @@
                 <field name="binding_id"/>
                 <field name="child_count"/>
                 <field name="file_size"/>
+                <field name="display_size"/>
+                <field name="last_sync"/>
+                <field name="display_last_sync"/>
                 <header>
                     <button name="action_move_selected" type="object"
                             string="Move" display="selection"
@@ -34,6 +37,9 @@
                            class="dropdown-item">Rename</a>
                         <a name="action_move" type="object" role="menuitem"
                            class="dropdown-item">Move</a>
+                        <a t-if="record.is_dir.raw_value"
+                           name="action_refresh" type="object" role="menuitem"
+                           class="dropdown-item">Refresh</a>
                         <a t-if="record.is_dir.raw_value and !record.backend_id.raw_value and !record.binding_id.raw_value"
                            name="action_mount_wizard" type="object" role="menuitem"
                            class="dropdown-item">Mount Backend</a>
@@ -61,19 +67,29 @@
                             </div>
                         </aside>
                         <main class="ms-1">
-                            <field name="name" class="text-truncate fw-bold fs-5"/>
-                            <footer class="d-flex align-items-center pb-1 pe-1">
-                                <small t-if="record.is_dir.raw_value" class="text-muted me-3">
-                                    <i class="fa fa-folder-o" title="Sub-entries" role="img"/>
-                                    <span t-if="record.child_count.raw_value">
-                                        <t t-esc="record.child_count.raw_value"/>
-                                    </span>
-                                </small>
-                                <small t-else="" class="text-muted me-3">
-                                    <field name="file_size" widget="integer"/>
-                                </small>
-                                <field name="backend_id" class="ms-auto badge text-bg-secondary"/>
-                            </footer>
+                            <div class="d-flex flex-column justify-content-between flex-grow-1">
+                                <field name="name" class="text-truncate fw-bold fs-5 mt-3"/>
+                                <footer class="d-flex align-items-center pb-1 pe-1">
+                                    <small t-if="record.is_dir.raw_value" class="text-muted me-3">
+                                        <i class="fa fa-folder-o me-1" title="Sub-entries" role="img"/>
+                                        <span t-if="record.child_count.raw_value">
+                                            <t t-esc="record.child_count.raw_value"/>
+                                        </span>
+                                    </small>
+                                    <small class="text-muted me-3">
+                                        <i t-if="record.is_dir.raw_value"
+                                           class="fa fa-database me-1" title="Total size" role="img"/>
+                                        <t t-esc="record.display_size.value"/>
+                                    </small>
+                                    <small t-if="record.last_sync.raw_value"
+                                           class="text-muted me-3"
+                                           t-att-title="record.last_sync.value">
+                                        <i class="fa fa-clock-o me-1" title="Last sync" role="img"/>
+                                        <t t-esc="record.display_last_sync.value"/>
+                                    </small>
+                                    <field name="backend_id" class="ms-auto badge text-bg-secondary"/>
+                                </footer>
+                            </div>
                         </main>
                     </t>
                 </templates>

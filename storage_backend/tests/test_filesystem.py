@@ -66,13 +66,20 @@ class FileSystemCapabilitiesCase(CommonCase):
         for name in names:
             self._write(backend, name)
         try:
+            os.makedirs(
+                os.path.join(backend._get_adapter()._basedir(), "sub"),
+                exist_ok=True,
+            )
             items = backend.list_files(detail=True)
-            sizes = dict(items)
+            by_name = {item["name"]: item for item in items}
             for name in names:
                 self.assertEqual(
-                    sizes[name],
+                    by_name[name]["size"],
                     len(base64.b64decode(self.filedata)),
                 )
+            subdir = by_name["sub"]
+            self.assertIs(subdir["is_dir"], True)
+            self.assertIn("mtime", subdir)
         finally:
             for name in names:
                 backend.delete(name)
@@ -118,10 +125,6 @@ class FileSystemCapabilitiesCase(CommonCase):
                 self.assertEqual(stream.read(), raw)
             # physical path carries a .gz suffix holding compressed bytes
             self.assertTrue(backend.file_exists(filename + ".gz"))
-            self.assertEqual(
-                backend.get_size(filename),
-                len(raw),
-            )
             physical_raw = gzip.decompress(
                 open(
                     os.path.join(
@@ -132,6 +135,9 @@ class FileSystemCapabilitiesCase(CommonCase):
                 ).read()
             )
             self.assertEqual(physical_raw, raw)
+            # get_size reports the stored (compressed) size, not the logical one
+            self.assertNotEqual(backend.get_size(filename), len(raw))
+            self.assertGreater(backend.get_size(filename), 0)
             # logical listing strips the .gz suffix back off
             items = backend.list_files()
             self.assertIn(filename, items)

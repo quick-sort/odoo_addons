@@ -47,6 +47,20 @@ class AmazonS3Case(VCRMixin, CommonCase, BackendStorageTestMixin):
     def test_setting_and_getting_data_from_dir(self):
         self._test_setting_and_getting_data_from_dir()
 
+    def test_list_detail_shape(self):
+        items = self.backend.list_files(detail=True)
+        # Common prefixes become directory entries with a trailing "/"
+        # stripped name and is_dir=True; objects carry size and is_dir=False.
+        for item in items:
+            self.assertIsInstance(item, dict)
+            self.assertIn("name", item)
+            self.assertIn("size", item)
+            self.assertIn("is_dir", item)
+        for item in items:
+            if item["is_dir"]:
+                self.assertFalse(item["name"].endswith("/"))
+                self.assertEqual(item["size"], 0)
+
     def test_params(self):
         adapter = self.backend._get_adapter()
         self.backend.aws_host = ""

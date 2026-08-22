@@ -25,9 +25,18 @@ class OneStorageCommon(TransactionComponentCase):
         )
         base_dir = cls.backend._get_adapter()._basedir()
         cls.tmpdir = os.path.join(base_dir, cls.tmp_name)
-        # A single global root is enforced; clear any seeded root so the test
-        # owns the tree and binds it to the dedicated test backend.
-        cls.env["one.storage.entry"].search([("parent_id", "=", False)]).unlink()
+        # A single global root is enforced; clear any seeded or leftover
+        # entries (children first) so the test owns the tree and binds it
+        # to the dedicated test backend.
+        Entry = cls.env["one.storage.entry"].with_context(
+            one_storage_skip_backend_sync=True, active_test=False
+        )
+        while True:
+            leaves = Entry.search([("child_ids", "=", False)])
+            if not leaves:
+                break
+            leaves.unlink()
+        Entry.search([]).unlink()
         cls.root_folder = cls.env["one.storage.entry"].create(
             {"name": "root", "entry_type": "directory"}
         )

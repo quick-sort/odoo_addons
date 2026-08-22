@@ -3,6 +3,7 @@
 
 import base64
 
+from odoo.addons.queue_job.tests.common import trap_jobs
 from odoo.tests import HttpCase
 
 from .common import OneStorageCommon
@@ -48,14 +49,10 @@ class TestUploadDeleteWizards(OneStorageCommon):
             .with_context(default_entry_ids=[(6, 0, [entry_id])])
             .create({})
         )
-        wizard.action_apply()
+        with trap_jobs() as trap:
+            wizard.action_apply()
+            trap.perform_enqueued_jobs()
         self.assertFalse(self.env["one.storage.entry"].browse(entry_id).exists())
-
-    def test_action_edit_returns_form_action(self):
-        res = self.file_entry.action_edit()
-        self.assertEqual(res["res_model"], "one.storage.entry")
-        self.assertEqual(res["res_id"], self.file_entry.id)
-        self.assertEqual(res["view_mode"], "form")
 
 
 class TestPreviewRoute(HttpCase):

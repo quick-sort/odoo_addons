@@ -9,26 +9,8 @@ from .common import OneStorageCommon
 
 
 class TestAdapterLookup(OneStorageCommon):
-    """The storage backend (delegated to storage_backend) provides the
-    unified add/get/list/delete interface used by entries."""
-
-    def test_unified_open_delete(self):
-        with self.backend.open("a/b.txt", "wb") as stream:
-            stream.write(b"hello")
-        with self.backend.open("a/b.txt", "rb") as stream:
-            self.assertEqual(stream.read(), b"hello")
-        names = self.backend.list_files("a")
-        self.assertIn("b.txt", names)
-        self.backend.delete("a/b.txt")
-        self.assertEqual(self.backend.list_files("a"), [])
-
-    def test_get_size(self):
-        with self.backend.open("img.png", "wb") as stream:
-            stream.write(b"payload")
-        self.assertEqual(self.backend.get_size("img.png"), len(b"payload"))
-
-    def test_validate_config_ok(self):
-        self.backend._get_adapter().validate_config()
+    """Adapter round-trips live in storage_backend's own tests; this layer
+    only checks the one failure mode that originates here."""
 
     def test_unknown_backend_type_raises(self):
         unknown = self.env["storage.backend"].create(
@@ -122,3 +104,32 @@ class TestBindMount(OneStorageCommon):
         mirror_root.read_only = True
         with self.assertRaises(Exception):
             mirror_root.create_file("x.txt", b"x")
+
+    def test_mirror_root_coexists_with_same_name_sibling(self):
+        """A hidden mirror root may share its name with a user folder.
+
+        Mirror roots are internal labels exempt from the per-parent
+        uniqueness constraint, which only applies to user-facing entries.
+        """
+        self.root_folder.mkdir("Second FS")  # same name as the backend below
+        second, _unused = self._make_second_backend_root_by_sync()
+        mirror = second.entry_id
+        self.assertTrue(mirror)
+        self.assertEqual(mirror.name, "Second FS")
+        self.assertFalse(mirror.active)
+        # And the user-facing folder is unaffected.
+        self.assertTrue(self.root_folder.child_ids.filtered(
+            lambda c: c.name == "Second FS" and c.active
+        ))
+
+    def _make_second_backend_root_by_sync(self):
+        second = self.env["storage.backend"].create(
+            {
+                "name": "Second FS",
+                "backend_type": "filesystem",
+                "directory_path": "second_fs_sync_%s" % self.tmp_name,
+            }
+        )
+        mirror = self.env["one.storage.entry"]._get_or_create_mirror_root(second)
+        second.entry_id = mirror
+        return second, mirror

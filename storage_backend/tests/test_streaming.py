@@ -29,11 +29,27 @@ class StreamingCase(CommonCase):
 
     def test_parent_dir_auto_created(self):
         backend = self.backend
-        path = "deeply/nested/dir/file.txt"
+        # unique suffix: the filestore is shared across test databases, so
+        # previous runs' files are not rolled back with the transaction
+        # colons in the timestamp would leak into the path
+        unique = self.env.cr.now().isoformat().replace(":", "")
+        path = "deeply/nested_%s/file.txt" % unique
+        base = path.rsplit("/", 1)[0]
         self.assertFalse(backend.file_exists(path))
         with backend.open(path, "wb") as stream:
             stream.write(b"hi")
         self.assertTrue(backend.file_exists(path))
+        backend.delete(path)
+        # remove the now-empty parent chain so the next run starts clean;
+        # rmdir may fail on leftovers from other runs, which is fine
+        adapter = backend._get_adapter()
+        try:
+            while base and base != "deeply":
+                adapter.rmdir(base)
+                base = base.rsplit("/", 1)[0]
+            adapter.rmdir("deeply")
+        except OSError:
+            pass
 
     def test_open_rejects_bad_mode(self):
         with self.assertRaises(ValueError):

@@ -77,6 +77,19 @@ class FtpCase(CommonCase, BackendStorageTestMixin):
             self.assertEqual(stream.read(), content)
 
     @mock.patch(FTP_LIB_PATH)
+    def test_list_detail_shape(self, mocked_ftplib):
+        client = mocked_ftplib.FTP().__enter__()
+        client.mlsd.return_value = [
+            ("dir1", {"type": "dir", "size": ""}),
+            ("file1.txt", {"type": "file", "size": "12"}),
+        ]
+        items = self.backend.list_files(detail=True)
+        by_name = {item["name"]: item for item in items}
+        self.assertIs(by_name["dir1"]["is_dir"], True)
+        self.assertIs(by_name["file1.txt"]["is_dir"], False)
+        self.assertEqual(by_name["file1.txt"]["size"], 12)
+
+    @mock.patch(FTP_LIB_PATH)
     def test_list(self, mocked_ftplib):
         client = mocked_ftplib.FTP().__enter__()
         # simulate errors

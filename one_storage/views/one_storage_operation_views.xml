@@ -6,17 +6,18 @@
         <field name="arch" type="xml">
             <list decoration-success="state == 'done'"
                   decoration-danger="state == 'failed'"
-                  decoration-muted="state == 'draft'">
+                  decoration-muted="state == 'pending'">
                 <field name="name"/>
                 <field name="operation_type"/>
                 <field name="state"/>
-                <field name="entry_id"/>
-                <field name="backend_id"/>
+                <field name="backend_id" optional="hide"/>
+                <field name="entry_id" optional="show"/>
+                <field name="done_count" string="Done"/>
+                <field name="jobs_count" string="Jobs"/>
                 <field name="user_id"/>
                 <field name="create_date"/>
-                <button name="action_open_job" type="object"
-                        icon="fa-external-link" title="Open Job"
-                        invisible="not job_uuid"/>
+                <button name="action_open_jobs" type="object"
+                        icon="fa-tasks" title="Open Jobs"/>
             </list>
         </field>
     </record>
@@ -27,13 +28,8 @@
         <field name="arch" type="xml">
             <form>
                 <header>
-                    <button name="action_run" type="object" string="Run"
-                            class="oe_highlight"
-                            invisible="state in ('done', 'pending')"/>
-                    <button name="action_open_job" type="object"
-                            string="Open Job" invisible="not job_uuid"/>
                     <field name="state" widget="statusbar"
-                           statusbar_visible="draft,pending,done"/>
+                           statusbar_visible="pending,progress,done,failed"/>
                 </header>
                 <sheet>
                     <div class="oe_title">
@@ -45,13 +41,34 @@
                             <field name="operation_type"/>
                             <field name="backend_id" options="{'no_create': True}"/>
                             <field name="entry_id" options="{'no_create': True}"/>
+                            <field name="dest_entry_id" options="{'no_create': True}"
+                                   invisible="operation_type != 'move'"/>
                         </group>
                         <group>
-                            <field name="job_uuid"/>
                             <field name="user_id"/>
-                            <field name="entry_ids" widget="many2many_tags"/>
+                            <field name="done_count"/>
+                            <field name="jobs_count"/>
                         </group>
                     </group>
+                    <notebook>
+                        <page string="Jobs" name="jobs">
+                            <field name="job_ids">
+                                <list decoration-success="state == 'done'"
+                                      decoration-danger="state == 'failed'">
+                                    <field name="name"/>
+                                    <field name="state"/>
+                                    <field name="exc_message"/>
+                                    <field name="job_uuid" readonly="1"/>
+                                    <button name="action_open_job" type="object"
+                                            icon="fa-external-link" title="Open Job"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Entries" name="entries"
+                              invisible="not entry_ids">
+                            <field name="entry_ids" widget="many2many_tags"/>
+                        </page>
+                    </notebook>
                     <group string="Result" invisible="not result_message">
                         <field name="result_message" nolabel="1"/>
                     </group>
@@ -60,9 +77,31 @@
         </field>
     </record>
 
+    <record id="view_one_storage_operation_job_tree" model="ir.ui.view">
+        <field name="name">one.storage.operation.job.tree</field>
+        <field name="model">one.storage.operation.job</field>
+        <field name="arch" type="xml">
+            <list decoration-success="state == 'done'"
+                  decoration-danger="state == 'failed'">
+                <field name="name"/>
+                <field name="operation_id"/>
+                <field name="state"/>
+                <field name="exc_message"/>
+                <button name="action_open_job" type="object"
+                        icon="fa-external-link" title="Open Job"/>
+            </list>
+        </field>
+    </record>
+
     <record id="action_one_storage_operation" model="ir.actions.act_window">
         <field name="name">Batch Operations</field>
         <field name="res_model">one.storage.operation</field>
         <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="action_one_storage_operation_job" model="ir.actions.act_window">
+        <field name="name">Operation Jobs</field>
+        <field name="res_model">one.storage.operation.job</field>
+        <field name="view_mode">list</field>
     </record>
 </odoo>

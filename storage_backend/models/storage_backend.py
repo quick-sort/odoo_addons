@@ -9,7 +9,6 @@ import functools
 import gzip
 import inspect
 import logging
-import os
 import warnings
 from contextlib import contextmanager
 
@@ -150,19 +149,28 @@ class StorageBackend(models.Model):
                     yield gz
 
     def list_files(self, relative_path="", pattern=False, limit=False, detail=False):
+        """List ``relative_path``.
+
+        Returns names, or with ``detail=True`` one dict per entry in the
+        ``stat()`` shape (``name``, ``size``, ``is_dir``, ``mtime`` when the
+        adapter provides it).
+        """
         items = self._forward(
             "list", relative_path, limit=limit or None, detail=detail
         )
         if detail:
-            items = [(self._gzip_logical(name), size) for name, size in items]
+            items = [
+                {**item, "name": self._gzip_logical(item["name"])}
+                for item in items
+            ]
         else:
             items = [self._gzip_logical(name) for name in items]
         if pattern:
             if detail:
                 items = [
-                    (name, size)
-                    for name, size in items
-                    if fnmatch.fnmatch(name, pattern)
+                    item
+                    for item in items
+                    if fnmatch.fnmatch(item["name"], pattern)
                 ]
             else:
                 items = fnmatch.filter(items, pattern)
@@ -196,23 +204,13 @@ class StorageBackend(models.Model):
         return self._forward("exists", physical)
 
     def get_size(self, relative_path):
-        physical, use_gzip = self._gzip_physical(relative_path)
-        size = self._forward("get_size", physical)
-        if not (use_gzip and size):
-            return size
-        # gzip trailer's last 4 bytes are ISIZE: the uncompressed length
-        # modulo 2**32 (little-endian), exact for single-member files under
-        # 4 GiB. Backends whose read stream is not seekable (e.g. S3's
-        # streaming body) fall back to the physical (compressed) size.
-        try:
-            with self._forward("open", physical, "rb") as raw:
-                raw.seek(-4, os.SEEK_END)
-                return int.from_bytes(raw.read(4), "little")
-        except Exception:
-            _logger.debug(
-                "cannot read gzip footer for %s; using physical size", physical
-            )
-            return size
+        """Return the stored size in bytes.
+
+        This is the size of the bytes actually on the backend (the gzip
+        stream for gzip-wrapped extensions), not the decompressed length.
+        """
+        physical, _ = self._gzip_physical(relative_path)
+        return self._forward("get_size", physical)
 
     def stat(self, relative_path):
         physical, _ = self._gzip_physical(relative_path)

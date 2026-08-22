@@ -155,17 +155,22 @@ class S3StorageAdapter(Component):
             response = client.list_objects_v2(**kwargs)
             for item in response.get("CommonPrefixes", ()):
                 name = item["Prefix"][len(prefix):].rstrip("/")
-                if name:
-                    name += "/"
-                else:
+                if not name:
                     # A common prefix that resolves to nothing (e.g. the
                     # delimiter itself) is not a real entry; skip it.
                     continue
-                items.append((name, 0) if detail else name)
+                name += "/"
+                items.append(
+                    {"name": name, "size": 0, "is_dir": True} if detail else name
+                )
             for item in response.get("Contents", ()):
                 name = item["Key"][len(prefix):]
                 if name:
-                    items.append((name, item["Size"]) if detail else name)
+                    items.append(
+                        {"name": name, "size": item["Size"], "is_dir": False}
+                        if detail
+                        else name
+                    )
             if limit and len(items) >= limit:
                 items = items[:limit]
                 break

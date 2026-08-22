@@ -46,9 +46,5 @@ class OneStorageEntryDeleteWizard(models.TransientModel):
                             entry.name,
                         )
                     )
-        for entry in entries:
-            if entry.is_dir and self.recursive:
-                entry.rmtree()
-            else:
-                entry.unlink()
+        self.env["one.storage.operation"].start_delete(entries)
         return {"type": "ir.actions.act_window_close"}

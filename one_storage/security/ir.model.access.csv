@@ -4,6 +4,8 @@ access_one_storage_entry_user,one.storage.entry user,model_one_storage_entry,one
 access_one_storage_entry_manager,one.storage.entry manager,model_one_storage_entry,one_storage.group_one_storage_manager,1,1,1,1
 access_one_storage_operation_user,one.storage.operation user,model_one_storage_operation,one_storage.group_one_storage_user,1,1,1,0
 access_one_storage_operation_manager,one.storage.operation manager,model_one_storage_operation,one_storage.group_one_storage_manager,1,1,1,1
+access_one_storage_operation_job_user,one.storage.operation.job user,model_one_storage_operation_job,one_storage.group_one_storage_user,1,0,0,0
+access_one_storage_operation_job_manager,one.storage.operation.job manager,model_one_storage_operation_job,one_storage.group_one_storage_manager,1,1,1,1
 access_one_storage_entry_delete_wizard,one.storage.entry.delete.wizard,model_one_storage_entry_delete_wizard,one_storage.group_one_storage_user,1,1,1,1
 access_one_storage_entry_upload_wizard,one.storage.entry.upload.wizard,model_one_storage_entry_upload_wizard,one_storage.group_one_storage_user,1,1,1,1
 access_one_storage_entry_rename_wizard,one.storage.entry.rename.wizard,model_one_storage_entry_rename_wizard,one_storage.group_one_storage_user,1,1,1,1
