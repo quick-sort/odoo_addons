@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<odoo>
-    <menuitem id="cloud_menu_root" name="云平台" sequence="90"
-              groups="cloud.group_cloud_user"/>
-    <menuitem id="cloud_menu_accounts" name="云账号" parent="cloud_menu_root"
-              sequence="10" action="action_cloud_account"/>
-</odoo>

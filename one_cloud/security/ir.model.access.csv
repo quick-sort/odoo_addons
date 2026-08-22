@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_one_cloud_account_user,one.cloud.account.user,model_one_cloud_account,one_cloud.group_one_cloud_user,1,0,0,0
+access_one_cloud_account_manager,one.cloud.account.manager,model_one_cloud_account,one_cloud.group_one_cloud_manager,1,1,1,1

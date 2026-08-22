@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="one_cloud.one_cloud_menu_targets" name="防火墙目标"
+              parent="one_cloud.one_cloud_menu_root" sequence="20"
+              action="one_cloud_firewall.action_cloud_firewall_target"/>
+    <menuitem id="one_cloud.one_cloud_menu_logs" name="同步日志"
+              parent="one_cloud.one_cloud_menu_root" sequence="30"
+              action="one_cloud_firewall.action_cloud_firewall_sync_log"/>
+    <menuitem id="one_cloud.one_cloud_menu_config" name="同步配置"
+              parent="one_cloud.one_cloud_menu_root" sequence="40"
+              action="one_cloud_firewall.action_cloud_firewall_sync_config_open"/>
+</odoo>

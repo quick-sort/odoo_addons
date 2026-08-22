@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_cloud_firewall_target_list" model="ir.ui.view">
+        <field name="name">one.cloud.firewall.target.list</field>
+        <field name="model">one.cloud.firewall.target</field>
+        <field name="arch" type="xml">
+            <list>
+                <header>
+                    <button name="action_sync_now" type="object" string="立即同步"
+                            display="always" class="btn-primary"
+                            groups="one_cloud.group_one_cloud_manager"
+                            confirm="确认立即同步所有防火墙白名单？"/>
+                </header>
+                <field name="name"/>
+                <field name="account_id"/>
+                <field name="provider" column_invisible="1"/>
+                <field name="resource_id"/>
+                <field name="region" optional="hide"/>
+                <field name="last_sync_state" widget="badge"
+                       decoration-success="last_sync_state in ('success', 'unchanged')"
+                       decoration-danger="last_sync_state == 'failed'"/>
+                <field name="last_sync"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_cloud_firewall_target_form" model="ir.ui.view">
+        <field name="name">one.cloud.firewall.target.form</field>
+        <field name="model">one.cloud.firewall.target</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_sync_rules" type="object" string="同步规则"
+                            icon="fa-download"
+                            groups="one_cloud.group_one_cloud_manager"/>
+                    <button name="action_push_rules" type="object" string="推送规则"
+                            icon="fa-upload"
+                            groups="one_cloud.group_one_cloud_manager"/>
+                    <button name="action_clear_rules" type="object" string="清空规则"
+                            icon="fa-trash" class="btn-outline-danger"
+                            groups="one_cloud.group_one_cloud_manager"
+                            confirm="确定清空该目标的全部防火墙规则（本地与云端）？此操作不可恢复！"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name" placeholder="例如：东京轻量服务器"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="account_id"/>
+                            <field name="provider" invisible="1"/>
+                            <field name="resource_id"
+                                   placeholder="DigitalOcean 防火墙 ID 或腾讯云实例 ID"/>
+                            <field name="region" placeholder="如 ap-tokyo"/>
+                        </group>
+                        <group>
+                            <field name="active" widget="boolean_toggle"/>
+                            <field name="last_sync_state"/>
+                            <field name="last_sync"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="防火墙规则" name="page_rules">
+                            <field name="rules_ids" context="{'default_target_id': id}">
+                                <list editable="bottom">
+                                    <field name="protocol"/>
+                                    <field name="port"/>
+                                    <field name="cidr"/>
+                                    <field name="action"/>
+                                    <field name="description"/>
+                                    <field name="remote" readonly="1"/>
+                                </list>
+                                <form>
+                                    <group>
+                                        <group>
+                                            <field name="target_id" invisible="1"/>
+                                            <field name="protocol"/>
+                                            <field name="port"/>
+                                            <field name="cidr"/>
+                                        </group>
+                                        <group>
+                                            <field name="action"/>
+                                            <field name="description"/>
+                                            <field name="remote"/>
+                                        </group>
+                                    </group>
+                                </form>
+                            </field>
+                        </page>
+                        <page string="同步日志" name="page_sync_logs">
+                            <field name="sync_log_ids" readonly="1">
+                                <list>
+                                    <field name="create_date"/>
+                                    <field name="ip_from"/>
+                                    <field name="ip_to"/>
+                                    <field name="state" widget="badge"
+                                           decoration-success="state in ('success', 'unchanged')"
+                                           decoration-danger="state == 'failed'"/>
+                                    <field name="message"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_cloud_firewall_target" model="ir.actions.act_window">
+        <field name="name">防火墙目标</field>
+        <field name="res_model">one.cloud.firewall.target</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>

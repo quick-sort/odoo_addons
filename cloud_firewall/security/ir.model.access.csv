@@ -1,9 +1,0 @@
-id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_cloud_firewall_target_user,cloud.firewall.target.user,model_cloud_firewall_target,cloud.group_cloud_user,1,0,0,0
-access_cloud_firewall_target_manager,cloud.firewall.target.manager,model_cloud_firewall_target,cloud.group_cloud_manager,1,1,1,1
-access_cloud_firewall_sync_config_user,cloud.firewall.sync.config.user,model_cloud_firewall_sync_config,cloud.group_cloud_user,1,0,0,0
-access_cloud_firewall_sync_config_manager,cloud.firewall.sync.config.manager,model_cloud_firewall_sync_config,cloud.group_cloud_manager,1,1,1,1
-access_cloud_firewall_sync_log_user,cloud.firewall.sync.log.user,model_cloud_firewall_sync_log,cloud.group_cloud_user,1,0,0,0
-access_cloud_firewall_sync_log_manager,cloud.firewall.sync.log.manager,model_cloud_firewall_sync_log,cloud.group_cloud_manager,1,1,1,1
-access_cloud_firewall_rule_user,cloud.firewall.rule.user,model_cloud_firewall_rule,cloud.group_cloud_user,1,0,0,0
-access_cloud_firewall_rule_manager,cloud.firewall.rule.manager,model_cloud_firewall_rule,cloud.group_cloud_manager,1,1,1,1

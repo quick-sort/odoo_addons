@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_cloud_account_form_do" model="ir.ui.view">
+        <field name="name">one.cloud.account.form.digitalocean</field>
+        <field name="model">one.cloud.account</field>
+        <field name="inherit_id" ref="cloud.view_cloud_account_form"/>
+        <field name="arch" type="xml">
+            <field name="provider" position="after">
+                <field name="do_api_token"
+                       invisible="provider != 'digitalocean'"
+                       required="provider == 'digitalocean'"/>
+            </field>
+        </field>
+    </record>
+</odoo>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_cloud_account_form_tencent" model="ir.ui.view">
+        <field name="name">one.cloud.account.form.tencent</field>
+        <field name="model">one.cloud.account</field>
+        <field name="inherit_id" ref="cloud.view_cloud_account_form"/>
+        <field name="arch" type="xml">
+            <field name="provider" position="after">
+                <field name="tencent_secret_id"
+                       invisible="provider != 'tencent'"
+                       required="provider == 'tencent'"/>
+                <field name="tencent_secret_key"
+                       invisible="provider != 'tencent'"
+                       required="provider == 'tencent'"/>
+                <field name="tencent_test_region"
+                       invisible="provider != 'tencent'"/>
+                <field name="region_ids"
+                       invisible="provider != 'tencent'"/>
+            </field>
+        </field>
+    </record>
+</odoo>
