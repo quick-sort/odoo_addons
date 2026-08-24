@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Posters app root — default view is the Posters list -->
+    <menuitem id="menu_posters_root" name="Posters" sequence="50"
+              web_icon="posters,static/description/icon.png"
+              action="action_conference_poster"
+              groups="posters.group_user"/>
+
+    <!-- Settings submenu inside the Posters app -->
+    <menuitem id="menu_posters_settings" name="Settings"
+              parent="menu_posters_root"
+              sequence="90"
+              groups="posters.group_user"/>
+
+    <menuitem id="menu_posters_settings_conferences" name="Collections"
+              parent="menu_posters_settings"
+              action="action_conference_conference"
+              sequence="10"/>
+
+    <menuitem id="menu_posters_settings_indications" name="Indications"
+              parent="menu_posters_settings"
+              action="action_conference_indication"
+              sequence="20"/>
+
+    <menuitem id="menu_posters_settings_targets" name="Targets"
+              parent="menu_posters_settings"
+              action="action_conference_target"
+              sequence="30"/>
+
+    <menuitem id="menu_posters_settings_storage" name="Storages"
+              parent="menu_posters_settings"
+              action="action_poster_storage"
+              sequence="40"/>
+
+    <!-- Storage also under Odoo Settings > Technical, system admin only -->
+    <menuitem id="menu_posters_technical_storage" name="Poster Storages"
+              parent="base.menu_administration"
+              action="action_poster_storage"
+              sequence="50"
+              groups="base.group_system"/>
+
+</odoo>

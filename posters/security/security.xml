@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <record id="group_user" model="res.groups">
+            <field name="name">Posters User</field>
+            <field name="comment">Access to conference posters</field>
+        </record>
+
+</data>
+</odoo>

@@ -1,0 +1,7 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_poster_storage_admin,poster.storage admin,model_poster_storage,base.group_system,1,1,1,1
+access_poster_storage_user,poster.storage user,model_poster_storage,posters.group_user,1,0,0,0
+access_conference_conference_user,conference.conference user,model_conference_conference,posters.group_user,1,1,1,1
+access_conference_indication_user,conference.indication user,model_conference_indication,posters.group_user,1,1,1,1
+access_conference_target_user,conference.target user,model_conference_target,posters.group_user,1,1,1,1
+access_conference_poster_user,conference.poster user,model_conference_poster,posters.group_user,1,1,1,1

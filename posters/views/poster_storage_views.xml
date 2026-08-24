@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_poster_storage_list" model="ir.ui.view">
+        <field name="name">poster.storage.list</field>
+        <field name="model">poster.storage</field>
+        <field name="arch" type="xml">
+            <list string="Storages">
+                <field name="name"/>
+                <field name="protocol"/>
+                <field name="path_prefix"/>
+                <field name="active"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_poster_storage_form" model="ir.ui.view">
+        <field name="name">poster.storage.form</field>
+        <field name="model">poster.storage</field>
+        <field name="arch" type="xml">
+            <form string="Storage">
+                <header>
+                    <button name="action_test_connection" type="object"
+                            string="Test Connection" class="btn-secondary"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="protocol"/>
+                            <field name="active"/>
+                        </group>
+                        <group>
+                            <field name="path_prefix"/>
+                        </group>
+                    </group>
+                    <group string="fsspec Options">
+                        <field name="storage_options" widget="json_editor" nolabel="1" colspan="2"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_poster_storage_search" model="ir.ui.view">
+        <field name="name">poster.storage.search</field>
+        <field name="model">poster.storage</field>
+        <field name="arch" type="xml">
+            <search string="Storages">
+                <field name="name"/>
+                <filter string="Active" name="active" domain="[('active', '=', True)]"/>
+                <filter string="Archived" name="archived" domain="[('active', '=', False)]"/>
+                <filter string="Group by Protocol" name="group_by_protocol" context="{'group_by': 'protocol'}"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_poster_storage" model="ir.actions.act_window">
+        <field name="name">Storages</field>
+        <field name="res_model">poster.storage</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'search_default_active': 1}</field>
+    </record>
+
+</odoo>

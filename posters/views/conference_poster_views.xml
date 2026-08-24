@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_conference_poster_list" model="ir.ui.view">
+        <field name="name">conference.poster.list</field>
+        <field name="model">conference.poster</field>
+        <field name="arch" type="xml">
+            <list string="Posters">
+                <field name="abstract_no" optional="show"/>
+                <field name="name" string="Title"/>
+                <field name="conference_id" string="Collection"/>
+                <field name="category" optional="show"/>
+                <field name="phase"/>
+                <field name="indication_ids" widget="many2many_tags" optional="show"/>
+                <field name="target_ids" widget="many2many_tags" optional="show"/>
+                <field name="file_type" optional="hide"/>
+                <field name="file_name" optional="show"/>
+                <button name="action_preview" type="object"
+                        icon="fa-eye" title="Preview" string=""
+                        invisible="file_type not in ('pdf', 'txt', 'mp4', 'webm', 'mkv', 'png', 'jpg', 'gif')"/>
+                <button name="action_download_single" type="object"
+                        icon="fa-download" title="Download" string=""/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_conference_poster_form" model="ir.ui.view">
+        <field name="name">conference.poster.form</field>
+        <field name="model">conference.poster</field>
+        <field name="arch" type="xml">
+            <form string="Poster">
+                <header>
+                    <button name="action_preview" type="object"
+                            string="Preview" class="btn-secondary"
+                            invisible="file_type not in ('pdf', 'txt', 'mp4', 'webm', 'mkv', 'png', 'jpg', 'gif')"/>
+                    <button name="action_download_single" type="object"
+                            string="Download" class="btn-primary"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group string="Metadata">
+                            <field name="name" string="Title"/>
+                            <field name="abstract_no"/>
+                            <field name="conference_id" string="Collection"/>
+                            <field name="category"/>
+                            <field name="phase"/>
+                        </group>
+                        <group string="File">
+                            <field name="file_path"/>
+                            <field name="file_name" readonly="1"/>
+                            <field name="file_type" readonly="1"/>
+                        </group>
+                    </group>
+                    <group string="Classification">
+                        <field name="indication_ids" widget="many2many_tags" nolabel="1"
+                               placeholder="Indications..."/>
+                        <field name="target_ids" widget="many2many_tags" nolabel="1"
+                               placeholder="Targets..."/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_conference_poster_search" model="ir.ui.view">
+        <field name="name">conference.poster.search</field>
+        <field name="model">conference.poster</field>
+        <field name="arch" type="xml">
+            <search string="Posters">
+                <field name="name" string="Title"/>
+                <field name="abstract_no"/>
+                <field name="conference_id" string="Collection"/>
+                <field name="category"/>
+                <field name="file_name"/>
+                <field name="indication_ids"/>
+                <field name="target_ids"/>
+                <filter string="Preclinical" name="filter_preclinical" domain="[('phase', '=', 'preclinical')]"/>
+                <filter string="Phase I" name="filter_phase_1" domain="[('phase', '=', 'phase_1')]"/>
+                <filter string="Phase II" name="filter_phase_2" domain="[('phase', '=', 'phase_2')]"/>
+                <filter string="Phase III" name="filter_phase_3" domain="[('phase', '=', 'phase_3')]"/>
+                <filter string="Phase IV" name="filter_phase_4" domain="[('phase', '=', 'phase_4')]"/>
+                <filter string="Group by Collection" name="group_by_conference" context="{'group_by': 'conference_id'}"/>
+                <filter string="Group by Phase" name="group_by_phase" context="{'group_by': 'phase'}"/>
+                <filter string="Group by File Type" name="group_by_file_type" context="{'group_by': 'file_type'}"/>
+                <searchpanel>
+                    <field name="conference_id" icon="fa-calendar" string="Collection"/>
+                </searchpanel>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_conference_poster" model="ir.actions.act_window">
+        <field name="name">Posters</field>
+        <field name="res_model">conference.poster</field>
+        <field name="path">posters</field>
+        <field name="view_mode">list</field>
+    </record>
+
+    <!-- Indication and Target config actions -->
+
+    <record id="action_conference_indication" model="ir.actions.act_window">
+        <field name="name">Indications</field>
+        <field name="res_model">conference.indication</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="action_conference_target" model="ir.actions.act_window">
+        <field name="name">Targets</field>
+        <field name="res_model">conference.target</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+</odoo>

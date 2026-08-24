@@ -1,0 +1,269 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Storages -->
+    <record id="storage_local" model="poster.storage">
+        <field name="name">Local File Storage</field>
+        <field name="protocol">file</field>
+        <field name="path_prefix">/mnt/posters</field>
+        <field name="storage_options">{}</field>
+    </record>
+
+    <record id="storage_s3" model="poster.storage">
+        <field name="name">S3 Poster Bucket</field>
+        <field name="protocol">s3</field>
+        <field name="path_prefix">s3://company-posters/conferences</field>
+        <field name="storage_options">{"key": "AKIAIOSFODNN7EXAMPLE", "secret": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY", "client_kwargs": {"region_name": "us-east-1"}}</field>
+    </record>
+
+    <!-- Indications -->
+    <record id="indication_nsclc" model="conference.indication">
+        <field name="name">NSCLC</field>
+        <field name="color">1</field>
+    </record>
+
+    <record id="indication_crc" model="conference.indication">
+        <field name="name">Colorectal Cancer</field>
+        <field name="color">2</field>
+    </record>
+
+    <record id="indication_lymphoma" model="conference.indication">
+        <field name="name">Lymphoma</field>
+        <field name="color">3</field>
+    </record>
+
+    <record id="indication_myeloma" model="conference.indication">
+        <field name="name">Multiple Myeloma</field>
+        <field name="color">4</field>
+    </record>
+
+    <record id="indication_breast" model="conference.indication">
+        <field name="name">Breast Cancer</field>
+        <field name="color">5</field>
+    </record>
+
+    <record id="indication_allergic_rhinitis" model="conference.indication">
+        <field name="name">Allergic Rhinitis</field>
+        <field name="color">6</field>
+    </record>
+
+    <record id="indication_asthma" model="conference.indication">
+        <field name="name">Asthma</field>
+        <field name="color">7</field>
+    </record>
+
+    <!-- Targets -->
+    <record id="target_pd1" model="conference.target">
+        <field name="name">PD-1</field>
+        <field name="color">1</field>
+    </record>
+
+    <record id="target_pdl1" model="conference.target">
+        <field name="name">PD-L1</field>
+        <field name="color">2</field>
+    </record>
+
+    <record id="target_btk" model="conference.target">
+        <field name="name">BTK</field>
+        <field name="color">3</field>
+    </record>
+
+    <record id="target_vegfr" model="conference.target">
+        <field name="name">VEGFR</field>
+        <field name="color">4</field>
+    </record>
+
+    <record id="target_egfr" model="conference.target">
+        <field name="name">EGFR</field>
+        <field name="color">5</field>
+    </record>
+
+    <record id="target_cd38" model="conference.target">
+        <field name="name">CD38</field>
+        <field name="color">6</field>
+    </record>
+
+    <record id="target_il5" model="conference.target">
+        <field name="name">IL-5</field>
+        <field name="color">7</field>
+    </record>
+
+    <record id="storage_demo" model="poster.storage">
+        <field name="name">Demo Local Files</field>
+        <field name="protocol">file</field>
+        <field name="path_prefix">/mnt/extra-addons/posters/demo/files</field>
+        <field name="storage_options">{}</field>
+    </record>
+
+    <!-- Collections -->
+    <record id="conf_aacr_2026" model="conference.conference">
+        <field name="name">AACR 2026</field>
+        <field name="date">2026-04-25</field>
+        <field name="location">Chicago, IL</field>
+        <field name="storage_id" ref="storage_demo"/>
+        <field name="path"></field>
+    </record>
+
+    <record id="conf_aacr_2025" model="conference.conference">
+        <field name="name">AACR 2025</field>
+        <field name="date">2025-04-25</field>
+        <field name="location">Chicago, IL</field>
+        <field name="storage_id" ref="storage_s3"/>
+        <field name="path">2025/aacr</field>
+    </record>
+
+    <record id="conf_acaai_2024" model="conference.conference">
+        <field name="name">ACAAI 2024</field>
+        <field name="date">2024-11-07</field>
+        <field name="location">Boston, MA</field>
+        <field name="storage_id" ref="storage_s3"/>
+        <field name="path">2024/acaai</field>
+    </record>
+
+    <record id="conf_asco_gi_2025" model="conference.conference">
+        <field name="name">ASCO GI 2025</field>
+        <field name="date">2025-01-23</field>
+        <field name="location">San Francisco, CA</field>
+        <field name="storage_id" ref="storage_s3"/>
+        <field name="path">2025/asco_gi</field>
+    </record>
+
+    <record id="conf_ash_2024" model="conference.conference">
+        <field name="name">ASH 2024</field>
+        <field name="date">2024-12-07</field>
+        <field name="location">San Diego, CA</field>
+        <field name="storage_id" ref="storage_s3"/>
+        <field name="path">2024/ash</field>
+    </record>
+
+    <!-- Posters: AACR 2026 (files relative to storage_demo path_prefix) -->
+    <record id="poster_aacr2026_001" model="conference.poster">
+        <field name="name">BT5528 (EphA2 BDC) + nivolumab in advanced solid tumors: Phase 1/2 results</field>
+        <field name="abstract_no">CT063</field>
+        <field name="conference_id" ref="conf_aacr_2026"/>
+        <field name="target_ids" eval="[(4, ref('target_pd1'))]"/>
+        <field name="phase">phase_1</field>
+        <field name="file_path">CT063_BT5528_nivolumab.pdf</field>
+    </record>
+
+    <record id="poster_aacr2026_002" model="conference.poster">
+        <field name="name">Nivolumab + relatlimab (NIVO + RELA) dose escalation in solid tumors: RELATIVITY-020</field>
+        <field name="abstract_no">LB419</field>
+        <field name="conference_id" ref="conf_aacr_2026"/>
+        <field name="target_ids" eval="[(4, ref('target_pd1'))]"/>
+        <field name="phase">phase_1</field>
+        <field name="file_path">LB419_nivolumab_relatlimab.pdf</field>
+    </record>
+
+    <record id="poster_aacr2026_003" model="conference.poster">
+        <field name="name">JS207 (PD-1×VEGF-A bispecific) + JS007 (anti-CTLA4) in advanced HCC: Phase II</field>
+        <field name="abstract_no">CT159</field>
+        <field name="conference_id" ref="conf_aacr_2026"/>
+        <field name="target_ids" eval="[(4, ref('target_pd1')), (4, ref('target_pdl1'))]"/>
+        <field name="phase">phase_2</field>
+        <field name="file_path">CT159_JS207_PD1_VEGF_HCC.pdf</field>
+    </record>
+
+    <!-- Posters: AACR 2025 (files relative to 2025/aacr/) -->
+    <record id="poster_aacr_001" model="conference.poster">
+        <field name="name">Efficacy of anti-PD-1 therapy in advanced NSCLC with high TMB</field>
+        <field name="abstract_no">CT001</field>
+        <field name="conference_id" ref="conf_aacr_2025"/>
+        <field name="indication_ids" eval="[(4, ref('indication_nsclc'))]"/>
+        <field name="target_ids" eval="[(4, ref('target_pd1'))]"/>
+        <field name="phase">phase_3</field>
+        <field name="file_path">CT001_anti_pd1_nsclc.pdf</field>
+    </record>
+
+    <record id="poster_aacr_002" model="conference.poster">
+        <field name="name">EGFR exon 20 insertion mutations: novel targeted approaches</field>
+        <field name="abstract_no">LB002</field>
+        <field name="conference_id" ref="conf_aacr_2025"/>
+        <field name="indication_ids" eval="[(4, ref('indication_nsclc'))]"/>
+        <field name="target_ids" eval="[(4, ref('target_egfr'))]"/>
+        <field name="phase">phase_2</field>
+        <field name="file_path">LB002_egfr_exon20.pdf</field>
+    </record>
+
+    <record id="poster_aacr_003" model="conference.poster">
+        <field name="name">Combination PD-L1 blockade and VEGFR inhibition in breast cancer</field>
+        <field name="abstract_no">P045</field>
+        <field name="conference_id" ref="conf_aacr_2025"/>
+        <field name="indication_ids" eval="[(4, ref('indication_breast'))]"/>
+        <field name="target_ids" eval="[(4, ref('target_pdl1')), (4, ref('target_vegfr'))]"/>
+        <field name="phase">phase_2</field>
+        <field name="file_path">P045_pdl1_vegfr_breast.pptx</field>
+    </record>
+
+    <!-- Posters: ACAAI 2024 (files relative to 2024/acaai/) -->
+    <record id="poster_acaai_001" model="conference.poster">
+        <field name="name">Real-world outcomes with anti-IL-5 therapy in severe eosinophilic asthma</field>
+        <field name="abstract_no">A112</field>
+        <field name="conference_id" ref="conf_acaai_2024"/>
+        <field name="indication_ids" eval="[(4, ref('indication_asthma'))]"/>
+        <field name="target_ids" eval="[(4, ref('target_il5'))]"/>
+        <field name="phase">phase_4</field>
+        <field name="file_path">A112_anti_il5_asthma.pdf</field>
+    </record>
+
+    <record id="poster_acaai_002" model="conference.poster">
+        <field name="name">Patient-reported outcomes in moderate-to-severe allergic rhinitis</field>
+        <field name="abstract_no">A203</field>
+        <field name="conference_id" ref="conf_acaai_2024"/>
+        <field name="indication_ids" eval="[(4, ref('indication_allergic_rhinitis'))]"/>
+        <field name="phase">phase_3</field>
+        <field name="file_path">A203_allergic_rhinitis_pro.pdf</field>
+    </record>
+
+    <!-- Posters: ASCO GI 2025 (files relative to 2025/asco_gi/) -->
+    <record id="poster_ascogi_001" model="conference.poster">
+        <field name="name">FOLFOX plus bevacizumab vs FOLFIRI plus bevacizumab in mCRC: updated OS data</field>
+        <field name="abstract_no">11</field>
+        <field name="conference_id" ref="conf_asco_gi_2025"/>
+        <field name="indication_ids" eval="[(4, ref('indication_crc'))]"/>
+        <field name="target_ids" eval="[(4, ref('target_vegfr'))]"/>
+        <field name="phase">phase_3</field>
+        <field name="file_path">abs11_folfox_folfiri_mcrc.pdf</field>
+    </record>
+
+    <record id="poster_ascogi_002" model="conference.poster">
+        <field name="name">Biomarker landscape in MSI-H colorectal cancer treated with pembrolizumab</field>
+        <field name="abstract_no">47</field>
+        <field name="conference_id" ref="conf_asco_gi_2025"/>
+        <field name="indication_ids" eval="[(4, ref('indication_crc'))]"/>
+        <field name="target_ids" eval="[(4, ref('target_pd1'))]"/>
+        <field name="phase">phase_2</field>
+        <field name="file_path">abs47_msi_h_pembrolizumab.pdf</field>
+    </record>
+
+    <!-- Posters: ASH 2024 (files relative to 2024/ash/) -->
+    <record id="poster_ash_001" model="conference.poster">
+        <field name="name">Ibrutinib plus venetoclax in treatment-naive CLL: 4-year follow-up</field>
+        <field name="abstract_no">621</field>
+        <field name="conference_id" ref="conf_ash_2024"/>
+        <field name="indication_ids" eval="[(4, ref('indication_lymphoma'))]"/>
+        <field name="target_ids" eval="[(4, ref('target_btk'))]"/>
+        <field name="phase">phase_3</field>
+        <field name="file_path">abs621_ibrutinib_venetoclax_cll.pdf</field>
+    </record>
+
+    <record id="poster_ash_002" model="conference.poster">
+        <field name="name">Daratumumab maintenance post-ASCT in newly diagnosed multiple myeloma</field>
+        <field name="abstract_no">208</field>
+        <field name="conference_id" ref="conf_ash_2024"/>
+        <field name="indication_ids" eval="[(4, ref('indication_myeloma'))]"/>
+        <field name="target_ids" eval="[(4, ref('target_cd38'))]"/>
+        <field name="phase">phase_3</field>
+        <field name="file_path">abs208_dara_myeloma_asct.pdf</field>
+    </record>
+
+    <record id="poster_ash_003" model="conference.poster">
+        <field name="name">CAR-T cell therapy in relapsed/refractory DLBCL: safety and efficacy</field>
+        <field name="abstract_no">LBA5</field>
+        <field name="conference_id" ref="conf_ash_2024"/>
+        <field name="indication_ids" eval="[(4, ref('indication_lymphoma'))]"/>
+        <field name="phase">phase_2</field>
+        <field name="file_path">LBA5_cart_dlbcl.pdf</field>
+    </record>
+
+</odoo>

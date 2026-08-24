@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_conference_conference_list" model="ir.ui.view">
+        <field name="name">conference.conference.list</field>
+        <field name="model">conference.conference</field>
+        <field name="arch" type="xml">
+            <list string="Collections">
+                <field name="name"/>
+                <field name="date"/>
+                <field name="location"/>
+                <field name="storage_id" optional="show"/>
+                <field name="poster_count" string="Posters"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_conference_conference_form" model="ir.ui.view">
+        <field name="name">conference.conference.form</field>
+        <field name="model">conference.conference</field>
+        <field name="arch" type="xml">
+            <form string="Collection">
+                <header>
+                    <button name="action_import_metadata" type="object"
+                            string="Import Metadata" class="btn-secondary"
+                            invisible="not storage_id"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="%(action_conference_poster)d" type="action"
+                                class="oe_stat_button" icon="fa-file"
+                                context="{'search_default_conference_id': id}">
+                            <field name="poster_count" widget="statinfo" string="Posters"/>
+                        </button>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="date"/>
+                            <field name="location"/>
+                        </group>
+                        <group string="Storage">
+                            <field name="storage_id"/>
+                            <field name="path" placeholder="e.g. 2024/asco"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_conference_conference_search" model="ir.ui.view">
+        <field name="name">conference.conference.search</field>
+        <field name="model">conference.conference</field>
+        <field name="arch" type="xml">
+            <search string="Collections">
+                <field name="name"/>
+                <field name="location"/>
+                <field name="storage_id"/>
+                <filter string="Group by Year" name="group_by_year" context="{'group_by': 'date:year'}"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_conference_conference" model="ir.actions.act_window">
+        <field name="name">Collections</field>
+        <field name="res_model">conference.conference</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+</odoo>
