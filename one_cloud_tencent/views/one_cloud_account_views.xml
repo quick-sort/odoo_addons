@@ -3,7 +3,7 @@
     <record id="view_cloud_account_form_tencent" model="ir.ui.view">
         <field name="name">one.cloud.account.form.tencent</field>
         <field name="model">one.cloud.account</field>
-        <field name="inherit_id" ref="cloud.view_cloud_account_form"/>
+        <field name="inherit_id" ref="one_cloud.view_one_cloud_account_form"/>
         <field name="arch" type="xml">
             <field name="provider" position="after">
                 <field name="tencent_secret_id"
