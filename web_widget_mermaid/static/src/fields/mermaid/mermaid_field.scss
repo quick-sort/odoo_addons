@@ -1,0 +1,27 @@
+.o_mermaid_field {
+    .o_mermaid_view {
+        // svg usually carries its own intrinsic size; keep it readable and
+        // scroll horizontally when wider than the form column.
+        max-width: 100%;
+        overflow: auto;
+        text-align: center;
+
+        svg {
+            max-width: 100%;
+            height: auto;
+        }
+    }
+
+    .o_mermaid_textarea {
+        width: 100%;
+        min-height: 120px;
+        font-family: monospace;
+    }
+
+    .o_mermaid_error pre {
+        white-space: pre-wrap;
+        word-break: break-word;
+        max-height: 200px;
+        overflow: auto;
+    }
+}

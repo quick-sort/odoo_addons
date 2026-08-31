@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="project_task_gantt.GanttView" owl="1">
+        <Layout viewType="'gantt'" display="props.display">
+            <t t-set-slot="layout-buttons">
+                <button class="btn btn-primary" t-on-click="() => this.env.controller.createTask()">
+                    <i class="fa fa-plus"/> New Task
+                </button>
+            </t>
+            <t t-set-slot="layout-actions">
+                <GanttController t-props="getControllerProps()" />
+            </t>
+        </Layout>
+    </t>
+
+    <t t-name="project_task_gantt.GanttController" owl="1">
+        <div class="o_gantt_view h-100 d-flex flex-column">
+            <div class="o_gantt_controller_header border-bottom p-2 bg-view">
+                <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap">
+                    <div class="o_gantt_controller_buttons btn-toolbar gap-1">
+                        <button class="btn btn-primary btn-sm" t-on-click="() => this.createTask()" title="Create New Task">
+                            <i class="fa fa-plus"/> New
+                        </button>
+                        <button class="btn btn-secondary btn-sm" t-on-click="() => this.refresh()" title="Refresh Data">
+                            <i class="fa fa-refresh"/> Refresh
+                        </button>
+                        <button class="btn btn-secondary btn-sm" t-on-click="() => this.exportToCSV()" title="Export to CSV">
+                            <i class="fa fa-download"/> Export
+                        </button>
+                    </div>
+                    
+                    <div class="o_gantt_controller_scales btn-group btn-group-sm" role="group">
+                        <button 
+                            t-attf-class="btn btn-sm {{ state.scale === 'week' ? 'btn-primary' : 'btn-outline-secondary' }}" 
+                            t-on-click="() => this.onScaleChange('week')"
+                            title="Week View">
+                            Week
+                        </button>
+                        <button 
+                            t-attf-class="btn btn-sm {{ state.scale === 'month' ? 'btn-primary' : 'btn-outline-secondary' }}" 
+                            t-on-click="() => this.onScaleChange('month')"
+                            title="Month View">
+                            Month
+                        </button>
+                        <button 
+                            t-attf-class="btn btn-sm {{ state.scale === 'year' ? 'btn-primary' : 'btn-outline-secondary' }}" 
+                            t-on-click="() => this.onScaleChange('year')"
+                            title="Year View">
+                            Year
+                        </button>
+                    </div>
+
+                    <div class="o_gantt_controller_nav btn-group btn-group-sm" role="group">
+                        <button class="btn btn-outline-secondary" t-on-click="() => this.navigate('prev')" title="Previous">
+                            <i class="fa fa-chevron-left"/>
+                        </button>
+                        <button class="btn btn-outline-secondary" t-on-click="() => this.navigate('next')" title="Next">
+                            <i class="fa fa-chevron-right"/>
+                        </button>
+                    </div>
+
+                    <div class="o_gantt_controller_mode btn-group btn-group-sm" role="group">
+                        <button 
+                            t-attf-class="btn btn-sm {{ state.editable ? 'btn-outline-secondary' : 'btn-primary' }}" 
+                            t-on-click="() => this.toggleEditable()"
+                            title="Toggle Edit/View Mode">
+                            <t t-esc="state.editable ? 'View Only' : 'Editable'"/>
+                        </button>
+                    </div>
+
+                    <div class="o_gantt_controller_groupby d-flex align-items-center gap-2">
+                        <label class="text-muted mb-0 small">Group By:</label>
+                        <select 
+                            class="form-select form-select-sm o_input" 
+                            style="width: auto;"
+                            t-on-change="(ev) => this.onGroupByChange(ev)">
+                            <option value="project_id" t-att-selected="state.groupBy === 'project_id'">
+                                Project
+                            </option>
+                            <option value="user_ids" t-att-selected="state.groupBy === 'user_ids'">
+                                Assignee
+                            </option>
+                            <option value="stage_id" t-att-selected="state.groupBy === 'stage_id'">
+                                Stage
+                            </option>
+                            <option value="priority" t-att-selected="state.groupBy === 'priority'">
+                                Priority
+                            </option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="o_gantt_renderer_wrapper flex-grow-1 position-relative overflow-hidden">
+                <div t-if="state.isLoading" class="position-absolute top-50 start-50 translate-middle">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+                
+                <GanttRenderer
+                    t-if="!state.isLoading"
+                    data="state.ganttData"
+                    scale="state.scale"
+                    editable="state.editable"
+                    t-on-task-updated.stop.prevent="(ev) => this.onTaskUpdated(ev)"
+                    t-on-task-clicked.stop.prevent="(ev) => this.onTaskClicked(ev)"
+                    t-on-scale-change.stop.prevent="(ev) => this.onScaleChange(ev.detail.scale)"
+                />
+            </div>
+
+            <div class="o_gantt_footer border-top p-2 bg-view small text-muted">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span>
+                        <i class="fa fa-info-circle"/> 
+                        <strong>Tip:</strong> Drag tasks to reschedule (in edit mode), double-click to edit (in view mode), wheel to move left or right , Ctrl+Wheel to zoom, Shift+Wheel to move down or up .
+                    </span>
+                    <span>
+                        Total: <strong t-esc="state.ganttData.reduce((acc, g) => acc + g.tasks.length, 0)"/> tasks
+                    </span>
+                </div>
+            </div>
+        </div>
+    </t>
+
+    <t t-name="project_task_gantt.GanttRenderer" owl="1">
+        <div 
+            class="o_gantt_renderer_container w-100 h-100" 
+            t-ref="root"
+            t-on-mousedown.prevent="(ev) => this.onMouseDown(ev)"
+            t-on-mousemove="(ev) => this.onMouseMove(ev)"
+            t-on-mouseup="(ev) => this.onMouseUp(ev)"
+            t-on-mouseleave="() => this.onMouseLeave()"
+            t-on-dblclick="(ev) => this.onDoubleClick(ev)"
+            t-on-wheel.prevent="(ev) => this.onWheel(ev)">
+            
+            <div class="position-relative w-100 h-100" t-ref="ganttContainer">
+                <canvas t-ref="ganttCanvas" class="w-100 h-100"></canvas>
+                
+                <div 
+                    t-if="state.tooltip.visible" 
+                    class="o_gantt_tooltip position-absolute bg-dark text-white rounded p-2 shadow-lg"
+                    t-attf-style="left: {{ state.tooltip.x }}px; top: {{ state.tooltip.y }}px; transform: translate(15px, 15px); pointer-events: none; z-index: 1000; white-space: pre-line; font-size: 12px; line-height: 1.4;">
+                    <t t-esc="state.tooltip.content"/>
+                </div>
+            </div>
+        </div>
+    </t>
+
+</templates>

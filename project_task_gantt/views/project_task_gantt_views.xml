@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_project_task_gantt" model="ir.ui.view">
+        <field name="name">project.task.gantt</field>
+        <field name="model">project.task</field>
+        <field name="arch" type="xml">
+            <gantt string="Tasks Gantt Chart"/>
+        </field>
+    </record>
+
+    <record id="action_project_task_gantt" model="ir.actions.act_window">
+        <field name="name">Tasks Gantt Chart</field>
+        <field name="res_model">project.task</field>
+        <field name="view_mode">gantt,list,form,kanban</field>
+        <field name="context">{'group_by': 'project_id'}</field>
+        <field name="domain">[]</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create a new task with dates to see it here.
+            </p>
+        </field>
+    </record>
+
+    <menuitem id="menu_project_task_gantt"
+              name="Gantt Chart"
+              parent="project.menu_main_pm"
+              action="action_project_task_gantt"
+              sequence="15"/>
+</odoo>

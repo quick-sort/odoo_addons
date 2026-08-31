@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<templates>
+
+    <t t-name="web_widget_mermaid.MermaidField">
+        <div class="o_mermaid_field">
+            <div t-if="props.readonly" class="o_mermaid_view" t-ref="container" />
+            <textarea
+                t-else=""
+                class="o_mermaid_textarea form-control"
+                t-ref="textarea"
+                t-att-placeholder="props.placeholder"
+            />
+            <div t-if="state.error" class="o_mermaid_error alert alert-danger mt-2 mb-0">
+                <strong t-esc="'Mermaid: invalid syntax'" />
+                <pre t-esc="state.error" class="mb-0" />
+            </div>
+        </div>
+    </t>
+
+</templates>
