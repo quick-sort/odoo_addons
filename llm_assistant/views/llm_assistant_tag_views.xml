@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <!-- Form View for LLM Assistant Tag -->
+    <record id="llm_assistant_tag_view_form" model="ir.ui.view">
+        <field name="name">llm.assistant.tag.form</field>
+        <field name="model">llm.assistant.tag</field>
+        <field name="arch" type="xml">
+            <form string="Assistant Tag">
+                <sheet>
+                    <group>
+                        <field name="name" />
+                        <field name="color" widget="color_picker" />
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Tree View for LLM Assistant Tag -->
+    <record id="llm_assistant_tag_view_tree" model="ir.ui.view">
+        <field name="name">llm.assistant.tag.tree</field>
+        <field name="model">llm.assistant.tag</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name" />
+                <field name="color" widget="color" invisible="1" />
+            </list>
+        </field>
+    </record>
+
+    <!-- Search View for LLM Assistant Tag -->
+    <record id="llm_assistant_tag_view_search" model="ir.ui.view">
+        <field name="name">llm.assistant.tag.search</field>
+        <field name="model">llm.assistant.tag</field>
+        <field name="arch" type="xml">
+            <search string="Search Assistant Tags">
+                <field name="name" />
+            </search>
+        </field>
+    </record>
+
+    <!-- Action for Tags -->
+    <record id="llm_assistant_tag_action" model="ir.actions.act_window">
+        <field name="name">Assistant Tags</field>
+        <field name="res_model">llm.assistant.tag</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create a new assistant tag
+            </p>
+            <p>
+                Tags help classify and filter your assistants.
+            </p>
+        </field>
+    </record>
+</odoo>

@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo noupdate="0">
+    <!--
+      Seed rows for the built-in tools.
+
+      They carry only identity plus the user-owned policy flags. Everything the
+      LLM sees (name, description, input_schema, annotations) comes from the
+      decorated methods on llm.tool.builtin.*, and the startup scan fills it in
+      by matching (res_model, res_method).
+
+      These records exist rather than letting the scan create them because their
+      xmlids are referenced from llm_assistant/data/llm_assistant_data.xml.
+    -->
+
+    <record id="llm_tool_odoo_record_retriever" model="llm.tool">
+        <field name="name">odoo_record_retriever</field>
+        <field name="executor">model_method</field>
+        <field name="source">code</field>
+        <field name="res_model">llm.tool.builtin.records</field>
+        <field name="res_method">odoo_record_retriever</field>
+        <field name="is_default" eval="True" />
+        <field name="active" eval="True" />
+        <field name="requires_user_consent" eval="False" />
+    </record>
+
+    <record id="llm_tool_odoo_record_creator" model="llm.tool">
+        <field name="name">odoo_record_creator</field>
+        <field name="executor">model_method</field>
+        <field name="source">code</field>
+        <field name="res_model">llm.tool.builtin.records</field>
+        <field name="res_method">odoo_record_creator</field>
+        <field name="is_default" eval="True" />
+        <field name="active" eval="True" />
+        <field name="requires_user_consent" eval="True" />
+    </record>
+
+    <record id="llm_tool_odoo_record_updater" model="llm.tool">
+        <field name="name">odoo_record_updater</field>
+        <field name="executor">model_method</field>
+        <field name="source">code</field>
+        <field name="res_model">llm.tool.builtin.records</field>
+        <field name="res_method">odoo_record_updater</field>
+        <field name="is_default" eval="True" />
+        <field name="active" eval="True" />
+        <field name="requires_user_consent" eval="True" />
+    </record>
+
+    <record id="llm_tool_odoo_record_unlinker" model="llm.tool">
+        <field name="name">odoo_record_unlinker</field>
+        <field name="executor">model_method</field>
+        <field name="source">code</field>
+        <field name="res_model">llm.tool.builtin.records</field>
+        <field name="res_method">odoo_record_unlinker</field>
+        <field name="is_default" eval="True" />
+        <field name="active" eval="True" />
+        <field name="requires_user_consent" eval="True" />
+    </record>
+
+    <record id="llm_tool_odoo_model_method_executor" model="llm.tool">
+        <field name="name">odoo_model_method_executor</field>
+        <field name="executor">model_method</field>
+        <field name="source">code</field>
+        <field name="res_model">llm.tool.builtin.method</field>
+        <field name="res_method">odoo_model_method_executor</field>
+        <field name="is_default" eval="False" />
+        <field name="active" eval="True" />
+        <field name="requires_user_consent" eval="True" />
+    </record>
+
+    <record id="llm_tool_odoo_model_inspector" model="llm.tool">
+        <field name="name">odoo_model_inspector</field>
+        <field name="executor">model_method</field>
+        <field name="source">code</field>
+        <field name="res_model">llm.tool.builtin.inspector</field>
+        <field name="res_method">odoo_model_inspector</field>
+        <field name="is_default" eval="True" />
+        <field name="active" eval="True" />
+        <field name="requires_user_consent" eval="False" />
+    </record>
+
+</odoo>

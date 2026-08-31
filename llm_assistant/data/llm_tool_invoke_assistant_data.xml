@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo noupdate="0">
+
+    <!--
+      Seed row for the invoke_assistant tool. It exists only so the xmlid is
+      available to reference from llm_assistant_data.xml; the startup scan finds
+      it by (res_model, res_method) and fills description / input_schema / the
+      annotations from the decorated method.
+    -->
+    <record id="llm_tool_invoke_assistant" model="llm.tool">
+        <field name="name">invoke_assistant</field>
+        <field name="executor">model_method</field>
+        <field name="source">code</field>
+        <field name="res_model">llm.tool.invoke.assistant</field>
+        <field name="res_method">invoke_assistant</field>
+        <field name="active" eval="True" />
+        <field name="is_default" eval="False" />
+        <field name="requires_user_consent" eval="False" />
+    </record>
+
+</odoo>

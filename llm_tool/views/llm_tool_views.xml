@@ -1,0 +1,264 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <!-- Tree View -->
+    <record id="view_llm_tool_tree" model="ir.ui.view">
+        <field name="name">llm.tool.tree</field>
+        <field name="model">llm.tool</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name" />
+                <field name="executor" />
+                <field name="mcp_client_id" optional="hide" />
+                <field name="source" />
+                <field name="title" optional="hide" />
+                <field name="is_default" />
+                <field name="active" />
+                <field name="requires_user_consent" />
+                <!-- Kept as real booleans, not folded into a JSON blob, so the
+                     registry can be reviewed for dangerous tools at a glance. -->
+                <field name="read_only_hint" optional="show" />
+                <field name="destructive_hint" optional="show" />
+            </list>
+        </field>
+    </record>
+
+    <!-- Form View -->
+    <record id="view_llm_tool_form" model="ir.ui.view">
+        <field name="name">llm.tool.form</field>
+        <field name="model">llm.tool</field>
+        <field name="arch" type="xml">
+            <form string="LLM Tool">
+                <header>
+                    <button
+            name="action_duplicate_as_manual"
+            type="object"
+            string="Duplicate as Manual"
+            class="btn-secondary"
+            invisible="source == 'manual'"
+            help="Create a hand-managed copy of this exposure, so you can narrow its schema without the scan overwriting it"
+          />
+                    <button
+            name="action_reset_input_schema"
+            type="object"
+            string="Re-derive Schema"
+            class="btn-secondary"
+            invisible="source != 'code'"
+          />
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name" class="oe_edit_only" />
+                        <h1><field
+                name="name"
+                placeholder="e.g. retrieve_records"
+              /></h1>
+                    </div>
+                    <group>
+                        <group string="Dispatch">
+                            <field name="executor" />
+                            <field name="source" />
+                            <field
+                name="res_model"
+                invisible="executor != 'model_method'"
+                required="executor == 'model_method'"
+                placeholder="e.g. sale.order"
+              />
+                            <field
+                name="res_method"
+                invisible="executor not in ['model_method', 'mcp']"
+                required="executor == 'model_method'"
+                placeholder="e.g. create_sales_quote"
+              />
+                            <field
+                name="res_id"
+                invisible="executor != 'model_method'"
+                help="Leave empty to call the method on the model rather than on one record"
+              />
+                            <field
+                name="server_action_id"
+                invisible="executor != 'server_action'"
+                required="executor == 'server_action'"
+                options="{'no_create': True}"
+                domain="[('state', '!=', False)]"
+              />
+                            <field
+                name="mcp_client_id"
+                invisible="executor != 'mcp'"
+                required="executor == 'mcp'"
+                options="{'no_create': True}"
+              />
+                        </group>
+                        <group string="Policy">
+                            <field name="is_default" />
+                            <field name="active" />
+                            <field name="requires_user_consent" />
+                        </group>
+                    </group>
+                    <group string="Tool Annotations">
+                        <group>
+                            <field
+                name="title"
+                placeholder="Human-readable title for the tool"
+              />
+                            <field name="read_only_hint" />
+                        </group>
+                        <group>
+                            <field
+                name="idempotent_hint"
+                invisible="read_only_hint"
+              />
+                            <field
+                name="destructive_hint"
+                invisible="read_only_hint"
+              />
+                            <field name="open_world_hint" />
+                        </group>
+                    </group>
+                    <div
+            class="alert alert-info"
+            role="alert"
+            invisible="source != 'code'"
+          >
+                        <p class="mb-0">
+                            This tool is owned by code: its name, description,
+                            schema and annotations come from the
+                            <strong>@llm_tool</strong> decorated method and are
+                            refreshed on every restart. To hand-manage it, use
+                            <strong>Duplicate as Manual</strong>.
+                        </p>
+                    </div>
+                    <div
+            class="alert alert-warning"
+            role="alert"
+            invisible="executor != 'server_action'"
+          >
+                        <p class="mb-0">
+                            The server action receives the tool arguments in the
+                            context key <code>llm_tool_params</code>. Nothing
+                            verifies that the action reads the keys this schema
+                            advertises — keep them in sync by hand.
+                        </p>
+                    </div>
+                    <notebook>
+                        <page string="Description">
+                            <field
+                name="description"
+                readonly="source == 'code'"
+                placeholder="Describe what this tool does and when to use it"
+              />
+                        </page>
+                        <page string="Input Schema">
+                            <field
+                name="input_schema"
+                widget="ace"
+                options="{'mode': 'javascript'}"
+                readonly="source == 'code'"
+                placeholder="{
+  'type': 'object',
+  'properties': {
+    'param1': {
+      'type': 'string',
+      'description': 'Description of parameter 1'
+    }
+  },
+  'required': ['param1']
+}"
+              />
+                            <div class="alert alert-info" role="alert">
+                                <p class="mb-1"><strong
+                  >This schema is enforced, not documentation.</strong></p>
+                                <p
+                class="mb-0"
+              >execute() validates incoming arguments against it and drops anything not declared here, so narrowing it on a manual exposure is a real restriction.</p>
+                            </div>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter />
+            </form>
+        </field>
+    </record>
+
+    <!-- Search View -->
+    <record id="view_llm_tool_search" model="ir.ui.view">
+        <field name="name">llm.tool.search</field>
+        <field name="model">llm.tool</field>
+        <field name="arch" type="xml">
+            <search string="Search LLM Tools">
+                <field name="name" />
+                <field name="title" />
+                <field name="res_model" />
+                <field name="res_method" />
+                <filter
+          string="Default Tools"
+          name="is_default"
+          domain="[('is_default', '=', True)]"
+        />
+                <filter
+          string="Active"
+          name="active"
+          domain="[('active', '=', True)]"
+        />
+                <separator />
+                <filter
+          string="Read-Only"
+          name="read_only"
+          domain="[('read_only_hint', '=', True)]"
+        />
+                <filter
+          string="Destructive"
+          name="destructive"
+          domain="[('destructive_hint', '=', True)]"
+        />
+                <filter
+          string="Requires Consent"
+          name="requires_consent"
+          domain="[('requires_user_consent', '=', True)]"
+        />
+                <separator />
+                <filter
+          string="Owned by Code"
+          name="source_code"
+          domain="[('source', '=', 'code')]"
+        />
+                <filter
+          string="Hand-managed"
+          name="source_manual"
+          domain="[('source', '=', 'manual')]"
+        />
+                <separator />
+                <filter
+          string="Group by Executor"
+          name="group_by_executor"
+          context="{'group_by': 'executor'}"
+        />
+                <filter
+          string="Group by Source"
+          name="group_by_source"
+          context="{'group_by': 'source'}"
+        />
+                <filter
+          string="Group by Model"
+          name="group_by_res_model"
+          context="{'group_by': 'res_model'}"
+        />
+            </search>
+        </field>
+    </record>
+
+    <!-- Action -->
+    <record id="action_llm_tool" model="ir.actions.act_window">
+        <field name="name">LLM Tools</field>
+        <field name="res_model">llm.tool</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'search_default_active': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create a new LLM Tool
+            </p>
+            <p>
+                Define tools that LLM models can use to interact with Odoo.
+            </p>
+        </field>
+    </record>
+</odoo>

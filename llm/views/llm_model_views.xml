@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <!-- Model Form View -->
+    <record id="llm_model_view_form" model="ir.ui.view">
+        <field name="name">llm.model.view.form</field>
+        <field name="model">llm.model</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button
+            name="action_test_connectivity"
+            string="Test Connectivity"
+            type="object"
+            class="oe_highlight"
+            invisible="not id"
+            help="Send a minimal request to the provider to check that this model is reachable."
+          />
+                    <button
+            name="action_open_fetch_this_model_wizard"
+            string="Fetch This Model Update"
+            type="object"
+            class="oe_highlight"
+            invisible="not id"
+            help="Fetch the latest information for this specific model from the provider."
+          />
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button
+              name="toggle_active"
+              type="object"
+              class="oe_stat_button"
+              icon="fa-archive"
+            >
+                            <field
+                name="active"
+                widget="boolean_toggle"
+                options="{'terminology': 'archive'}"
+              />
+                        </button>
+                    </div>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" placeholder="Model Name" />
+                        </h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="provider_id" />
+                            <field name="publisher_id" />
+                            <field name="model_use" />
+                            <field
+                name="supports_image_input"
+                invisible="model_use != 'chat'"
+              />
+                            <field
+                name="supports_image_output"
+                invisible="model_use != 'chat'"
+              />
+                            <field name="is_default" />
+                        </group>
+                        <group>
+                            <field name="details" widget="json_editor" />
+                            <field name="model_info" widget="json_editor" />
+                            <field name="parameters" widget="text" />
+                            <field name="template" widget="text" />
+                        </group>
+                    </group>
+                    <group
+            name="connectivity_test"
+            string="Connectivity Test"
+          >
+                        <field
+              name="test_state"
+              widget="badge"
+              decoration-success="test_state == 'success'"
+              decoration-warning="test_state == 'warning'"
+              decoration-danger="test_state == 'failed'"
+            />
+                        <field name="test_date" invisible="not test_date" />
+                        <field name="test_message" invisible="not test_message" />
+                        <field name="test_detail" invisible="not test_detail" />
+                    </group>
+                </sheet>
+                <chatter />
+            </form>
+        </field>
+    </record>
+
+    <!-- Model Tree View -->
+    <record id="llm_model_view_tree" model="ir.ui.view">
+        <field name="name">llm.model.view.tree</field>
+        <field name="model">llm.model</field>
+        <field name="arch" type="xml">
+            <list>
+                <header>
+                    <button
+            name="action_test_connectivity"
+            string="Test Connectivity"
+            type="object"
+            class="btn-secondary"
+            help="Test API connectivity for the selected models."
+          />
+                </header>
+                <field name="name" />
+                <field name="provider_id" />
+                <field name="model_use" />
+                <field name="supports_image_input" optional="hide" />
+                <field name="supports_image_output" optional="hide" />
+                <field name="is_default" />
+                <field
+          name="test_state"
+          widget="badge"
+          decoration-success="test_state == 'success'"
+          decoration-warning="test_state == 'warning'"
+          decoration-danger="test_state == 'failed'"
+        />
+                <field name="test_date" optional="hide" />
+                <field name="test_message" optional="hide" />
+                <field name="active" />
+            </list>
+        </field>
+    </record>
+
+    <!-- Model Search View -->
+    <record id="llm_model_view_search" model="ir.ui.view">
+        <field name="name">llm.model.view.search</field>
+        <field name="model">llm.model</field>
+        <field name="arch" type="xml">
+            <search>
+                <searchpanel>
+                    <field name="provider_id" />
+                </searchpanel>
+                <filter
+          string="Default Models"
+          name="is_default"
+          domain="[('is_default', '=', True)]"
+        />
+                <filter
+          string="Test Failed"
+          name="test_failed"
+          domain="[('test_state', 'in', ['failed', 'warning'])]"
+        />
+                <filter
+          string="Never Tested"
+          name="test_untested"
+          domain="[('test_state', '=', 'untested')]"
+        />
+                <filter
+          string="Archived"
+          name="inactive"
+          domain="[('active', '=', False)]"
+        />
+                <group>
+                    <filter
+            string="Provider"
+            name="group_by_provider"
+            context="{'group_by': 'provider_id'}"
+          />
+                    <filter
+            string="Usage"
+            name="group_by_use"
+            context="{'group_by': 'model_use'}"
+          />
+                    <filter
+            string="Test Status"
+            name="group_by_test_state"
+            context="{'group_by': 'test_state'}"
+          />
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Model Action -->
+    <record id="llm_model_action" model="ir.actions.act_window">
+        <field name="name">LLM Models</field>
+        <field name="res_model">llm.model</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'active_test': False}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No models found!
+            </p>
+            <p>
+                Models will be automatically created when you configure a provider.
+            </p>
+        </field>
+    </record>
+</odoo>
