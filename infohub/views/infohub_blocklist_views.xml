@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+
+    <record id="view_infohub_blocklist_list" model="ir.ui.view">
+        <field name="name">infohub.blocklist.list</field>
+        <field name="model">infohub.blocklist</field>
+        <field name="arch" type="xml">
+            <list string="黑名单">
+                <field name="create_date" string="创建时间" />
+                <field name="block_type" />
+                <field name="value" />
+                <field name="item_id" optional="show" />
+                <field name="source_id" optional="show" />
+                <field name="matched_count" string="命中条目" />
+                <field name="user_id" string="操作人" />
+                <field name="reason" optional="hide" />
+                <field name="active" column_invisible="True" />
+            </list>
+        </field>
+    </record>
+
+    <record id="view_infohub_blocklist_form" model="ir.ui.view">
+        <field name="name">infohub.blocklist.form</field>
+        <field name="model">infohub.blocklist</field>
+        <field name="arch" type="xml">
+            <form string="黑名单">
+                <header>
+                    <button
+                        name="action_apply_retroactively"
+                        type="object"
+                        string="回溯标黑历史条目"
+                        class="btn-primary"
+                        confirm="将扫描全部历史条目并把命中的标黑。条目量大时会比较慢，确定继续？"
+                    />
+                </header>
+                <sheet>
+                    <widget
+                        name="web_ribbon"
+                        title="已失效"
+                        bg_color="text-bg-secondary"
+                        invisible="active"
+                    />
+                    <group>
+                        <group>
+                            <field name="block_type" />
+                            <field
+                                name="value"
+                                invisible="block_type not in ('domain', 'keyword', 'author')"
+                                required="block_type in ('domain', 'keyword', 'author')"
+                                placeholder="域名 / 关键词 / 作者名"
+                            />
+                            <field
+                                name="item_id"
+                                invisible="block_type != 'item'"
+                                required="block_type == 'item'"
+                            />
+                            <field
+                                name="source_id"
+                                invisible="block_type != 'source'"
+                                required="block_type == 'source'"
+                            />
+                        </group>
+                        <group>
+                            <field name="active" />
+                            <field name="user_id" />
+                            <field name="matched_count" />
+                        </group>
+                    </group>
+                    <div
+                        class="alert alert-info"
+                        role="alert"
+                        invisible="block_type == 'item'"
+                    >
+                        本类型默认只对**新进条目**生效。要把已有的历史条目一并标黑，
+                        请点上方「回溯标黑历史条目」。
+                    </div>
+                    <field name="reason" placeholder="标黑原因..." />
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_infohub_blocklist_search" model="ir.ui.view">
+        <field name="name">infohub.blocklist.search</field>
+        <field name="model">infohub.blocklist</field>
+        <field name="arch" type="xml">
+            <search string="黑名单">
+                <field name="value" />
+                <field name="user_id" />
+                <filter name="filter_inactive" string="已失效" domain="[('active', '=', False)]" />
+                <group name="group_by">
+                    <filter name="group_by_type" string="类型" context="{'group_by': 'block_type'}" />
+                    <filter
+                        name="group_by_user"
+                        string="操作人"
+                        context="{'group_by': 'user_id'}"
+                    />
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_infohub_blocklist" model="ir.actions.act_window">
+        <field name="name">黑名单</field>
+        <field name="res_model">infohub.blocklist</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">黑名单是空的</p>
+            <p>
+                单条标黑是回溯的：建了记录条目立刻从前端撤下。按域名、关键词、作者
+                标黑默认只对新条目生效，需要显式触发回溯扫描才处理历史条目。
+            </p>
+        </field>
+    </record>
+
+</odoo>

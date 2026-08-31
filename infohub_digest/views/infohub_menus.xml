@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+
+    <menuitem
+        id="menu_infohub_digest_log"
+        name="摘要发送记录"
+        parent="infohub.menu_infohub_readers"
+        action="action_infohub_digest_log"
+        sequence="20"
+    />
+
+</odoo>

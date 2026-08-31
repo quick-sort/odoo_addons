@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+
+    <record id="view_infohub_rule_list" model="ir.ui.view">
+        <field name="name">infohub.rule.list</field>
+        <field name="model">infohub.rule</field>
+        <field name="arch" type="xml">
+            <list string="过滤规则">
+                <field name="sequence" widget="handle" />
+                <field name="name" />
+                <field name="action" />
+                <field name="keyword_regex" optional="show" />
+                <field name="regex_target" optional="hide" />
+                <field name="tag_ids" widget="many2many_tags" optional="show" />
+                <field name="score_delta" optional="hide" />
+                <field name="stop_after" optional="show" />
+                <field name="hit_count" string="累计命中" />
+                <field name="active" column_invisible="True" />
+            </list>
+        </field>
+    </record>
+
+    <record id="view_infohub_rule_form" model="ir.ui.view">
+        <field name="name">infohub.rule.form</field>
+        <field name="model">infohub.rule</field>
+        <field name="arch" type="xml">
+            <form string="过滤规则">
+                <header>
+                    <button
+                        name="action_dry_run"
+                        type="object"
+                        string="试运行"
+                        class="btn-primary"
+                        help="在最近 200 条条目上试跑，只报告命中数，不改任何数据"
+                    />
+                    <button
+                        name="action_view_matches"
+                        type="object"
+                        string="查看命中的条目"
+                    />
+                </header>
+                <sheet>
+                    <widget
+                        name="web_ribbon"
+                        title="已停用"
+                        bg_color="text-bg-secondary"
+                        invisible="active"
+                    />
+                    <div class="oe_title">
+                        <label for="name" />
+                        <h1><field name="name" placeholder="例如：屏蔽标题含「广告」的条目" /></h1>
+                    </div>
+
+                    <group>
+                        <group string="条件" name="condition">
+                            <field
+                                name="condition_domain"
+                                widget="domain"
+                                options="{'model': 'infohub.item'}"
+                            />
+                            <field name="keyword_regex" placeholder="例如 (广告|推广|软文)" />
+                            <field name="regex_target" invisible="not keyword_regex" />
+                        </group>
+                        <group string="动作" name="action_group">
+                            <field name="action" />
+                            <field
+                                name="tag_ids"
+                                widget="many2many_tags"
+                                invisible="action != 'tag'"
+                                required="action == 'tag'"
+                            />
+                            <field
+                                name="topic_ids"
+                                widget="many2many_tags"
+                                invisible="action != 'topic'"
+                                required="action == 'topic'"
+                            />
+                            <field
+                                name="set_primary_topic"
+                                invisible="action != 'topic'"
+                            />
+                            <field
+                                name="score_delta"
+                                invisible="action != 'score'"
+                            />
+                            <field name="sequence" />
+                            <field
+                                name="stop_after"
+                                invisible="action in ('publish', 'reject')"
+                            />
+                            <field name="active" />
+                            <field name="hit_count" readonly="1" />
+                        </group>
+                    </group>
+
+                    <div
+                        class="alert alert-info"
+                        role="alert"
+                        invisible="action not in ('publish', 'reject')"
+                    >
+                        这是**终结型**动作：命中的条目状态由本规则定下，不再参与后续规则的求值。
+                    </div>
+                    <div
+                        class="alert alert-light"
+                        role="alert"
+                        invisible="not keyword_regex"
+                    >
+                        正则忽略大小写。为避免个别写法在超长正文上指数级回溯拖住 worker，
+                        匹配只作用于正文的前 100000 个字符。
+                    </div>
+
+                    <field name="description" placeholder="这条规则为什么存在、什么时候该调整..." />
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_infohub_rule_search" model="ir.ui.view">
+        <field name="name">infohub.rule.search</field>
+        <field name="model">infohub.rule</field>
+        <field name="arch" type="xml">
+            <search string="过滤规则">
+                <field name="name" />
+                <field name="keyword_regex" />
+                <filter name="filter_inactive" string="已停用" domain="[('active', '=', False)]" />
+                <filter
+                    name="filter_terminal"
+                    string="终结型动作"
+                    domain="[('action', 'in', ['publish', 'reject'])]"
+                />
+                <group name="group_by">
+                    <filter name="group_by_action" string="动作" context="{'group_by': 'action'}" />
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_infohub_rule" model="ir.actions.act_window">
+        <field name="name">过滤规则</field>
+        <field name="res_model">infohub.rule</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">还没有过滤规则</p>
+            <p>
+                规则在条目审核前按顺序求值：可以自动打标签、加减评分、指派学科，
+                也可以直接发布或拒绝。写完记得用「试运行」在最近的条目上验一下，
+                避免误伤大批内容。
+            </p>
+        </field>
+    </record>
+
+    <menuitem
+        id="menu_infohub_rule"
+        name="过滤规则"
+        parent="infohub.menu_infohub_content"
+        action="action_infohub_rule"
+        sequence="25"
+        groups="infohub.group_moderator"
+    />
+
+</odoo>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+
+    <menuitem
+        id="menu_infohub_web_profile"
+        name="网页采集配置"
+        parent="infohub.menu_infohub_sources"
+        action="action_infohub_web_profile"
+        sequence="25"
+        groups="infohub.group_manager"
+    />
+
+</odoo>

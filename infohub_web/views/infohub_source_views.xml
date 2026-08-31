@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+
+    <record id="view_infohub_source_form_web" model="ir.ui.view">
+        <field name="name">infohub.source.form.web</field>
+        <field name="model">infohub.source</field>
+        <field name="inherit_id" ref="infohub.view_infohub_source_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='credential_id']" position="after">
+                <field
+                    name="web_profile_id"
+                    invisible="transport != 'web'"
+                    required="transport == 'web'"
+                />
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

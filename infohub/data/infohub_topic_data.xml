@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo noupdate="1">
+
+    <!--
+        学科词表的顶层骨架。
+
+        核心只提供根节点；具体的学科树由介质/渠道模块以数据形式带入
+        （ADR-014：树是共享的，外部编码映射是各来源方专有的）。
+
+        ``infohub_paper`` 会把 arXiv 分类体系的一级分类（cs、math、physics……）
+        挂在 topic_academic 下面，因此这个根节点的 xmlid 是对外契约，不要改名。
+    -->
+
+    <record id="topic_academic" model="infohub.topic">
+        <field name="name">学术</field>
+        <field name="code">academic</field>
+        <field name="sequence">10</field>
+        <field
+            name="description"
+        >学术研究成果。各学科子树由 infohub_paper 及其渠道模块带入。</field>
+    </record>
+
+    <record id="topic_technology" model="infohub.topic">
+        <field name="name">科技</field>
+        <field name="code">technology</field>
+        <field name="sequence">20</field>
+        <field name="is_recommended" eval="True" />
+    </record>
+
+    <record id="topic_business" model="infohub.topic">
+        <field name="name">财经</field>
+        <field name="code">business</field>
+        <field name="sequence">30</field>
+    </record>
+
+    <record id="topic_society" model="infohub.topic">
+        <field name="name">社会</field>
+        <field name="code">society</field>
+        <field name="sequence">40</field>
+    </record>
+
+    <record id="topic_health" model="infohub.topic">
+        <field name="name">健康</field>
+        <field name="code">health</field>
+        <field name="sequence">50</field>
+    </record>
+
+    <record id="topic_culture" model="infohub.topic">
+        <field name="name">文化</field>
+        <field name="code">culture</field>
+        <field name="sequence">60</field>
+    </record>
+
+    <record id="topic_other" model="infohub.topic">
+        <field name="name">其他</field>
+        <field name="code">other</field>
+        <field name="sequence">99</field>
+        <field name="description">无法归类的条目。classifier 找不到映射时的兜底。</field>
+    </record>
+
+</odoo>

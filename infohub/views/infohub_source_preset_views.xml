@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+
+    <record id="view_infohub_source_preset_list" model="ir.ui.view">
+        <field name="name">infohub.source.preset.list</field>
+        <field name="model">infohub.source.preset</field>
+        <field name="arch" type="xml">
+            <list string="源预设">
+                <field name="sequence" widget="handle" />
+                <field name="name" />
+                <field name="medium" />
+                <field name="transport" />
+                <field name="provider" />
+                <field name="requires_credential" />
+                <button
+                    name="action_create_source"
+                    type="object"
+                    string="建源"
+                    icon="fa-plus-circle"
+                    class="btn-link"
+                    groups="infohub.group_manager"
+                />
+            </list>
+        </field>
+    </record>
+
+    <record id="view_infohub_source_preset_form" model="ir.ui.view">
+        <field name="name">infohub.source.preset.form</field>
+        <field name="model">infohub.source.preset</field>
+        <field name="arch" type="xml">
+            <form string="源预设">
+                <header>
+                    <button
+                        name="action_create_source"
+                        type="object"
+                        string="按本预设建源"
+                        class="btn-primary"
+                        groups="infohub.group_manager"
+                    />
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name" />
+                        <h1><field name="name" /></h1>
+                    </div>
+                    <group>
+                        <group string="组合">
+                            <field name="medium" />
+                            <field name="transport" />
+                            <field name="provider" />
+                        </group>
+                        <group string="连接与调度">
+                            <field name="endpoint" widget="url" />
+                            <label for="interval_number" string="抓取间隔" />
+                            <div class="o_row">
+                                <field name="interval_number" class="oe_inline" />
+                                <field name="interval_type" class="oe_inline" />
+                            </div>
+                            <field name="min_request_interval" />
+                            <field name="requires_credential" />
+                            <field name="active" />
+                        </group>
+                    </group>
+                    <group string="默认分类">
+                        <field name="topic_ids" widget="many2many_tags" />
+                        <field name="default_tag_ids" widget="many2many_tags" />
+                    </group>
+                    <field name="description" placeholder="这个源提供什么内容、更新频率如何..." />
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_infohub_source_preset" model="ir.actions.act_window">
+        <field name="name">源预设</field>
+        <field name="res_model">infohub.source.preset</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">还没有可用的预设</p>
+            <p>
+                预设由各渠道模块以数据形式提供。安装 infohub_rss、infohub_arxiv
+                等模块后，这里会出现对应的预设，选一个即可建源，不必自己拼三个维度。
+            </p>
+        </field>
+    </record>
+
+</odoo>

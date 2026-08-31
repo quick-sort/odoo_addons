@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+
+    <!--
+        摘要邮件正文。
+
+        邮件客户端的 CSS 支持很差，所以一律用内联 style，不用 class、不用外部样式表。
+        表格布局比 flex/grid 兼容性好得多。
+
+        条目正文是第三方 HTML，这里只输出摘要且**必须**用 t-out（字段侧已 sanitize）。
+    -->
+
+    <template id="digest_email" name="InfoHub: 摘要邮件">
+        <div
+            style="font-family: -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif; font-size: 14px; color: #212529; max-width: 680px; margin: 0 auto;"
+        >
+            <div style="padding: 16px 0; border-bottom: 2px solid #dee2e6;">
+                <h2 style="margin: 0 0 4px 0; font-size: 20px; font-weight: 600;">
+                    <t t-if="frequency == 'daily'">每日摘要</t>
+                    <t t-else="">每周摘要</t>
+                </h2>
+                <div style="color: #6c757d; font-size: 13px;">
+                    <t t-out="user.name" /> ·
+                    共 <t t-out="total" /> 条新内容
+                    <t t-if="shown &lt; total">
+                        （以下列出前 <t t-out="shown" /> 条）
+                    </t>
+                </div>
+            </div>
+
+            <t t-foreach="items" t-as="item">
+                <div style="padding: 16px 0; border-bottom: 1px solid #e9ecef;">
+                    <div style="font-size: 16px; font-weight: 600; margin-bottom: 6px;">
+                        <a
+                            t-att-href="item.url or (base_url + '/infohub/item/' + str(item.id))"
+                            style="color: #0d6efd; text-decoration: none;"
+                            t-out="item.title"
+                        />
+                    </div>
+
+                    <div style="color: #6c757d; font-size: 12px; margin-bottom: 8px;">
+                        <t t-out="item.source_id.name" />
+                        <t t-if="item.author_name">
+                            · <t t-out="item.author_name" />
+                        </t>
+                        <t t-if="item.published_at">
+                            · <t
+                                t-out="item.published_at"
+                                t-options="{'widget': 'datetime'}"
+                            />
+                        </t>
+                    </div>
+
+                    <div
+                        t-if="item.summary"
+                        style="color: #495057; font-size: 13px; line-height: 1.5;"
+                    >
+                        <t t-out="item.summary" />
+                    </div>
+
+                    <div t-if="item.topic_ids" style="margin-top: 8px;">
+                        <span
+                            t-foreach="item.topic_ids"
+                            t-as="topic"
+                            style="display: inline-block; background: #f1f3f5; color: #495057; font-size: 11px; padding: 2px 8px; border-radius: 10px; margin-right: 4px;"
+                            t-out="topic.name"
+                        />
+                    </div>
+                </div>
+            </t>
+
+            <div style="padding: 20px 0; color: #6c757d; font-size: 12px;">
+                <p style="margin: 0 0 8px 0;">
+                    <a
+                        t-att-href="base_url + '/infohub'"
+                        style="color: #0d6efd; text-decoration: none;"
+                    >在网站上查看全部内容</a>
+                </p>
+                <p style="margin: 0;">
+                    不想再收到这类邮件？
+                    <a
+                        t-att-href="base_url + '/infohub/subscriptions'"
+                        style="color: #6c757d;"
+                    >在订阅管理里把推送频率改成「不推送」</a>。
+                </p>
+            </div>
+        </div>
+    </template>
+
+</odoo>

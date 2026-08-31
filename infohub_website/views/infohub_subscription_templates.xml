@@ -1,0 +1,261 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+
+    <!--
+        订阅与偏好管理。
+
+        全部用普通表单 POST，保留 CSRF（每个 form 里都有 csrf_token 隐藏域）。
+        控制器不接受表单里的 user_id，一律用当前用户。
+    -->
+
+    <template id="portal_subscriptions" name="InfoHub: 订阅管理">
+        <t t-call="portal.portal_layout">
+            <div class="o_infohub_subscriptions">
+                <h3 class="mb-3">订阅管理</h3>
+
+                <div t-if="error" class="alert alert-danger" role="alert">
+                    <span t-out="error" />
+                </div>
+                <div t-if="success" class="alert alert-success" role="alert">
+                    <span t-out="success" />
+                </div>
+
+                <!-- 添加订阅 -->
+                <div class="card mb-4">
+                    <div class="card-header">添加订阅</div>
+                    <div class="card-body">
+                        <form action="/infohub/subscriptions" method="post" class="row g-2">
+                            <input
+                                type="hidden"
+                                name="csrf_token"
+                                t-att-value="request.csrf_token()"
+                            />
+                            <input type="hidden" name="action" value="add" />
+
+                            <div class="col-12 col-md-3">
+                                <label for="target_type" class="form-label small">类型</label>
+                                <select
+                                    id="target_type"
+                                    name="target_type"
+                                    class="form-select o_infohub_target_type"
+                                >
+                                    <option value="topic">学科</option>
+                                    <option value="source">信息源</option>
+                                    <option value="tag">标签</option>
+                                </select>
+                            </div>
+
+                            <div class="col-12 col-md-6 o_infohub_target o_infohub_target_topic">
+                                <label for="topic_id" class="form-label small">学科</label>
+                                <select id="topic_id" name="topic_id" class="form-select">
+                                    <option
+                                        t-foreach="topics"
+                                        t-as="topic"
+                                        t-att-value="topic.id"
+                                        t-out="topic.complete_name"
+                                    />
+                                </select>
+                            </div>
+
+                            <div
+                                class="col-12 col-md-6 o_infohub_target o_infohub_target_source d-none"
+                            >
+                                <label for="source_id" class="form-label small">信息源</label>
+                                <select id="source_id" name="source_id" class="form-select">
+                                    <option
+                                        t-foreach="sources"
+                                        t-as="source"
+                                        t-att-value="source.id"
+                                        t-out="source.name"
+                                    />
+                                </select>
+                            </div>
+
+                            <div class="col-12 col-md-6 o_infohub_target o_infohub_target_tag d-none">
+                                <label for="tag_id" class="form-label small">标签</label>
+                                <select id="tag_id" name="tag_id" class="form-select">
+                                    <option
+                                        t-foreach="tags"
+                                        t-as="tag"
+                                        t-att-value="tag.id"
+                                        t-out="tag.name"
+                                    />
+                                </select>
+                            </div>
+
+                            <div class="col-12 col-md-3 d-flex align-items-end">
+                                <button type="submit" class="btn btn-primary w-100">添加</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- 现有订阅 -->
+                <div class="card mb-4">
+                    <div class="card-header">我的订阅</div>
+                    <div t-if="not subscriptions" class="card-body text-muted">
+                        还没有订阅。
+                    </div>
+                    <div t-else="" class="table-responsive">
+                        <table class="table table-sm mb-0 align-middle">
+                            <thead>
+                                <tr>
+                                    <th>订阅</th>
+                                    <th class="text-end">未读</th>
+                                    <th>摘要推送</th>
+                                    <th class="text-end">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="subscriptions" t-as="subscription">
+                                    <td t-out="subscription.display_name" />
+                                    <td class="text-end">
+                                        <span
+                                            t-attf-class="badge #{'text-bg-primary' if subscription.unread_count else 'text-bg-light'}"
+                                            t-out="subscription.unread_count"
+                                        />
+                                    </td>
+                                    <td>
+                                        <form
+                                            action="/infohub/subscriptions"
+                                            method="post"
+                                            class="d-flex gap-1"
+                                        >
+                                            <input
+                                                type="hidden"
+                                                name="csrf_token"
+                                                t-att-value="request.csrf_token()"
+                                            />
+                                            <input type="hidden" name="action" value="digest" />
+                                            <input
+                                                type="hidden"
+                                                name="subscription_id"
+                                                t-att-value="subscription.id"
+                                            />
+                                            <select
+                                                name="digest_frequency"
+                                                class="form-select form-select-sm"
+                                            >
+                                                <option
+                                                    value="none"
+                                                    t-att-selected="subscription.digest_frequency == 'none' or None"
+                                                >不推送</option>
+                                                <option
+                                                    value="daily"
+                                                    t-att-selected="subscription.digest_frequency == 'daily' or None"
+                                                >每日</option>
+                                                <option
+                                                    value="weekly"
+                                                    t-att-selected="subscription.digest_frequency == 'weekly' or None"
+                                                >每周</option>
+                                            </select>
+                                            <button type="submit" class="btn btn-sm btn-light">
+                                                保存
+                                            </button>
+                                        </form>
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="d-inline-flex gap-1">
+                                            <form action="/infohub/subscriptions" method="post">
+                                                <input
+                                                    type="hidden"
+                                                    name="csrf_token"
+                                                    t-att-value="request.csrf_token()"
+                                                />
+                                                <input
+                                                    type="hidden"
+                                                    name="action"
+                                                    value="mark_read"
+                                                />
+                                                <input
+                                                    type="hidden"
+                                                    name="subscription_id"
+                                                    t-att-value="subscription.id"
+                                                />
+                                                <button
+                                                    type="submit"
+                                                    class="btn btn-sm btn-light"
+                                                    title="把该订阅下的历史条目全部标为已读"
+                                                >全部已读</button>
+                                            </form>
+                                            <form action="/infohub/subscriptions" method="post">
+                                                <input
+                                                    type="hidden"
+                                                    name="csrf_token"
+                                                    t-att-value="request.csrf_token()"
+                                                />
+                                                <input type="hidden" name="action" value="remove" />
+                                                <input
+                                                    type="hidden"
+                                                    name="subscription_id"
+                                                    t-att-value="subscription.id"
+                                                />
+                                                <button
+                                                    type="submit"
+                                                    class="btn btn-sm btn-outline-danger"
+                                                >取消订阅</button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 全局偏好 -->
+                <div class="card">
+                    <div class="card-header">阅读偏好</div>
+                    <div class="card-body">
+                        <form action="/infohub/subscriptions" method="post">
+                            <input
+                                type="hidden"
+                                name="csrf_token"
+                                t-att-value="request.csrf_token()"
+                            />
+                            <input type="hidden" name="action" value="prefs" />
+
+                            <div class="mb-3">
+                                <label for="muted_tag_ids" class="form-label">屏蔽标签</label>
+                                <select
+                                    id="muted_tag_ids"
+                                    name="muted_tag_ids"
+                                    class="form-select"
+                                    multiple="multiple"
+                                    size="6"
+                                >
+                                    <option
+                                        t-foreach="tags"
+                                        t-as="tag"
+                                        t-att-value="tag.id"
+                                        t-att-selected="tag.id in muted_tag_ids or None"
+                                        t-out="tag.name"
+                                    />
+                                </select>
+                                <div class="form-text">带这些标签的条目不会出现在你的信息流里。</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="lang_filter" class="form-label">关注语言</label>
+                                <input
+                                    type="text"
+                                    id="lang_filter"
+                                    name="lang_filter"
+                                    class="form-control"
+                                    t-att-value="lang_filter"
+                                    placeholder="留空表示不限，例如 zh,en"
+                                />
+                                <div class="form-text">
+                                    按前缀匹配，所以 zh 同时命中 zh-CN 与 zh-TW。语言未知的条目一律保留。
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary">保存偏好</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+
+</odoo>

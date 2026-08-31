@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+
+    <record id="view_infohub_tag_list" model="ir.ui.view">
+        <field name="name">infohub.tag.list</field>
+        <field name="model">infohub.tag</field>
+        <field name="arch" type="xml">
+            <list string="标签" editable="bottom">
+                <field name="name" />
+                <field name="description" />
+                <field name="color" widget="color_picker" optional="show" />
+            </list>
+        </field>
+    </record>
+
+    <record id="action_infohub_tag" model="ir.actions.act_window">
+        <field name="name">标签</field>
+        <field name="res_model">infohub.tag</field>
+        <field name="view_mode">list</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">创建标签</p>
+            <p>
+                标签是扁平自由词表，来自规则引擎、LLM 或人工。需要层级与受控词表时
+                请用「学科」。
+            </p>
+        </field>
+    </record>
+
+</odoo>

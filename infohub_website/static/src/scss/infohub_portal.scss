@@ -1,0 +1,59 @@
+// InfoHub 前端阅读样式。
+// 只做最小必要的排版收敛，颜色一律用 Bootstrap 的 CSS 变量，不硬编码。
+
+.o_infohub_timeline {
+    .o_infohub_card {
+        transition: box-shadow 0.15s ease-in-out;
+
+        &:hover {
+            box-shadow: 0 0.125rem 0.5rem rgba(0, 0, 0, 0.075);
+        }
+
+        // 已读条目降低视觉权重，但不要低到看不见
+        &.o_infohub_read .card-title a {
+            color: var(--bs-secondary-color);
+            font-weight: 400;
+        }
+    }
+}
+
+// RSS 摘要的长度不可控，列表里做截断，详情页不截断
+.o_infohub_summary {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+
+    // 第三方 HTML 里常带 <p> 的默认外边距，列表里压掉
+    p:last-child {
+        margin-bottom: 0;
+    }
+}
+
+.o_infohub_star {
+    color: var(--bs-secondary-color);
+
+    &.o_infohub_starred {
+        color: var(--bs-warning);
+    }
+}
+
+// 详情页正文：第三方 HTML 可能带超宽图片或表格，强制约束在容器内
+.o_infohub_content {
+    img,
+    video,
+    iframe {
+        max-width: 100%;
+        height: auto;
+    }
+
+    table {
+        max-width: 100%;
+        display: block;
+        overflow-x: auto;
+    }
+
+    pre {
+        overflow-x: auto;
+    }
+}

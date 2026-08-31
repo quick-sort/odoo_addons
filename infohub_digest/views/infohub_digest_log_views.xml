@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+
+    <record id="view_infohub_digest_log_list" model="ir.ui.view">
+        <field name="name">infohub.digest.log.list</field>
+        <field name="model">infohub.digest.log</field>
+        <field name="arch" type="xml">
+            <list string="摘要发送记录" create="false" decoration-danger="state == 'failed'">
+                <field name="date_sent" />
+                <field name="user_id" />
+                <field name="frequency" />
+                <field name="item_count" sum="总条目数" />
+                <field name="state" widget="badge" />
+                <field name="mail_id" optional="hide" />
+            </list>
+        </field>
+    </record>
+
+    <record id="view_infohub_digest_log_form" model="ir.ui.view">
+        <field name="name">infohub.digest.log.form</field>
+        <field name="model">infohub.digest.log</field>
+        <field name="arch" type="xml">
+            <form string="摘要发送记录" create="false">
+                <header>
+                    <button
+                        name="action_view_items"
+                        type="object"
+                        string="查看覆盖的条目"
+                        class="btn-primary"
+                    />
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="user_id" />
+                            <field name="frequency" />
+                            <field name="date_sent" />
+                        </group>
+                        <group>
+                            <field name="state" />
+                            <field name="item_count" />
+                            <field name="mail_id" />
+                        </group>
+                    </group>
+                    <separator string="错误" invisible="not error" />
+                    <field name="error" readonly="1" invisible="not error" />
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_infohub_digest_log_search" model="ir.ui.view">
+        <field name="name">infohub.digest.log.search</field>
+        <field name="model">infohub.digest.log</field>
+        <field name="arch" type="xml">
+            <search string="摘要发送记录">
+                <field name="user_id" />
+                <filter name="filter_failed" string="发送失败" domain="[('state', '=', 'failed')]" />
+                <filter name="filter_sent" string="已发送" domain="[('state', '=', 'sent')]" />
+                <separator />
+                <filter name="filter_daily" string="每日" domain="[('frequency', '=', 'daily')]" />
+                <filter name="filter_weekly" string="每周" domain="[('frequency', '=', 'weekly')]" />
+                <group name="group_by">
+                    <filter name="group_by_user" string="收件人" context="{'group_by': 'user_id'}" />
+                    <filter name="group_by_state" string="状态" context="{'group_by': 'state'}" />
+                    <filter
+                        name="group_by_day"
+                        string="发送日期"
+                        context="{'group_by': 'date_sent:day'}"
+                    />
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_infohub_digest_log" model="ir.actions.act_window">
+        <field name="name">摘要发送记录</field>
+        <field name="res_model">infohub.digest.log</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'search_default_filter_failed': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">还没有发送记录</p>
+            <p>
+                摘要由每日 cron 按订阅上的推送频率发送。读者在订阅管理里把频率设成
+                「每日」或「每周」才会收到。
+            </p>
+        </field>
+    </record>
+
+    <!-- 用户表单上加一个手工发送按钮，便于调试 -->
+    <record id="view_users_form_infohub_digest" model="ir.ui.view">
+        <field name="name">res.users.form.infohub.digest</field>
+        <field name="model">res.users</field>
+        <field name="inherit_id" ref="base.view_users_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="before">
+                <header>
+                    <button
+                        name="action_infohub_send_digest_now"
+                        type="object"
+                        string="立即发送 InfoHub 摘要"
+                        groups="infohub.group_manager"
+                    />
+                </header>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo noupdate="1">
+
+    <!--
+        示例采集配置。这几条同时是"接入一个站点只需加一条记录"的活样板：
+        它们没有对应任何代码，纯数据。
+
+        选择器会随站点改版失效——这是网页采集固有的维护成本，与 RSS 的本质差别。
+        所以每条都在 notes 里写清结构假设，便于日后复查。
+    -->
+
+    <!-- 最常见的语义化 HTML 结构：article > h2 > a -->
+    <record id="profile_semantic_blog" model="infohub.web.profile">
+        <field name="name">通用语义化博客</field>
+        <field name="item_link_selector">article h2 a, article h3 a</field>
+        <field name="pagination_mode">none</field>
+        <field name="detail_mode">fetch</field>
+        <field name="content_selector">article</field>
+        <field name="date_selector">time</field>
+        <field name="strip_selectors">nav
+footer
+aside
+.comments
+.related-posts
+.advertisement
+.share-buttons
+.newsletter-signup</field>
+        <field name="max_pages">1</field>
+        <field name="max_items_per_run">30</field>
+        <field name="notes">适用于用 &lt;article&gt; 包条目、&lt;time&gt; 标日期的站点（多数现代博客模板）。
+先用它试，抓不到再针对站点复制一份改选择器。</field>
+    </record>
+
+    <!-- WordPress 默认模板系列 -->
+    <record id="profile_wordpress" model="infohub.web.profile">
+        <field name="name">WordPress 默认模板</field>
+        <field name="item_link_selector">h2.entry-title a, h1.entry-title a</field>
+        <field name="pagination_mode">next_link</field>
+        <field name="next_link_selector">a.next, .nav-previous a</field>
+        <field name="detail_mode">fetch</field>
+        <field name="title_selector">h1.entry-title</field>
+        <field name="content_selector">.entry-content</field>
+        <field name="author_selector">.author.vcard a, .entry-author</field>
+        <field name="date_selector">time.entry-date</field>
+        <field name="strip_selectors">.sharedaddy
+.jp-relatedposts
+#comments
+.wp-block-comments
+nav
+footer</field>
+        <field name="max_pages">2</field>
+        <field name="notes">WordPress 的主题差异很大，entry-title / entry-content 是最通行的类名。
+分页用 a.next（多数主题）或 .nav-previous a（较老的主题）。</field>
+    </record>
+
+    <!-- 列表页自带全文：省掉每条一次请求 -->
+    <record id="profile_list_only" model="infohub.web.profile">
+        <field name="name">列表页自带全文（不抓详情页）</field>
+        <field name="item_link_selector">article a[href]</field>
+        <field name="pagination_mode">page_param</field>
+        <field name="list_url_template">https://example.com/posts?page={page}</field>
+        <field name="page_start">1</field>
+        <field name="page_step">1</field>
+        <field name="max_pages">2</field>
+        <field name="detail_mode">list_only</field>
+        <field name="title_selector">h2, h3</field>
+        <field name="content_selector">.post-body, .content</field>
+        <field name="date_selector">time</field>
+        <field name="notes">列表页本身就带全文时用这个模式，能把请求数从 N+1 降到 1。
+选择器作用在列表项片段（最近的 article 或 li）上，不是详情页。
+建源后记得把 list_url_template 改成真实地址。</field>
+    </record>
+
+</odoo>

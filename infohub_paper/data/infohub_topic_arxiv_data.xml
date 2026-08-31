@@ -1,0 +1,861 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo noupdate="1">
+
+    <!--
+        arXiv 分类体系作为学科树种子数据（R4.4）。
+
+        树放在本模块而不是 infohub_arxiv（ADR-014）：树是**共享**的
+        —— 将来 infohub_pubmed 的生物医学论文同样归到 q-bio 之下；
+        而 'cs.LG' -> topic 这种**编码映射**是 arXiv 专有的，放 infohub_arxiv。
+
+        全部挂在 infohub.topic_academic 之下，那个根节点的 xmlid 是核心的对外契约。
+
+        code 字段直接用 arXiv 的分类码：它天然稳定、全球唯一，比自造编码好。
+    -->
+
+    <record id="topic_cs" model="infohub.topic">
+        <field name="name">计算机科学</field>
+        <field name="code">cs</field>
+        <field name="parent_id" ref="infohub.topic_academic" />
+        <field name="sequence">10</field>
+    </record>
+    <record id="topic_cs_AI" model="infohub.topic">
+        <field name="name">人工智能</field>
+        <field name="code">cs.AI</field>
+        <field name="parent_id" ref="topic_cs" />
+    </record>
+    <record id="topic_cs_AR" model="infohub.topic">
+        <field name="name">硬件体系结构</field>
+        <field name="code">cs.AR</field>
+        <field name="parent_id" ref="topic_cs" />
+    </record>
+    <record id="topic_cs_CC" model="infohub.topic">
+        <field name="name">计算复杂性</field>
+        <field name="code">cs.CC</field>
+        <field name="parent_id" ref="topic_cs" />
+    </record>
+    <record id="topic_cs_CE" model="infohub.topic">
+        <field name="name">计算工程与科学</field>
+        <field name="code">cs.CE</field>
+        <field name="parent_id" ref="topic_cs" />
+    </record>
+    <record id="topic_cs_CG" model="infohub.topic">
+        <field name="name">计算几何</field>
+        <field name="code">cs.CG</field>
+        <field name="parent_id" ref="topic_cs" />
+    </record>
+    <record id="topic_cs_CL" model="infohub.topic">
+        <field name="name">计算语言学</field>
+        <field name="code">cs.CL</field>
+        <field name="parent_id" ref="topic_cs" />
+    </record>
+    <record id="topic_cs_CR" model="infohub.topic">
+        <field name="name">密码学与安全</field>
+        <field name="code">cs.CR</field>
+        <field name="parent_id" ref="topic_cs" />
+    </record>
+    <record id="topic_cs_CV" model="infohub.topic">
+        <field name="name">计算机视觉与模式识别</field>
+        <field name="code">cs.CV</field>
+        <field name="parent_id" ref="topic_cs" />
+    </record>
+    <record id="topic_cs_CY" model="infohub.topic">
+        <field name="name">计算机与社会</field>
+        <field name="code">cs.CY</field>
+        <field name="parent_id" ref="topic_cs" />
+    </record>
+    <record id="topic_cs_DB" model="infohub.topic">
+        <field name="name">数据库</field>
+        <field name="code">cs.DB</field>
+        <field name="parent_id" ref="topic_cs" />
+    </record>
+    <record id="topic_cs_DC" model="infohub.topic">
+        <field name="name">分布式与并行计算</field>
+        <field name="code">cs.DC</field>
+        <field name="parent_id" ref="topic_cs" />
+    </record>
+    <record id="topic_cs_DL" model="infohub.topic">
+        <field name="name">数字图书馆</field>
+        <field name="code">cs.DL</field>
+        <field name="parent_id" ref="topic_cs" />
+    </record>
+    <record id="topic_cs_DM" model="infohub.topic">
+        <field name="name">离散数学</field>
+        <field name="code">cs.DM</field>
+        <field name="parent_id" ref="topic_cs" />
+    </record>
+    <record id="topic_cs_DS" model="infohub.topic">
+        <field name="name">数据结构与算法</field>
+        <field name="code">cs.DS</field>
+        <field name="parent_id" ref="topic_cs" />
+    </record>
+    <record id="topic_cs_ET" model="infohub.topic">
+        <field name="name">新兴技术</field>
+        <field name="code">cs.ET</field>
+        <field name="parent_id" ref="topic_cs" />
+    </record>
+    <record id="topic_cs_FL" model="infohub.topic">
+        <field name="name">形式语言与自动机</field>
+        <field name="code">cs.FL</field>
+        <field name="parent_id" ref="topic_cs" />
+    </record>
+    <record id="topic_cs_GL" model="infohub.topic">
+        <field name="name">综论</field>
+        <field name="code">cs.GL</field>
+        <field name="parent_id" ref="topic_cs" />
+    </record>
+    <record id="topic_cs_GR" model="infohub.topic">
+        <field name="name">图形学</field>
+        <field name="code">cs.GR</field>
+        <field name="parent_id" ref="topic_cs" />
+    </record>
+    <record id="topic_cs_GT" model="infohub.topic">
+        <field name="name">计算机科学与博弈论</field>
+        <field name="code">cs.GT</field>
+        <field name="parent_id" ref="topic_cs" />
+    </record>
+    <record id="topic_cs_HC" model="infohub.topic">
+        <field name="name">人机交互</field>
+        <field name="code">cs.HC</field>
+        <field name="parent_id" ref="topic_cs" />
+    </record>
+    <record id="topic_cs_IR" model="infohub.topic">
+        <field name="name">信息检索</field>
+        <field name="code">cs.IR</field>
+        <field name="parent_id" ref="topic_cs" />
+    </record>
+    <record id="topic_cs_IT" model="infohub.topic">
+        <field name="name">信息论</field>
+        <field name="code">cs.IT</field>
+        <field name="parent_id" ref="topic_cs" />
+    </record>
+    <record id="topic_cs_LG" model="infohub.topic">
+        <field name="name">机器学习</field>
+        <field name="code">cs.LG</field>
+        <field name="parent_id" ref="topic_cs" />
+    </record>
+    <record id="topic_cs_LO" model="infohub.topic">
+        <field name="name">计算机科学中的逻辑</field>
+        <field name="code">cs.LO</field>
+        <field name="parent_id" ref="topic_cs" />
+    </record>
+    <record id="topic_cs_MA" model="infohub.topic">
+        <field name="name">多智能体系统</field>
+        <field name="code">cs.MA</field>
+        <field name="parent_id" ref="topic_cs" />
+    </record>
+    <record id="topic_cs_MM" model="infohub.topic">
+        <field name="name">多媒体</field>
+        <field name="code">cs.MM</field>
+        <field name="parent_id" ref="topic_cs" />
+    </record>
+    <record id="topic_cs_MS" model="infohub.topic">
+        <field name="name">数学软件</field>
+        <field name="code">cs.MS</field>
+        <field name="parent_id" ref="topic_cs" />
+    </record>
+    <record id="topic_cs_NA" model="infohub.topic">
+        <field name="name">数值分析</field>
+        <field name="code">cs.NA</field>
+        <field name="parent_id" ref="topic_cs" />
+    </record>
+    <record id="topic_cs_NE" model="infohub.topic">
+        <field name="name">神经与进化计算</field>
+        <field name="code">cs.NE</field>
+        <field name="parent_id" ref="topic_cs" />
+    </record>
+    <record id="topic_cs_NI" model="infohub.topic">
+        <field name="name">网络与互联网架构</field>
+        <field name="code">cs.NI</field>
+        <field name="parent_id" ref="topic_cs" />
+    </record>
+    <record id="topic_cs_OH" model="infohub.topic">
+        <field name="name">其他</field>
+        <field name="code">cs.OH</field>
+        <field name="parent_id" ref="topic_cs" />
+    </record>
+    <record id="topic_cs_OS" model="infohub.topic">
+        <field name="name">操作系统</field>
+        <field name="code">cs.OS</field>
+        <field name="parent_id" ref="topic_cs" />
+    </record>
+    <record id="topic_cs_PF" model="infohub.topic">
+        <field name="name">性能</field>
+        <field name="code">cs.PF</field>
+        <field name="parent_id" ref="topic_cs" />
+    </record>
+    <record id="topic_cs_PL" model="infohub.topic">
+        <field name="name">程序设计语言</field>
+        <field name="code">cs.PL</field>
+        <field name="parent_id" ref="topic_cs" />
+    </record>
+    <record id="topic_cs_RO" model="infohub.topic">
+        <field name="name">机器人学</field>
+        <field name="code">cs.RO</field>
+        <field name="parent_id" ref="topic_cs" />
+    </record>
+    <record id="topic_cs_SC" model="infohub.topic">
+        <field name="name">符号计算</field>
+        <field name="code">cs.SC</field>
+        <field name="parent_id" ref="topic_cs" />
+    </record>
+    <record id="topic_cs_SD" model="infohub.topic">
+        <field name="name">声音</field>
+        <field name="code">cs.SD</field>
+        <field name="parent_id" ref="topic_cs" />
+    </record>
+    <record id="topic_cs_SE" model="infohub.topic">
+        <field name="name">软件工程</field>
+        <field name="code">cs.SE</field>
+        <field name="parent_id" ref="topic_cs" />
+    </record>
+    <record id="topic_cs_SI" model="infohub.topic">
+        <field name="name">社交与信息网络</field>
+        <field name="code">cs.SI</field>
+        <field name="parent_id" ref="topic_cs" />
+    </record>
+    <record id="topic_cs_SY" model="infohub.topic">
+        <field name="name">系统与控制</field>
+        <field name="code">cs.SY</field>
+        <field name="parent_id" ref="topic_cs" />
+    </record>
+
+    <record id="topic_math" model="infohub.topic">
+        <field name="name">数学</field>
+        <field name="code">math</field>
+        <field name="parent_id" ref="infohub.topic_academic" />
+        <field name="sequence">20</field>
+    </record>
+    <record id="topic_math_AC" model="infohub.topic">
+        <field name="name">交换代数</field>
+        <field name="code">math.AC</field>
+        <field name="parent_id" ref="topic_math" />
+    </record>
+    <record id="topic_math_AG" model="infohub.topic">
+        <field name="name">代数几何</field>
+        <field name="code">math.AG</field>
+        <field name="parent_id" ref="topic_math" />
+    </record>
+    <record id="topic_math_AP" model="infohub.topic">
+        <field name="name">分析与偏微分方程</field>
+        <field name="code">math.AP</field>
+        <field name="parent_id" ref="topic_math" />
+    </record>
+    <record id="topic_math_AT" model="infohub.topic">
+        <field name="name">代数拓扑</field>
+        <field name="code">math.AT</field>
+        <field name="parent_id" ref="topic_math" />
+    </record>
+    <record id="topic_math_CA" model="infohub.topic">
+        <field name="name">经典分析与常微分方程</field>
+        <field name="code">math.CA</field>
+        <field name="parent_id" ref="topic_math" />
+    </record>
+    <record id="topic_math_CO" model="infohub.topic">
+        <field name="name">组合数学</field>
+        <field name="code">math.CO</field>
+        <field name="parent_id" ref="topic_math" />
+    </record>
+    <record id="topic_math_CT" model="infohub.topic">
+        <field name="name">范畴论</field>
+        <field name="code">math.CT</field>
+        <field name="parent_id" ref="topic_math" />
+    </record>
+    <record id="topic_math_CV" model="infohub.topic">
+        <field name="name">复变函数</field>
+        <field name="code">math.CV</field>
+        <field name="parent_id" ref="topic_math" />
+    </record>
+    <record id="topic_math_DG" model="infohub.topic">
+        <field name="name">微分几何</field>
+        <field name="code">math.DG</field>
+        <field name="parent_id" ref="topic_math" />
+    </record>
+    <record id="topic_math_DS" model="infohub.topic">
+        <field name="name">动力系统</field>
+        <field name="code">math.DS</field>
+        <field name="parent_id" ref="topic_math" />
+    </record>
+    <record id="topic_math_FA" model="infohub.topic">
+        <field name="name">泛函分析</field>
+        <field name="code">math.FA</field>
+        <field name="parent_id" ref="topic_math" />
+    </record>
+    <record id="topic_math_GM" model="infohub.topic">
+        <field name="name">一般数学</field>
+        <field name="code">math.GM</field>
+        <field name="parent_id" ref="topic_math" />
+    </record>
+    <record id="topic_math_GN" model="infohub.topic">
+        <field name="name">一般拓扑</field>
+        <field name="code">math.GN</field>
+        <field name="parent_id" ref="topic_math" />
+    </record>
+    <record id="topic_math_GR" model="infohub.topic">
+        <field name="name">群论</field>
+        <field name="code">math.GR</field>
+        <field name="parent_id" ref="topic_math" />
+    </record>
+    <record id="topic_math_GT" model="infohub.topic">
+        <field name="name">几何拓扑</field>
+        <field name="code">math.GT</field>
+        <field name="parent_id" ref="topic_math" />
+    </record>
+    <record id="topic_math_HO" model="infohub.topic">
+        <field name="name">数学史与数学教育</field>
+        <field name="code">math.HO</field>
+        <field name="parent_id" ref="topic_math" />
+    </record>
+    <record id="topic_math_IT" model="infohub.topic">
+        <field name="name">信息论</field>
+        <field name="code">math.IT</field>
+        <field name="parent_id" ref="topic_math" />
+    </record>
+    <record id="topic_math_KT" model="infohub.topic">
+        <field name="name">K 理论与同调</field>
+        <field name="code">math.KT</field>
+        <field name="parent_id" ref="topic_math" />
+    </record>
+    <record id="topic_math_LO" model="infohub.topic">
+        <field name="name">逻辑</field>
+        <field name="code">math.LO</field>
+        <field name="parent_id" ref="topic_math" />
+    </record>
+    <record id="topic_math_MG" model="infohub.topic">
+        <field name="name">度量几何</field>
+        <field name="code">math.MG</field>
+        <field name="parent_id" ref="topic_math" />
+    </record>
+    <record id="topic_math_MP" model="infohub.topic">
+        <field name="name">数学物理</field>
+        <field name="code">math.MP</field>
+        <field name="parent_id" ref="topic_math" />
+    </record>
+    <record id="topic_math_NA" model="infohub.topic">
+        <field name="name">数值分析</field>
+        <field name="code">math.NA</field>
+        <field name="parent_id" ref="topic_math" />
+    </record>
+    <record id="topic_math_NT" model="infohub.topic">
+        <field name="name">数论</field>
+        <field name="code">math.NT</field>
+        <field name="parent_id" ref="topic_math" />
+    </record>
+    <record id="topic_math_OA" model="infohub.topic">
+        <field name="name">算子代数</field>
+        <field name="code">math.OA</field>
+        <field name="parent_id" ref="topic_math" />
+    </record>
+    <record id="topic_math_OC" model="infohub.topic">
+        <field name="name">最优化与控制</field>
+        <field name="code">math.OC</field>
+        <field name="parent_id" ref="topic_math" />
+    </record>
+    <record id="topic_math_PR" model="infohub.topic">
+        <field name="name">概率论</field>
+        <field name="code">math.PR</field>
+        <field name="parent_id" ref="topic_math" />
+    </record>
+    <record id="topic_math_QA" model="infohub.topic">
+        <field name="name">量子代数</field>
+        <field name="code">math.QA</field>
+        <field name="parent_id" ref="topic_math" />
+    </record>
+    <record id="topic_math_RA" model="infohub.topic">
+        <field name="name">环与代数</field>
+        <field name="code">math.RA</field>
+        <field name="parent_id" ref="topic_math" />
+    </record>
+    <record id="topic_math_RT" model="infohub.topic">
+        <field name="name">表示论</field>
+        <field name="code">math.RT</field>
+        <field name="parent_id" ref="topic_math" />
+    </record>
+    <record id="topic_math_SG" model="infohub.topic">
+        <field name="name">辛几何</field>
+        <field name="code">math.SG</field>
+        <field name="parent_id" ref="topic_math" />
+    </record>
+    <record id="topic_math_SP" model="infohub.topic">
+        <field name="name">谱理论</field>
+        <field name="code">math.SP</field>
+        <field name="parent_id" ref="topic_math" />
+    </record>
+    <record id="topic_math_ST" model="infohub.topic">
+        <field name="name">统计理论</field>
+        <field name="code">math.ST</field>
+        <field name="parent_id" ref="topic_math" />
+    </record>
+
+    <record id="topic_stat" model="infohub.topic">
+        <field name="name">统计学</field>
+        <field name="code">stat</field>
+        <field name="parent_id" ref="infohub.topic_academic" />
+        <field name="sequence">30</field>
+    </record>
+    <record id="topic_stat_AP" model="infohub.topic">
+        <field name="name">应用统计</field>
+        <field name="code">stat.AP</field>
+        <field name="parent_id" ref="topic_stat" />
+    </record>
+    <record id="topic_stat_CO" model="infohub.topic">
+        <field name="name">计算统计</field>
+        <field name="code">stat.CO</field>
+        <field name="parent_id" ref="topic_stat" />
+    </record>
+    <record id="topic_stat_ME" model="infohub.topic">
+        <field name="name">统计方法</field>
+        <field name="code">stat.ME</field>
+        <field name="parent_id" ref="topic_stat" />
+    </record>
+    <record id="topic_stat_ML" model="infohub.topic">
+        <field name="name">机器学习（统计）</field>
+        <field name="code">stat.ML</field>
+        <field name="parent_id" ref="topic_stat" />
+    </record>
+    <record id="topic_stat_OT" model="infohub.topic">
+        <field name="name">其他统计</field>
+        <field name="code">stat.OT</field>
+        <field name="parent_id" ref="topic_stat" />
+    </record>
+    <record id="topic_stat_TH" model="infohub.topic">
+        <field name="name">统计理论</field>
+        <field name="code">stat.TH</field>
+        <field name="parent_id" ref="topic_stat" />
+    </record>
+
+    <record id="topic_eess" model="infohub.topic">
+        <field name="name">电子工程与系统科学</field>
+        <field name="code">eess</field>
+        <field name="parent_id" ref="infohub.topic_academic" />
+        <field name="sequence">40</field>
+    </record>
+    <record id="topic_eess_AS" model="infohub.topic">
+        <field name="name">音频与语音处理</field>
+        <field name="code">eess.AS</field>
+        <field name="parent_id" ref="topic_eess" />
+    </record>
+    <record id="topic_eess_IV" model="infohub.topic">
+        <field name="name">图像与视频处理</field>
+        <field name="code">eess.IV</field>
+        <field name="parent_id" ref="topic_eess" />
+    </record>
+    <record id="topic_eess_SP" model="infohub.topic">
+        <field name="name">信号处理</field>
+        <field name="code">eess.SP</field>
+        <field name="parent_id" ref="topic_eess" />
+    </record>
+    <record id="topic_eess_SY" model="infohub.topic">
+        <field name="name">系统与控制</field>
+        <field name="code">eess.SY</field>
+        <field name="parent_id" ref="topic_eess" />
+    </record>
+
+    <record id="topic_q_bio" model="infohub.topic">
+        <field name="name">定量生物学</field>
+        <field name="code">q-bio</field>
+        <field name="parent_id" ref="infohub.topic_academic" />
+        <field name="sequence">50</field>
+    </record>
+    <record id="topic_q_bio_BM" model="infohub.topic">
+        <field name="name">生物分子</field>
+        <field name="code">q-bio.BM</field>
+        <field name="parent_id" ref="topic_q_bio" />
+    </record>
+    <record id="topic_q_bio_CB" model="infohub.topic">
+        <field name="name">细胞行为</field>
+        <field name="code">q-bio.CB</field>
+        <field name="parent_id" ref="topic_q_bio" />
+    </record>
+    <record id="topic_q_bio_GN" model="infohub.topic">
+        <field name="name">基因组学</field>
+        <field name="code">q-bio.GN</field>
+        <field name="parent_id" ref="topic_q_bio" />
+    </record>
+    <record id="topic_q_bio_MN" model="infohub.topic">
+        <field name="name">分子网络</field>
+        <field name="code">q-bio.MN</field>
+        <field name="parent_id" ref="topic_q_bio" />
+    </record>
+    <record id="topic_q_bio_NC" model="infohub.topic">
+        <field name="name">神经元与认知</field>
+        <field name="code">q-bio.NC</field>
+        <field name="parent_id" ref="topic_q_bio" />
+    </record>
+    <record id="topic_q_bio_OT" model="infohub.topic">
+        <field name="name">其他</field>
+        <field name="code">q-bio.OT</field>
+        <field name="parent_id" ref="topic_q_bio" />
+    </record>
+    <record id="topic_q_bio_PE" model="infohub.topic">
+        <field name="name">群体与进化</field>
+        <field name="code">q-bio.PE</field>
+        <field name="parent_id" ref="topic_q_bio" />
+    </record>
+    <record id="topic_q_bio_QM" model="infohub.topic">
+        <field name="name">定量方法</field>
+        <field name="code">q-bio.QM</field>
+        <field name="parent_id" ref="topic_q_bio" />
+    </record>
+    <record id="topic_q_bio_SC" model="infohub.topic">
+        <field name="name">亚细胞过程</field>
+        <field name="code">q-bio.SC</field>
+        <field name="parent_id" ref="topic_q_bio" />
+    </record>
+    <record id="topic_q_bio_TO" model="infohub.topic">
+        <field name="name">组织与器官</field>
+        <field name="code">q-bio.TO</field>
+        <field name="parent_id" ref="topic_q_bio" />
+    </record>
+
+    <record id="topic_q_fin" model="infohub.topic">
+        <field name="name">定量金融</field>
+        <field name="code">q-fin</field>
+        <field name="parent_id" ref="infohub.topic_academic" />
+        <field name="sequence">60</field>
+    </record>
+    <record id="topic_q_fin_CP" model="infohub.topic">
+        <field name="name">计算金融</field>
+        <field name="code">q-fin.CP</field>
+        <field name="parent_id" ref="topic_q_fin" />
+    </record>
+    <record id="topic_q_fin_EC" model="infohub.topic">
+        <field name="name">经济学</field>
+        <field name="code">q-fin.EC</field>
+        <field name="parent_id" ref="topic_q_fin" />
+    </record>
+    <record id="topic_q_fin_GN" model="infohub.topic">
+        <field name="name">一般金融</field>
+        <field name="code">q-fin.GN</field>
+        <field name="parent_id" ref="topic_q_fin" />
+    </record>
+    <record id="topic_q_fin_MF" model="infohub.topic">
+        <field name="name">数理金融</field>
+        <field name="code">q-fin.MF</field>
+        <field name="parent_id" ref="topic_q_fin" />
+    </record>
+    <record id="topic_q_fin_PM" model="infohub.topic">
+        <field name="name">投资组合管理</field>
+        <field name="code">q-fin.PM</field>
+        <field name="parent_id" ref="topic_q_fin" />
+    </record>
+    <record id="topic_q_fin_PR" model="infohub.topic">
+        <field name="name">定价</field>
+        <field name="code">q-fin.PR</field>
+        <field name="parent_id" ref="topic_q_fin" />
+    </record>
+    <record id="topic_q_fin_RM" model="infohub.topic">
+        <field name="name">风险管理</field>
+        <field name="code">q-fin.RM</field>
+        <field name="parent_id" ref="topic_q_fin" />
+    </record>
+    <record id="topic_q_fin_ST" model="infohub.topic">
+        <field name="name">统计金融</field>
+        <field name="code">q-fin.ST</field>
+        <field name="parent_id" ref="topic_q_fin" />
+    </record>
+    <record id="topic_q_fin_TR" model="infohub.topic">
+        <field name="name">交易与市场微观结构</field>
+        <field name="code">q-fin.TR</field>
+        <field name="parent_id" ref="topic_q_fin" />
+    </record>
+
+    <record id="topic_econ" model="infohub.topic">
+        <field name="name">经济学</field>
+        <field name="code">econ</field>
+        <field name="parent_id" ref="infohub.topic_academic" />
+        <field name="sequence">70</field>
+    </record>
+    <record id="topic_econ_EM" model="infohub.topic">
+        <field name="name">计量经济学</field>
+        <field name="code">econ.EM</field>
+        <field name="parent_id" ref="topic_econ" />
+    </record>
+    <record id="topic_econ_GN" model="infohub.topic">
+        <field name="name">一般经济学</field>
+        <field name="code">econ.GN</field>
+        <field name="parent_id" ref="topic_econ" />
+    </record>
+    <record id="topic_econ_TH" model="infohub.topic">
+        <field name="name">理论经济学</field>
+        <field name="code">econ.TH</field>
+        <field name="parent_id" ref="topic_econ" />
+    </record>
+
+    <record id="topic_astro_ph" model="infohub.topic">
+        <field name="name">天体物理</field>
+        <field name="code">astro-ph</field>
+        <field name="parent_id" ref="infohub.topic_academic" />
+        <field name="sequence">80</field>
+    </record>
+    <record id="topic_astro_ph_CO" model="infohub.topic">
+        <field name="name">宇宙学与非星系天体物理</field>
+        <field name="code">astro-ph.CO</field>
+        <field name="parent_id" ref="topic_astro_ph" />
+    </record>
+    <record id="topic_astro_ph_EP" model="infohub.topic">
+        <field name="name">地球与行星天体物理</field>
+        <field name="code">astro-ph.EP</field>
+        <field name="parent_id" ref="topic_astro_ph" />
+    </record>
+    <record id="topic_astro_ph_GA" model="infohub.topic">
+        <field name="name">星系天体物理</field>
+        <field name="code">astro-ph.GA</field>
+        <field name="parent_id" ref="topic_astro_ph" />
+    </record>
+    <record id="topic_astro_ph_HE" model="infohub.topic">
+        <field name="name">高能天体物理现象</field>
+        <field name="code">astro-ph.HE</field>
+        <field name="parent_id" ref="topic_astro_ph" />
+    </record>
+    <record id="topic_astro_ph_IM" model="infohub.topic">
+        <field name="name">仪器与方法</field>
+        <field name="code">astro-ph.IM</field>
+        <field name="parent_id" ref="topic_astro_ph" />
+    </record>
+    <record id="topic_astro_ph_SR" model="infohub.topic">
+        <field name="name">太阳与恒星天体物理</field>
+        <field name="code">astro-ph.SR</field>
+        <field name="parent_id" ref="topic_astro_ph" />
+    </record>
+
+    <record id="topic_cond_mat" model="infohub.topic">
+        <field name="name">凝聚态物理</field>
+        <field name="code">cond-mat</field>
+        <field name="parent_id" ref="infohub.topic_academic" />
+        <field name="sequence">90</field>
+    </record>
+    <record id="topic_cond_mat_dis_nn" model="infohub.topic">
+        <field name="name">无序系统与神经网络</field>
+        <field name="code">cond-mat.dis-nn</field>
+        <field name="parent_id" ref="topic_cond_mat" />
+    </record>
+    <record id="topic_cond_mat_mes_hall" model="infohub.topic">
+        <field name="name">介观与量子霍尔效应</field>
+        <field name="code">cond-mat.mes-hall</field>
+        <field name="parent_id" ref="topic_cond_mat" />
+    </record>
+    <record id="topic_cond_mat_mtrl_sci" model="infohub.topic">
+        <field name="name">材料科学</field>
+        <field name="code">cond-mat.mtrl-sci</field>
+        <field name="parent_id" ref="topic_cond_mat" />
+    </record>
+    <record id="topic_cond_mat_other" model="infohub.topic">
+        <field name="name">其他凝聚态</field>
+        <field name="code">cond-mat.other</field>
+        <field name="parent_id" ref="topic_cond_mat" />
+    </record>
+    <record id="topic_cond_mat_quant_gas" model="infohub.topic">
+        <field name="name">量子气体</field>
+        <field name="code">cond-mat.quant-gas</field>
+        <field name="parent_id" ref="topic_cond_mat" />
+    </record>
+    <record id="topic_cond_mat_soft" model="infohub.topic">
+        <field name="name">软凝聚态</field>
+        <field name="code">cond-mat.soft</field>
+        <field name="parent_id" ref="topic_cond_mat" />
+    </record>
+    <record id="topic_cond_mat_stat_mech" model="infohub.topic">
+        <field name="name">统计力学</field>
+        <field name="code">cond-mat.stat-mech</field>
+        <field name="parent_id" ref="topic_cond_mat" />
+    </record>
+    <record id="topic_cond_mat_str_el" model="infohub.topic">
+        <field name="name">强关联电子</field>
+        <field name="code">cond-mat.str-el</field>
+        <field name="parent_id" ref="topic_cond_mat" />
+    </record>
+    <record id="topic_cond_mat_supr_con" model="infohub.topic">
+        <field name="name">超导</field>
+        <field name="code">cond-mat.supr-con</field>
+        <field name="parent_id" ref="topic_cond_mat" />
+    </record>
+
+    <record id="topic_physics" model="infohub.topic">
+        <field name="name">物理学</field>
+        <field name="code">physics</field>
+        <field name="parent_id" ref="infohub.topic_academic" />
+        <field name="sequence">100</field>
+    </record>
+    <record id="topic_physics_acc_ph" model="infohub.topic">
+        <field name="name">加速器物理</field>
+        <field name="code">physics.acc-ph</field>
+        <field name="parent_id" ref="topic_physics" />
+    </record>
+    <record id="topic_physics_app_ph" model="infohub.topic">
+        <field name="name">应用物理</field>
+        <field name="code">physics.app-ph</field>
+        <field name="parent_id" ref="topic_physics" />
+    </record>
+    <record id="topic_physics_atom_ph" model="infohub.topic">
+        <field name="name">原子物理</field>
+        <field name="code">physics.atom-ph</field>
+        <field name="parent_id" ref="topic_physics" />
+    </record>
+    <record id="topic_physics_bio_ph" model="infohub.topic">
+        <field name="name">生物物理</field>
+        <field name="code">physics.bio-ph</field>
+        <field name="parent_id" ref="topic_physics" />
+    </record>
+    <record id="topic_physics_chem_ph" model="infohub.topic">
+        <field name="name">化学物理</field>
+        <field name="code">physics.chem-ph</field>
+        <field name="parent_id" ref="topic_physics" />
+    </record>
+    <record id="topic_physics_comp_ph" model="infohub.topic">
+        <field name="name">计算物理</field>
+        <field name="code">physics.comp-ph</field>
+        <field name="parent_id" ref="topic_physics" />
+    </record>
+    <record id="topic_physics_data_an" model="infohub.topic">
+        <field name="name">数据分析与统计</field>
+        <field name="code">physics.data-an</field>
+        <field name="parent_id" ref="topic_physics" />
+    </record>
+    <record id="topic_physics_flu_dyn" model="infohub.topic">
+        <field name="name">流体动力学</field>
+        <field name="code">physics.flu-dyn</field>
+        <field name="parent_id" ref="topic_physics" />
+    </record>
+    <record id="topic_physics_gen_ph" model="infohub.topic">
+        <field name="name">一般物理</field>
+        <field name="code">physics.gen-ph</field>
+        <field name="parent_id" ref="topic_physics" />
+    </record>
+    <record id="topic_physics_geo_ph" model="infohub.topic">
+        <field name="name">地球物理</field>
+        <field name="code">physics.geo-ph</field>
+        <field name="parent_id" ref="topic_physics" />
+    </record>
+    <record id="topic_physics_hist_ph" model="infohub.topic">
+        <field name="name">物理学史与哲学</field>
+        <field name="code">physics.hist-ph</field>
+        <field name="parent_id" ref="topic_physics" />
+    </record>
+    <record id="topic_physics_ins_det" model="infohub.topic">
+        <field name="name">仪器与探测器</field>
+        <field name="code">physics.ins-det</field>
+        <field name="parent_id" ref="topic_physics" />
+    </record>
+    <record id="topic_physics_med_ph" model="infohub.topic">
+        <field name="name">医学物理</field>
+        <field name="code">physics.med-ph</field>
+        <field name="parent_id" ref="topic_physics" />
+    </record>
+    <record id="topic_physics_optics" model="infohub.topic">
+        <field name="name">光学</field>
+        <field name="code">physics.optics</field>
+        <field name="parent_id" ref="topic_physics" />
+    </record>
+    <record id="topic_physics_plasm_ph" model="infohub.topic">
+        <field name="name">等离子体物理</field>
+        <field name="code">physics.plasm-ph</field>
+        <field name="parent_id" ref="topic_physics" />
+    </record>
+    <record id="topic_physics_soc_ph" model="infohub.topic">
+        <field name="name">物理与社会</field>
+        <field name="code">physics.soc-ph</field>
+        <field name="parent_id" ref="topic_physics" />
+    </record>
+    <record id="topic_physics_space_ph" model="infohub.topic">
+        <field name="name">空间物理</field>
+        <field name="code">physics.space-ph</field>
+        <field name="parent_id" ref="topic_physics" />
+    </record>
+
+    <record id="topic_gr_qc" model="infohub.topic">
+        <field name="name">广义相对论与量子宇宙学</field>
+        <field name="code">gr-qc</field>
+        <field name="parent_id" ref="infohub.topic_academic" />
+        <field name="sequence">110</field>
+    </record>
+
+    <record id="topic_hep_ex" model="infohub.topic">
+        <field name="name">高能物理（实验）</field>
+        <field name="code">hep-ex</field>
+        <field name="parent_id" ref="infohub.topic_academic" />
+        <field name="sequence">120</field>
+    </record>
+
+    <record id="topic_hep_lat" model="infohub.topic">
+        <field name="name">高能物理（格点）</field>
+        <field name="code">hep-lat</field>
+        <field name="parent_id" ref="infohub.topic_academic" />
+        <field name="sequence">130</field>
+    </record>
+
+    <record id="topic_hep_ph" model="infohub.topic">
+        <field name="name">高能物理（现象学）</field>
+        <field name="code">hep-ph</field>
+        <field name="parent_id" ref="infohub.topic_academic" />
+        <field name="sequence">140</field>
+    </record>
+
+    <record id="topic_hep_th" model="infohub.topic">
+        <field name="name">高能物理（理论）</field>
+        <field name="code">hep-th</field>
+        <field name="parent_id" ref="infohub.topic_academic" />
+        <field name="sequence">150</field>
+    </record>
+
+    <record id="topic_math_ph" model="infohub.topic">
+        <field name="name">数学物理</field>
+        <field name="code">math-ph</field>
+        <field name="parent_id" ref="infohub.topic_academic" />
+        <field name="sequence">160</field>
+    </record>
+
+    <record id="topic_nlin" model="infohub.topic">
+        <field name="name">非线性科学</field>
+        <field name="code">nlin</field>
+        <field name="parent_id" ref="infohub.topic_academic" />
+        <field name="sequence">170</field>
+    </record>
+    <record id="topic_nlin_AO" model="infohub.topic">
+        <field name="name">自适应与自组织系统</field>
+        <field name="code">nlin.AO</field>
+        <field name="parent_id" ref="topic_nlin" />
+    </record>
+    <record id="topic_nlin_CD" model="infohub.topic">
+        <field name="name">混沌动力学</field>
+        <field name="code">nlin.CD</field>
+        <field name="parent_id" ref="topic_nlin" />
+    </record>
+    <record id="topic_nlin_CG" model="infohub.topic">
+        <field name="name">细胞自动机与格点气</field>
+        <field name="code">nlin.CG</field>
+        <field name="parent_id" ref="topic_nlin" />
+    </record>
+    <record id="topic_nlin_PS" model="infohub.topic">
+        <field name="name">图案形成与孤子</field>
+        <field name="code">nlin.PS</field>
+        <field name="parent_id" ref="topic_nlin" />
+    </record>
+    <record id="topic_nlin_SI" model="infohub.topic">
+        <field name="name">严格可解与可积系统</field>
+        <field name="code">nlin.SI</field>
+        <field name="parent_id" ref="topic_nlin" />
+    </record>
+
+    <record id="topic_nucl_ex" model="infohub.topic">
+        <field name="name">核物理（实验）</field>
+        <field name="code">nucl-ex</field>
+        <field name="parent_id" ref="infohub.topic_academic" />
+        <field name="sequence">180</field>
+    </record>
+
+    <record id="topic_nucl_th" model="infohub.topic">
+        <field name="name">核物理（理论）</field>
+        <field name="code">nucl-th</field>
+        <field name="parent_id" ref="infohub.topic_academic" />
+        <field name="sequence">190</field>
+    </record>
+
+    <record id="topic_quant_ph" model="infohub.topic">
+        <field name="name">量子物理</field>
+        <field name="code">quant-ph</field>
+        <field name="parent_id" ref="infohub.topic_academic" />
+        <field name="sequence">200</field>
+    </record>
+
+</odoo>

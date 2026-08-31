@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+
+    <record id="view_infohub_web_profile_list" model="ir.ui.view">
+        <field name="name">infohub.web.profile.list</field>
+        <field name="model">infohub.web.profile</field>
+        <field name="arch" type="xml">
+            <list string="网页采集配置">
+                <field name="name" />
+                <field name="pagination_mode" />
+                <field name="detail_mode" />
+                <field name="item_link_selector" optional="show" />
+                <field name="content_selector" optional="hide" />
+                <field name="source_count" string="使用的源" />
+                <field name="render_js" optional="hide" />
+                <field name="active" column_invisible="True" />
+            </list>
+        </field>
+    </record>
+
+    <record id="view_infohub_web_profile_form" model="ir.ui.view">
+        <field name="name">infohub.web.profile.form</field>
+        <field name="model">infohub.web.profile</field>
+        <field name="arch" type="xml">
+            <form string="网页采集配置">
+                <sheet>
+                    <widget
+                        name="web_ribbon"
+                        title="已停用"
+                        bg_color="text-bg-secondary"
+                        invisible="active"
+                    />
+                    <div class="oe_title">
+                        <label for="name" />
+                        <h1><field name="name" placeholder="例如：某科技博客" /></h1>
+                    </div>
+
+                    <div
+                        class="alert alert-warning"
+                        role="alert"
+                        invisible="not render_js"
+                    >
+                        <strong>「需要 JS 渲染」尚未实现。</strong>
+                        勾选后采集会直接报错，而不是静默抓到一个未渲染的空壳页面。
+                        这类站点目前需要另写渠道模块。
+                    </div>
+
+                    <group>
+                        <group string="列表页" name="listing">
+                            <field
+                                name="list_url_template"
+                                placeholder="留空则用源的端点"
+                            />
+                            <field
+                                name="item_link_selector"
+                                placeholder="例如 article h2 a"
+                            />
+                            <field name="link_attribute" />
+                            <field name="same_host_only" />
+                        </group>
+                        <group string="分页" name="pagination">
+                            <field name="pagination_mode" />
+                            <field
+                                name="next_link_selector"
+                                invisible="pagination_mode != 'next_link'"
+                                required="pagination_mode == 'next_link'"
+                                placeholder="例如 a.next"
+                            />
+                            <field
+                                name="page_start"
+                                invisible="pagination_mode != 'page_param'"
+                            />
+                            <field
+                                name="page_step"
+                                invisible="pagination_mode != 'page_param'"
+                            />
+                            <field name="max_pages" />
+                            <field name="max_items_per_run" />
+                        </group>
+                    </group>
+
+                    <group string="字段提取" name="extraction">
+                        <field name="detail_mode" />
+                        <div
+                            class="alert alert-light"
+                            role="alert"
+                            colspan="2"
+                            invisible="detail_mode != 'list_only'"
+                        >
+                            「仅用列表页」模式下，下面的选择器作用在**列表项片段**上
+                            （最近的 article 或 li 容器），而不是详情页。适用于列表页
+                            本身就带全文的站点，可以省掉每条一次请求。
+                        </div>
+                        <field
+                            name="title_selector"
+                            placeholder="留空则用页面 &lt;title&gt;"
+                        />
+                        <field name="content_selector" placeholder="例如 .post-content" />
+                        <field name="summary_selector" />
+                        <field name="author_selector" />
+                        <field name="date_selector" />
+                        <field name="date_format" placeholder="留空则自动识别，例如 %Y年%m月%d日" />
+                    </group>
+
+                    <group string="噪声剔除" name="noise">
+                        <field
+                            name="strip_selectors"
+                            nolabel="1"
+                            placeholder="一行一个 CSS 选择器，例如&#10;.advertisement&#10;.related-posts&#10;.comments&#10;nav&#10;footer"
+                        />
+                    </group>
+
+                    <group>
+                        <field name="render_js" />
+                        <field name="active" />
+                    </group>
+
+                    <notebook>
+                        <page string="备注" name="notes">
+                            <field
+                                name="notes"
+                                placeholder="这个站点的结构特点、坑在哪、什么时候需要复查选择器..."
+                            />
+                        </page>
+                        <page string="使用的源" name="sources">
+                            <field name="source_ids" readonly="1">
+                                <list>
+                                    <field name="name" />
+                                    <field name="endpoint" />
+                                    <field name="item_count" />
+                                    <field name="active" />
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_infohub_web_profile_search" model="ir.ui.view">
+        <field name="name">infohub.web.profile.search</field>
+        <field name="model">infohub.web.profile</field>
+        <field name="arch" type="xml">
+            <search string="网页采集配置">
+                <field name="name" />
+                <field name="item_link_selector" />
+                <filter name="filter_inactive" string="已停用" domain="[('active', '=', False)]" />
+                <filter
+                    name="filter_render_js"
+                    string="需要 JS 渲染（未实现）"
+                    domain="[('render_js', '=', True)]"
+                />
+                <group name="group_by">
+                    <filter
+                        name="group_by_pagination"
+                        string="分页方式"
+                        context="{'group_by': 'pagination_mode'}"
+                    />
+                    <filter
+                        name="group_by_detail"
+                        string="详情来源"
+                        context="{'group_by': 'detail_mode'}"
+                    />
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_infohub_web_profile" model="ir.actions.act_window">
+        <field name="name">网页采集配置</field>
+        <field name="res_model">infohub.web.profile</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">添加一个站点配置</p>
+            <p>
+                接入一个没有 RSS 的站点 = 加一条配置记录，不需要写代码。
+                填好「条目链接选择器」和几个字段选择器即可。
+            </p>
+            <p>
+                只有需要 JS 渲染、登录、反爬对抗的站点才需要写渠道模块。
+            </p>
+        </field>
+    </record>
+
+</odoo>

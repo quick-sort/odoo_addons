@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+
+    <record id="view_infohub_item_form_llm" model="ir.ui.view">
+        <field name="name">infohub.item.form.llm</field>
+        <field name="model">infohub.item</field>
+        <field name="inherit_id" ref="infohub.view_infohub_item_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//header" position="inside">
+                <button
+                    name="action_llm_retry"
+                    type="object"
+                    string="重跑 LLM 增强"
+                    groups="infohub.group_manager"
+                />
+            </xpath>
+            <xpath expr="//notebook" position="inside">
+                <page string="LLM 增强" name="llm">
+                    <group col="4">
+                        <field name="llm_state" readonly="1" />
+                    </group>
+                    <div
+                        class="alert alert-warning"
+                        role="alert"
+                        invisible="llm_state != 'failed'"
+                    >
+                        <strong>LLM 处理失败：</strong>
+                        <field name="llm_error" readonly="1" nolabel="1" />
+                    </div>
+                    <separator string="LLM 摘要" invisible="not llm_summary" />
+                    <field name="llm_summary" readonly="1" invisible="not llm_summary" />
+                    <separator
+                        string="译文"
+                        invisible="not llm_translated_title and not llm_translated_summary"
+                    />
+                    <field
+                        name="llm_translated_title"
+                        readonly="1"
+                        invisible="not llm_translated_title"
+                    />
+                    <field
+                        name="llm_translated_summary"
+                        readonly="1"
+                        invisible="not llm_translated_summary"
+                    />
+                    <div
+                        class="alert alert-light"
+                        role="alert"
+                        invisible="llm_state != 'done'"
+                    >
+                        LLM 产出保存在独立字段里，不覆盖原标题与原摘要——模型会出错、
+                        会改口径，覆盖原文就没法回退也没法对比。
+                    </div>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_infohub_item_search_llm" model="ir.ui.view">
+        <field name="name">infohub.item.search.llm</field>
+        <field name="model">infohub.item</field>
+        <field name="inherit_id" ref="infohub.view_infohub_item_search" />
+        <field name="arch" type="xml">
+            <xpath expr="//filter[@name='filter_blocked']" position="after">
+                <separator />
+                <filter
+                    name="filter_llm_failed"
+                    string="LLM 处理失败"
+                    domain="[('llm_state', '=', 'failed')]"
+                />
+                <filter
+                    name="filter_has_llm_summary"
+                    string="有 LLM 摘要"
+                    domain="[('llm_summary', '!=', False)]"
+                />
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

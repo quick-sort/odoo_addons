@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+
+    <record id="view_infohub_source_list" model="ir.ui.view">
+        <field name="name">infohub.source.list</field>
+        <field name="model">infohub.source</field>
+        <field name="arch" type="xml">
+            <list string="信息源" decoration-danger="error_count &gt; 0">
+                <field name="name" />
+                <field name="medium" />
+                <field name="transport" />
+                <field name="provider" />
+                <field name="access_level" />
+                <field name="item_count" string="条目" />
+                <field name="last_run_at" />
+                <field name="next_run_at" />
+                <field name="error_count" string="失败" />
+                <field name="active" column_invisible="True" />
+            </list>
+        </field>
+    </record>
+
+    <record id="view_infohub_source_form" model="ir.ui.view">
+        <field name="name">infohub.source.form</field>
+        <field name="model">infohub.source</field>
+        <field name="arch" type="xml">
+            <form string="信息源">
+                <header>
+                    <button
+                        name="action_fetch_now"
+                        type="object"
+                        string="立即抓取"
+                        class="btn-primary"
+                        invisible="not active"
+                    />
+                    <button
+                        name="action_fetch_sync"
+                        type="object"
+                        string="同步抓取（调试）"
+                        groups="infohub.group_manager"
+                        invisible="not active"
+                    />
+                    <button
+                        name="action_reset_cursor"
+                        type="object"
+                        string="清空游标"
+                        confirm="清空后下一轮将从头重抓，可能产生大量条目。确定继续？"
+                    />
+                    <button
+                        name="action_reactivate"
+                        type="object"
+                        string="重新启用"
+                        class="btn-primary"
+                        invisible="active"
+                    />
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button
+                            name="action_view_items"
+                            type="object"
+                            class="oe_stat_button"
+                            icon="fa-newspaper-o"
+                        >
+                            <field name="item_count" widget="statinfo" string="条目" />
+                        </button>
+                    </div>
+                    <widget
+                        name="web_ribbon"
+                        title="已停用"
+                        bg_color="text-bg-danger"
+                        invisible="active"
+                    />
+                    <div class="oe_title">
+                        <label for="name" />
+                        <h1><field name="name" placeholder="例如：某科技媒体 RSS" /></h1>
+                    </div>
+                    <group>
+                        <group string="组合" name="composition">
+                            <field name="medium" />
+                            <field name="transport" />
+                            <field name="provider" />
+                            <field name="access_level" />
+                        </group>
+                        <group string="连接" name="connection">
+                            <field name="endpoint" widget="url" placeholder="https://..." />
+                            <field
+                                name="credential_id"
+                                groups="infohub.group_manager"
+                            />
+                            <field name="active" />
+                        </group>
+                    </group>
+                    <group>
+                        <group string="调度" name="schedule">
+                            <label for="interval_number" string="抓取间隔" />
+                            <div class="o_row">
+                                <field name="interval_number" class="oe_inline" />
+                                <field name="interval_type" class="oe_inline" />
+                            </div>
+                            <field name="next_run_at" />
+                            <field name="last_run_at" />
+                            <field name="min_request_interval" />
+                        </group>
+                        <group string="分类" name="classification">
+                            <field name="topic_ids" widget="many2many_tags" />
+                            <field name="default_tag_ids" widget="many2many_tags" />
+                            <field name="is_recommended" />
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="健康状况" name="health">
+                            <group>
+                                <field name="error_count" />
+                                <field name="max_errors" />
+                            </group>
+                            <field
+                                name="last_error"
+                                readonly="1"
+                                invisible="not last_error"
+                            />
+                            <separator string="增量游标" />
+                            <p class="text-muted">
+                                游标形态因传输而异（ETag / Last-Modified / since_id /
+                                最后发布时间）。只读，需要重抓请用上方「清空游标」。
+                            </p>
+                            <field name="cursor_state" widget="json" readonly="1" />
+                        </page>
+                        <page string="抓取日志" name="runs">
+                            <field name="run_ids" readonly="1">
+                                <list>
+                                    <field name="date_started" />
+                                    <field name="state" />
+                                    <field name="duration" />
+                                    <field name="item_found" />
+                                    <field name="item_created" />
+                                    <field name="item_skipped" />
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter />
+            </form>
+        </field>
+    </record>
+
+    <record id="view_infohub_source_search" model="ir.ui.view">
+        <field name="name">infohub.source.search</field>
+        <field name="model">infohub.source</field>
+        <field name="arch" type="xml">
+            <search string="信息源">
+                <field name="name" />
+                <field name="endpoint" />
+                <field name="topic_ids" />
+                <filter
+                    name="filter_failing"
+                    string="有失败"
+                    domain="[('error_count', '&gt;', 0)]"
+                />
+                <filter
+                    name="filter_due"
+                    string="已到期"
+                    domain="[('next_run_at', '&lt;=', context_today().strftime('%Y-%m-%d %H:%M:%S'))]"
+                />
+                <separator />
+                <filter name="filter_inactive" string="已停用" domain="[('active', '=', False)]" />
+                <group name="group_by">
+                    <filter name="group_by_medium" string="介质" context="{'group_by': 'medium'}" />
+                    <filter
+                        name="group_by_transport"
+                        string="传输"
+                        context="{'group_by': 'transport'}"
+                    />
+                    <filter
+                        name="group_by_provider"
+                        string="来源"
+                        context="{'group_by': 'provider'}"
+                    />
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_infohub_source" model="ir.actions.act_window">
+        <field name="name">信息源</field>
+        <field name="res_model">infohub.source</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'search_default_filter_failing': 0}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">添加第一个信息源</p>
+            <p>
+                建议从「源预设」开始：预设已经配好介质、传输、来源三个维度与端点，
+                选一个即可。手工建源需要自己确认三者的组合有对应实现。
+            </p>
+        </field>
+    </record>
+
+</odoo>

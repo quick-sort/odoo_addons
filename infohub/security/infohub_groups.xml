@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+
+    <!--
+        权限分四层（design.md §6.2）：
+
+          group_reader     portal 读者。读已发布条目、管自己的订阅与阅读状态
+          group_user       内部用户。后台查看条目、源、抓取日志
+          group_moderator  审核员。标黑、改状态、管标签
+          group_manager    管理员。管源、凭证、学科词表
+
+        内部三层用 res.groups.privilege 组成递进阶梯；group_reader 独立于该
+        privilege，因为 portal 用户不能持有内部组。group_user 通过 implied_ids
+        包含 group_reader，使内部用户天然具备读者能力。
+    -->
+
+    <record id="res_groups_privilege_infohub" model="res.groups.privilege">
+        <field name="name">InfoHub</field>
+        <field name="sequence">30</field>
+        <field name="category_id" ref="base.module_category_productivity" />
+    </record>
+
+    <!-- portal 读者：不挂 privilege，由 infohub_website 在注册后赋予 -->
+    <record id="group_reader" model="res.groups">
+        <field name="name">InfoHub 读者</field>
+        <field
+            name="comment"
+        >可在前端阅读已发布条目、管理自己的订阅与阅读状态。面向 portal 用户。</field>
+    </record>
+
+    <record id="group_user" model="res.groups">
+        <field name="name">内部用户</field>
+        <field name="comment">可在后台查看条目、信息源与抓取日志。</field>
+        <field name="sequence">10</field>
+        <field name="privilege_id" ref="res_groups_privilege_infohub" />
+        <field
+            name="implied_ids"
+            eval="[(4, ref('base.group_user')), (4, ref('infohub.group_reader'))]"
+        />
+    </record>
+
+    <record id="group_moderator" model="res.groups">
+        <field name="name">审核员</field>
+        <field name="comment">可人工标黑、调整条目状态、维护标签与过滤规则。</field>
+        <field name="sequence">20</field>
+        <field name="privilege_id" ref="res_groups_privilege_infohub" />
+        <field name="implied_ids" eval="[(4, ref('infohub.group_user'))]" />
+    </record>
+
+    <record id="group_manager" model="res.groups">
+        <field name="name">管理员</field>
+        <field name="comment">可管理信息源、凭证与学科词表。凭证仅本组可读。</field>
+        <field name="sequence">30</field>
+        <field name="privilege_id" ref="res_groups_privilege_infohub" />
+        <field name="implied_ids" eval="[(4, ref('infohub.group_moderator'))]" />
+        <field name="user_ids" eval="[(4, ref('base.user_admin'))]" />
+    </record>
+
+</odoo>

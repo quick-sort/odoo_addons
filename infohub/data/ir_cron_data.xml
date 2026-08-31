@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo noupdate="1">
+
+    <!--
+        调度 cron 只负责"把到期的源派成异步任务"，本身不做抓取——否则一个慢源
+        会拖住整轮（R2.2）。真正的抓取在 queue_job 里执行。
+    -->
+    <record id="cron_fetch_due_sources" model="ir.cron">
+        <field name="name">InfoHub：调度到期信息源</field>
+        <field name="model_id" ref="model_infohub_source" />
+        <field name="state">code</field>
+        <field name="code">model._cron_fetch_due_sources()</field>
+        <field name="interval_number">5</field>
+        <field name="interval_type">minutes</field>
+        <field name="priority">5</field>
+        <field name="active" eval="True" />
+    </record>
+
+    <record id="cron_gc_source_runs" model="ir.cron">
+        <field name="name">InfoHub：清理过期抓取日志</field>
+        <field name="model_id" ref="model_infohub_source_run" />
+        <field name="state">code</field>
+        <field name="code">model._gc_runs()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="priority">9</field>
+        <field name="active" eval="True" />
+    </record>
+
+</odoo>

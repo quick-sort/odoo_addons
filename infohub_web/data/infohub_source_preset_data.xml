@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo noupdate="1">
+
+    <!--
+        网页采集的源预设。注意预设本身不带 web_profile_id（那是源上的字段，
+        预设模型不认识它）——建源后需要在源表单上选一个采集配置。
+    -->
+
+    <record id="preset_web_generic" model="infohub.source.preset">
+        <field name="name">网页采集 — 通用</field>
+        <field name="sequence">5</field>
+        <field name="medium">article</field>
+        <field name="transport">web</field>
+        <field name="provider">generic</field>
+        <field name="interval_number">6</field>
+        <field name="interval_type">hours</field>
+        <field name="min_request_interval">1.0</field>
+        <field
+            name="description"
+        >无 RSS 站点。建源后把列表页地址填进「端点」，并选一个「采集配置」（可先用「通用语义化博客」试）。</field>
+    </record>
+
+    <record id="preset_web_paper" model="infohub.source.preset">
+        <field name="name">网页采集 — 期刊站（论文）</field>
+        <field name="sequence">6</field>
+        <field name="medium">paper</field>
+        <field name="transport">web</field>
+        <field name="provider">generic</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="min_request_interval">2.0</field>
+        <field
+            name="description"
+        >无 API 的期刊站。介质设为「论文」，只要页面里带 DOI，就会自动与 arXiv 等来源按 DOI 收敛（无需写代码）。</field>
+    </record>
+
+</odoo>

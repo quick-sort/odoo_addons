@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+
+    <record id="view_infohub_source_form_llm" model="ir.ui.view">
+        <field name="name">infohub.source.form.llm</field>
+        <field name="model">infohub.source</field>
+        <field name="inherit_id" ref="infohub.view_infohub_source_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//group[@name='classification']" position="after">
+                <group string="LLM 增强" name="llm">
+                    <field name="llm_summarize" />
+                    <field name="llm_translate_to" placeholder="留空不翻译，例如 中文" />
+                    <field name="llm_classify" />
+                    <field
+                        name="llm_model_id"
+                        invisible="not llm_summarize and not llm_translate_to and not llm_classify"
+                    />
+                    <div
+                        class="alert alert-warning"
+                        role="alert"
+                        colspan="2"
+                        invisible="not llm_summarize and not llm_translate_to and not llm_classify"
+                    >
+                        LLM 调用按量计费。条目量大的源开启前请先估算成本——一个每天 200 条的
+                        源开启摘要，就是每天 200 次调用。
+                    </div>
+                    <div
+                        class="alert alert-light"
+                        role="alert"
+                        colspan="2"
+                        invisible="not llm_classify"
+                    >
+                        零样本归类只在来源**没有**受控分类码时才值得开。arXiv 这类有精确
+                        编码的来源用映射表 classifier 又准又免费，不必开这个。
+                    </div>
+                </group>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

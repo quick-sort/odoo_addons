@@ -1,0 +1,10 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_infohub_paper_reader,infohub.paper reader,model_infohub_paper,infohub.group_reader,1,0,0,0
+access_infohub_paper_moderator,infohub.paper moderator,model_infohub_paper,infohub.group_moderator,1,1,0,0
+access_infohub_paper_manager,infohub.paper manager,model_infohub_paper,infohub.group_manager,1,1,1,1
+access_infohub_paper_author_reader,infohub.paper.author reader,model_infohub_paper_author,infohub.group_reader,1,0,0,0
+access_infohub_paper_author_moderator,infohub.paper.author moderator,model_infohub_paper_author,infohub.group_moderator,1,1,1,0
+access_infohub_paper_author_manager,infohub.paper.author manager,model_infohub_paper_author,infohub.group_manager,1,1,1,1
+access_infohub_journal_reader,infohub.journal reader,model_infohub_journal,infohub.group_reader,1,0,0,0
+access_infohub_journal_moderator,infohub.journal moderator,model_infohub_journal,infohub.group_moderator,1,1,1,0
+access_infohub_journal_manager,infohub.journal manager,model_infohub_journal,infohub.group_manager,1,1,1,1

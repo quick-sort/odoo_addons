@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo noupdate="1">
+
+    <!--
+        arXiv 板块预设（ADR-019）。管理员选一个就能建源，不必自己拼三个维度、
+        也不必记 arXiv API 的查询语法。
+
+        min_request_interval 统一设成 3 秒（arXiv 的建议值）。注意这只约束单次任务
+        内部的翻页间隔；跨任务的全局限速靠 root.infohub.arxiv 通道容量 1，
+        那需要在 odoo.conf 里配（见模块说明）。
+
+        加一个新板块就是加一条数据记录——这正是"扩展性主要来自数据"（ADR-018）。
+    -->
+
+    <record id="preset_arxiv_generic" model="infohub.source.preset">
+        <field name="name">arXiv — 自定义查询</field>
+        <field name="sequence">1</field>
+        <field name="medium">paper</field>
+        <field name="transport">arxiv_api</field>
+        <field name="provider">arxiv</field>
+        <field name="endpoint">http://export.arxiv.org/api/query?search_query=cat:cs.LG</field>
+        <field name="interval_number">6</field>
+        <field name="interval_type">hours</field>
+        <field name="min_request_interval">3.0</field>
+        <field
+            name="description"
+        >建源后把「端点」里的 search_query 改成你要的查询，例如 cat:cs.CV 或 all:diffusion+model。</field>
+    </record>
+
+    <record id="preset_arxiv_cs_lg" model="infohub.source.preset">
+        <field name="name">arXiv — cs.LG 机器学习</field>
+        <field name="sequence">10</field>
+        <field name="medium">paper</field>
+        <field name="transport">arxiv_api</field>
+        <field name="provider">arxiv</field>
+        <field name="endpoint">http://export.arxiv.org/api/query?search_query=cat:cs.LG</field>
+        <field name="interval_number">6</field>
+        <field name="interval_type">hours</field>
+        <field name="min_request_interval">3.0</field>
+        <field name="topic_ids" eval="[(4, ref('infohub_paper.topic_cs_LG'))]" />
+    </record>
+
+    <record id="preset_arxiv_cs_cl" model="infohub.source.preset">
+        <field name="name">arXiv — cs.CL 计算语言学</field>
+        <field name="sequence">20</field>
+        <field name="medium">paper</field>
+        <field name="transport">arxiv_api</field>
+        <field name="provider">arxiv</field>
+        <field name="endpoint">http://export.arxiv.org/api/query?search_query=cat:cs.CL</field>
+        <field name="interval_number">6</field>
+        <field name="interval_type">hours</field>
+        <field name="min_request_interval">3.0</field>
+        <field name="topic_ids" eval="[(4, ref('infohub_paper.topic_cs_CL'))]" />
+    </record>
+
+    <record id="preset_arxiv_cs_cv" model="infohub.source.preset">
+        <field name="name">arXiv — cs.CV 计算机视觉</field>
+        <field name="sequence">30</field>
+        <field name="medium">paper</field>
+        <field name="transport">arxiv_api</field>
+        <field name="provider">arxiv</field>
+        <field name="endpoint">http://export.arxiv.org/api/query?search_query=cat:cs.CV</field>
+        <field name="interval_number">6</field>
+        <field name="interval_type">hours</field>
+        <field name="min_request_interval">3.0</field>
+        <field name="topic_ids" eval="[(4, ref('infohub_paper.topic_cs_CV'))]" />
+    </record>
+
+    <record id="preset_arxiv_cs_ai" model="infohub.source.preset">
+        <field name="name">arXiv — cs.AI 人工智能</field>
+        <field name="sequence">40</field>
+        <field name="medium">paper</field>
+        <field name="transport">arxiv_api</field>
+        <field name="provider">arxiv</field>
+        <field name="endpoint">http://export.arxiv.org/api/query?search_query=cat:cs.AI</field>
+        <field name="interval_number">6</field>
+        <field name="interval_type">hours</field>
+        <field name="min_request_interval">3.0</field>
+        <field name="topic_ids" eval="[(4, ref('infohub_paper.topic_cs_AI'))]" />
+    </record>
+
+    <record id="preset_arxiv_stat_ml" model="infohub.source.preset">
+        <field name="name">arXiv — stat.ML 机器学习（统计）</field>
+        <field name="sequence">50</field>
+        <field name="medium">paper</field>
+        <field name="transport">arxiv_api</field>
+        <field name="provider">arxiv</field>
+        <field name="endpoint">http://export.arxiv.org/api/query?search_query=cat:stat.ML</field>
+        <field name="interval_number">12</field>
+        <field name="interval_type">hours</field>
+        <field name="min_request_interval">3.0</field>
+        <field name="topic_ids" eval="[(4, ref('infohub_paper.topic_stat_ML'))]" />
+    </record>
+
+    <record id="preset_arxiv_quant_ph" model="infohub.source.preset">
+        <field name="name">arXiv — quant-ph 量子物理</field>
+        <field name="sequence">60</field>
+        <field name="medium">paper</field>
+        <field name="transport">arxiv_api</field>
+        <field name="provider">arxiv</field>
+        <field name="endpoint">http://export.arxiv.org/api/query?search_query=cat:quant-ph</field>
+        <field name="interval_number">12</field>
+        <field name="interval_type">hours</field>
+        <field name="min_request_interval">3.0</field>
+        <field name="topic_ids" eval="[(4, ref('infohub_paper.topic_quant_ph'))]" />
+    </record>
+
+</odoo>

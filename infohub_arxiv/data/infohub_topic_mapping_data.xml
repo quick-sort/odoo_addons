@@ -1,0 +1,839 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo noupdate="1">
+
+    <!--
+        arXiv 分类码到学科的映射（R4.3 / R4.5）。
+
+        学科树本身在 infohub_paper，这里只建立 provider='arxiv' 作用域下的编码
+        映射（ADR-014：树共享，编码映射按来源方隔离——同一个编码在不同来源方
+        可能含义不同）。
+
+        接入新的学科来源只需增加这类映射数据，不改代码。
+    -->
+
+    <record id="mapping_cs" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cs</field>
+        <field name="topic_id" ref="infohub_paper.topic_cs" />
+    </record>
+    <record id="mapping_cs_AI" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cs.AI</field>
+        <field name="topic_id" ref="infohub_paper.topic_cs_AI" />
+    </record>
+    <record id="mapping_cs_AR" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cs.AR</field>
+        <field name="topic_id" ref="infohub_paper.topic_cs_AR" />
+    </record>
+    <record id="mapping_cs_CC" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cs.CC</field>
+        <field name="topic_id" ref="infohub_paper.topic_cs_CC" />
+    </record>
+    <record id="mapping_cs_CE" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cs.CE</field>
+        <field name="topic_id" ref="infohub_paper.topic_cs_CE" />
+    </record>
+    <record id="mapping_cs_CG" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cs.CG</field>
+        <field name="topic_id" ref="infohub_paper.topic_cs_CG" />
+    </record>
+    <record id="mapping_cs_CL" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cs.CL</field>
+        <field name="topic_id" ref="infohub_paper.topic_cs_CL" />
+    </record>
+    <record id="mapping_cs_CR" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cs.CR</field>
+        <field name="topic_id" ref="infohub_paper.topic_cs_CR" />
+    </record>
+    <record id="mapping_cs_CV" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cs.CV</field>
+        <field name="topic_id" ref="infohub_paper.topic_cs_CV" />
+    </record>
+    <record id="mapping_cs_CY" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cs.CY</field>
+        <field name="topic_id" ref="infohub_paper.topic_cs_CY" />
+    </record>
+    <record id="mapping_cs_DB" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cs.DB</field>
+        <field name="topic_id" ref="infohub_paper.topic_cs_DB" />
+    </record>
+    <record id="mapping_cs_DC" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cs.DC</field>
+        <field name="topic_id" ref="infohub_paper.topic_cs_DC" />
+    </record>
+    <record id="mapping_cs_DL" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cs.DL</field>
+        <field name="topic_id" ref="infohub_paper.topic_cs_DL" />
+    </record>
+    <record id="mapping_cs_DM" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cs.DM</field>
+        <field name="topic_id" ref="infohub_paper.topic_cs_DM" />
+    </record>
+    <record id="mapping_cs_DS" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cs.DS</field>
+        <field name="topic_id" ref="infohub_paper.topic_cs_DS" />
+    </record>
+    <record id="mapping_cs_ET" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cs.ET</field>
+        <field name="topic_id" ref="infohub_paper.topic_cs_ET" />
+    </record>
+    <record id="mapping_cs_FL" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cs.FL</field>
+        <field name="topic_id" ref="infohub_paper.topic_cs_FL" />
+    </record>
+    <record id="mapping_cs_GL" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cs.GL</field>
+        <field name="topic_id" ref="infohub_paper.topic_cs_GL" />
+    </record>
+    <record id="mapping_cs_GR" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cs.GR</field>
+        <field name="topic_id" ref="infohub_paper.topic_cs_GR" />
+    </record>
+    <record id="mapping_cs_GT" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cs.GT</field>
+        <field name="topic_id" ref="infohub_paper.topic_cs_GT" />
+    </record>
+    <record id="mapping_cs_HC" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cs.HC</field>
+        <field name="topic_id" ref="infohub_paper.topic_cs_HC" />
+    </record>
+    <record id="mapping_cs_IR" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cs.IR</field>
+        <field name="topic_id" ref="infohub_paper.topic_cs_IR" />
+    </record>
+    <record id="mapping_cs_IT" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cs.IT</field>
+        <field name="topic_id" ref="infohub_paper.topic_cs_IT" />
+    </record>
+    <record id="mapping_cs_LG" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cs.LG</field>
+        <field name="topic_id" ref="infohub_paper.topic_cs_LG" />
+    </record>
+    <record id="mapping_cs_LO" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cs.LO</field>
+        <field name="topic_id" ref="infohub_paper.topic_cs_LO" />
+    </record>
+    <record id="mapping_cs_MA" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cs.MA</field>
+        <field name="topic_id" ref="infohub_paper.topic_cs_MA" />
+    </record>
+    <record id="mapping_cs_MM" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cs.MM</field>
+        <field name="topic_id" ref="infohub_paper.topic_cs_MM" />
+    </record>
+    <record id="mapping_cs_MS" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cs.MS</field>
+        <field name="topic_id" ref="infohub_paper.topic_cs_MS" />
+    </record>
+    <record id="mapping_cs_NA" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cs.NA</field>
+        <field name="topic_id" ref="infohub_paper.topic_cs_NA" />
+    </record>
+    <record id="mapping_cs_NE" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cs.NE</field>
+        <field name="topic_id" ref="infohub_paper.topic_cs_NE" />
+    </record>
+    <record id="mapping_cs_NI" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cs.NI</field>
+        <field name="topic_id" ref="infohub_paper.topic_cs_NI" />
+    </record>
+    <record id="mapping_cs_OH" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cs.OH</field>
+        <field name="topic_id" ref="infohub_paper.topic_cs_OH" />
+    </record>
+    <record id="mapping_cs_OS" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cs.OS</field>
+        <field name="topic_id" ref="infohub_paper.topic_cs_OS" />
+    </record>
+    <record id="mapping_cs_PF" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cs.PF</field>
+        <field name="topic_id" ref="infohub_paper.topic_cs_PF" />
+    </record>
+    <record id="mapping_cs_PL" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cs.PL</field>
+        <field name="topic_id" ref="infohub_paper.topic_cs_PL" />
+    </record>
+    <record id="mapping_cs_RO" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cs.RO</field>
+        <field name="topic_id" ref="infohub_paper.topic_cs_RO" />
+    </record>
+    <record id="mapping_cs_SC" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cs.SC</field>
+        <field name="topic_id" ref="infohub_paper.topic_cs_SC" />
+    </record>
+    <record id="mapping_cs_SD" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cs.SD</field>
+        <field name="topic_id" ref="infohub_paper.topic_cs_SD" />
+    </record>
+    <record id="mapping_cs_SE" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cs.SE</field>
+        <field name="topic_id" ref="infohub_paper.topic_cs_SE" />
+    </record>
+    <record id="mapping_cs_SI" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cs.SI</field>
+        <field name="topic_id" ref="infohub_paper.topic_cs_SI" />
+    </record>
+    <record id="mapping_cs_SY" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cs.SY</field>
+        <field name="topic_id" ref="infohub_paper.topic_cs_SY" />
+    </record>
+
+    <record id="mapping_math" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">math</field>
+        <field name="topic_id" ref="infohub_paper.topic_math" />
+    </record>
+    <record id="mapping_math_AC" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">math.AC</field>
+        <field name="topic_id" ref="infohub_paper.topic_math_AC" />
+    </record>
+    <record id="mapping_math_AG" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">math.AG</field>
+        <field name="topic_id" ref="infohub_paper.topic_math_AG" />
+    </record>
+    <record id="mapping_math_AP" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">math.AP</field>
+        <field name="topic_id" ref="infohub_paper.topic_math_AP" />
+    </record>
+    <record id="mapping_math_AT" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">math.AT</field>
+        <field name="topic_id" ref="infohub_paper.topic_math_AT" />
+    </record>
+    <record id="mapping_math_CA" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">math.CA</field>
+        <field name="topic_id" ref="infohub_paper.topic_math_CA" />
+    </record>
+    <record id="mapping_math_CO" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">math.CO</field>
+        <field name="topic_id" ref="infohub_paper.topic_math_CO" />
+    </record>
+    <record id="mapping_math_CT" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">math.CT</field>
+        <field name="topic_id" ref="infohub_paper.topic_math_CT" />
+    </record>
+    <record id="mapping_math_CV" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">math.CV</field>
+        <field name="topic_id" ref="infohub_paper.topic_math_CV" />
+    </record>
+    <record id="mapping_math_DG" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">math.DG</field>
+        <field name="topic_id" ref="infohub_paper.topic_math_DG" />
+    </record>
+    <record id="mapping_math_DS" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">math.DS</field>
+        <field name="topic_id" ref="infohub_paper.topic_math_DS" />
+    </record>
+    <record id="mapping_math_FA" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">math.FA</field>
+        <field name="topic_id" ref="infohub_paper.topic_math_FA" />
+    </record>
+    <record id="mapping_math_GM" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">math.GM</field>
+        <field name="topic_id" ref="infohub_paper.topic_math_GM" />
+    </record>
+    <record id="mapping_math_GN" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">math.GN</field>
+        <field name="topic_id" ref="infohub_paper.topic_math_GN" />
+    </record>
+    <record id="mapping_math_GR" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">math.GR</field>
+        <field name="topic_id" ref="infohub_paper.topic_math_GR" />
+    </record>
+    <record id="mapping_math_GT" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">math.GT</field>
+        <field name="topic_id" ref="infohub_paper.topic_math_GT" />
+    </record>
+    <record id="mapping_math_HO" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">math.HO</field>
+        <field name="topic_id" ref="infohub_paper.topic_math_HO" />
+    </record>
+    <record id="mapping_math_IT" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">math.IT</field>
+        <field name="topic_id" ref="infohub_paper.topic_math_IT" />
+    </record>
+    <record id="mapping_math_KT" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">math.KT</field>
+        <field name="topic_id" ref="infohub_paper.topic_math_KT" />
+    </record>
+    <record id="mapping_math_LO" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">math.LO</field>
+        <field name="topic_id" ref="infohub_paper.topic_math_LO" />
+    </record>
+    <record id="mapping_math_MG" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">math.MG</field>
+        <field name="topic_id" ref="infohub_paper.topic_math_MG" />
+    </record>
+    <record id="mapping_math_MP" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">math.MP</field>
+        <field name="topic_id" ref="infohub_paper.topic_math_MP" />
+    </record>
+    <record id="mapping_math_NA" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">math.NA</field>
+        <field name="topic_id" ref="infohub_paper.topic_math_NA" />
+    </record>
+    <record id="mapping_math_NT" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">math.NT</field>
+        <field name="topic_id" ref="infohub_paper.topic_math_NT" />
+    </record>
+    <record id="mapping_math_OA" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">math.OA</field>
+        <field name="topic_id" ref="infohub_paper.topic_math_OA" />
+    </record>
+    <record id="mapping_math_OC" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">math.OC</field>
+        <field name="topic_id" ref="infohub_paper.topic_math_OC" />
+    </record>
+    <record id="mapping_math_PR" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">math.PR</field>
+        <field name="topic_id" ref="infohub_paper.topic_math_PR" />
+    </record>
+    <record id="mapping_math_QA" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">math.QA</field>
+        <field name="topic_id" ref="infohub_paper.topic_math_QA" />
+    </record>
+    <record id="mapping_math_RA" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">math.RA</field>
+        <field name="topic_id" ref="infohub_paper.topic_math_RA" />
+    </record>
+    <record id="mapping_math_RT" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">math.RT</field>
+        <field name="topic_id" ref="infohub_paper.topic_math_RT" />
+    </record>
+    <record id="mapping_math_SG" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">math.SG</field>
+        <field name="topic_id" ref="infohub_paper.topic_math_SG" />
+    </record>
+    <record id="mapping_math_SP" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">math.SP</field>
+        <field name="topic_id" ref="infohub_paper.topic_math_SP" />
+    </record>
+    <record id="mapping_math_ST" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">math.ST</field>
+        <field name="topic_id" ref="infohub_paper.topic_math_ST" />
+    </record>
+
+    <record id="mapping_stat" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">stat</field>
+        <field name="topic_id" ref="infohub_paper.topic_stat" />
+    </record>
+    <record id="mapping_stat_AP" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">stat.AP</field>
+        <field name="topic_id" ref="infohub_paper.topic_stat_AP" />
+    </record>
+    <record id="mapping_stat_CO" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">stat.CO</field>
+        <field name="topic_id" ref="infohub_paper.topic_stat_CO" />
+    </record>
+    <record id="mapping_stat_ME" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">stat.ME</field>
+        <field name="topic_id" ref="infohub_paper.topic_stat_ME" />
+    </record>
+    <record id="mapping_stat_ML" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">stat.ML</field>
+        <field name="topic_id" ref="infohub_paper.topic_stat_ML" />
+    </record>
+    <record id="mapping_stat_OT" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">stat.OT</field>
+        <field name="topic_id" ref="infohub_paper.topic_stat_OT" />
+    </record>
+    <record id="mapping_stat_TH" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">stat.TH</field>
+        <field name="topic_id" ref="infohub_paper.topic_stat_TH" />
+    </record>
+
+    <record id="mapping_eess" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">eess</field>
+        <field name="topic_id" ref="infohub_paper.topic_eess" />
+    </record>
+    <record id="mapping_eess_AS" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">eess.AS</field>
+        <field name="topic_id" ref="infohub_paper.topic_eess_AS" />
+    </record>
+    <record id="mapping_eess_IV" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">eess.IV</field>
+        <field name="topic_id" ref="infohub_paper.topic_eess_IV" />
+    </record>
+    <record id="mapping_eess_SP" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">eess.SP</field>
+        <field name="topic_id" ref="infohub_paper.topic_eess_SP" />
+    </record>
+    <record id="mapping_eess_SY" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">eess.SY</field>
+        <field name="topic_id" ref="infohub_paper.topic_eess_SY" />
+    </record>
+
+    <record id="mapping_q_bio" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">q-bio</field>
+        <field name="topic_id" ref="infohub_paper.topic_q_bio" />
+    </record>
+    <record id="mapping_q_bio_BM" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">q-bio.BM</field>
+        <field name="topic_id" ref="infohub_paper.topic_q_bio_BM" />
+    </record>
+    <record id="mapping_q_bio_CB" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">q-bio.CB</field>
+        <field name="topic_id" ref="infohub_paper.topic_q_bio_CB" />
+    </record>
+    <record id="mapping_q_bio_GN" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">q-bio.GN</field>
+        <field name="topic_id" ref="infohub_paper.topic_q_bio_GN" />
+    </record>
+    <record id="mapping_q_bio_MN" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">q-bio.MN</field>
+        <field name="topic_id" ref="infohub_paper.topic_q_bio_MN" />
+    </record>
+    <record id="mapping_q_bio_NC" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">q-bio.NC</field>
+        <field name="topic_id" ref="infohub_paper.topic_q_bio_NC" />
+    </record>
+    <record id="mapping_q_bio_OT" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">q-bio.OT</field>
+        <field name="topic_id" ref="infohub_paper.topic_q_bio_OT" />
+    </record>
+    <record id="mapping_q_bio_PE" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">q-bio.PE</field>
+        <field name="topic_id" ref="infohub_paper.topic_q_bio_PE" />
+    </record>
+    <record id="mapping_q_bio_QM" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">q-bio.QM</field>
+        <field name="topic_id" ref="infohub_paper.topic_q_bio_QM" />
+    </record>
+    <record id="mapping_q_bio_SC" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">q-bio.SC</field>
+        <field name="topic_id" ref="infohub_paper.topic_q_bio_SC" />
+    </record>
+    <record id="mapping_q_bio_TO" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">q-bio.TO</field>
+        <field name="topic_id" ref="infohub_paper.topic_q_bio_TO" />
+    </record>
+
+    <record id="mapping_q_fin" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">q-fin</field>
+        <field name="topic_id" ref="infohub_paper.topic_q_fin" />
+    </record>
+    <record id="mapping_q_fin_CP" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">q-fin.CP</field>
+        <field name="topic_id" ref="infohub_paper.topic_q_fin_CP" />
+    </record>
+    <record id="mapping_q_fin_EC" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">q-fin.EC</field>
+        <field name="topic_id" ref="infohub_paper.topic_q_fin_EC" />
+    </record>
+    <record id="mapping_q_fin_GN" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">q-fin.GN</field>
+        <field name="topic_id" ref="infohub_paper.topic_q_fin_GN" />
+    </record>
+    <record id="mapping_q_fin_MF" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">q-fin.MF</field>
+        <field name="topic_id" ref="infohub_paper.topic_q_fin_MF" />
+    </record>
+    <record id="mapping_q_fin_PM" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">q-fin.PM</field>
+        <field name="topic_id" ref="infohub_paper.topic_q_fin_PM" />
+    </record>
+    <record id="mapping_q_fin_PR" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">q-fin.PR</field>
+        <field name="topic_id" ref="infohub_paper.topic_q_fin_PR" />
+    </record>
+    <record id="mapping_q_fin_RM" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">q-fin.RM</field>
+        <field name="topic_id" ref="infohub_paper.topic_q_fin_RM" />
+    </record>
+    <record id="mapping_q_fin_ST" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">q-fin.ST</field>
+        <field name="topic_id" ref="infohub_paper.topic_q_fin_ST" />
+    </record>
+    <record id="mapping_q_fin_TR" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">q-fin.TR</field>
+        <field name="topic_id" ref="infohub_paper.topic_q_fin_TR" />
+    </record>
+
+    <record id="mapping_econ" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">econ</field>
+        <field name="topic_id" ref="infohub_paper.topic_econ" />
+    </record>
+    <record id="mapping_econ_EM" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">econ.EM</field>
+        <field name="topic_id" ref="infohub_paper.topic_econ_EM" />
+    </record>
+    <record id="mapping_econ_GN" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">econ.GN</field>
+        <field name="topic_id" ref="infohub_paper.topic_econ_GN" />
+    </record>
+    <record id="mapping_econ_TH" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">econ.TH</field>
+        <field name="topic_id" ref="infohub_paper.topic_econ_TH" />
+    </record>
+
+    <record id="mapping_astro_ph" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">astro-ph</field>
+        <field name="topic_id" ref="infohub_paper.topic_astro_ph" />
+    </record>
+    <record id="mapping_astro_ph_CO" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">astro-ph.CO</field>
+        <field name="topic_id" ref="infohub_paper.topic_astro_ph_CO" />
+    </record>
+    <record id="mapping_astro_ph_EP" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">astro-ph.EP</field>
+        <field name="topic_id" ref="infohub_paper.topic_astro_ph_EP" />
+    </record>
+    <record id="mapping_astro_ph_GA" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">astro-ph.GA</field>
+        <field name="topic_id" ref="infohub_paper.topic_astro_ph_GA" />
+    </record>
+    <record id="mapping_astro_ph_HE" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">astro-ph.HE</field>
+        <field name="topic_id" ref="infohub_paper.topic_astro_ph_HE" />
+    </record>
+    <record id="mapping_astro_ph_IM" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">astro-ph.IM</field>
+        <field name="topic_id" ref="infohub_paper.topic_astro_ph_IM" />
+    </record>
+    <record id="mapping_astro_ph_SR" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">astro-ph.SR</field>
+        <field name="topic_id" ref="infohub_paper.topic_astro_ph_SR" />
+    </record>
+
+    <record id="mapping_cond_mat" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cond-mat</field>
+        <field name="topic_id" ref="infohub_paper.topic_cond_mat" />
+    </record>
+    <record id="mapping_cond_mat_dis_nn" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cond-mat.dis-nn</field>
+        <field name="topic_id" ref="infohub_paper.topic_cond_mat_dis_nn" />
+    </record>
+    <record id="mapping_cond_mat_mes_hall" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cond-mat.mes-hall</field>
+        <field name="topic_id" ref="infohub_paper.topic_cond_mat_mes_hall" />
+    </record>
+    <record id="mapping_cond_mat_mtrl_sci" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cond-mat.mtrl-sci</field>
+        <field name="topic_id" ref="infohub_paper.topic_cond_mat_mtrl_sci" />
+    </record>
+    <record id="mapping_cond_mat_other" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cond-mat.other</field>
+        <field name="topic_id" ref="infohub_paper.topic_cond_mat_other" />
+    </record>
+    <record id="mapping_cond_mat_quant_gas" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cond-mat.quant-gas</field>
+        <field name="topic_id" ref="infohub_paper.topic_cond_mat_quant_gas" />
+    </record>
+    <record id="mapping_cond_mat_soft" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cond-mat.soft</field>
+        <field name="topic_id" ref="infohub_paper.topic_cond_mat_soft" />
+    </record>
+    <record id="mapping_cond_mat_stat_mech" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cond-mat.stat-mech</field>
+        <field name="topic_id" ref="infohub_paper.topic_cond_mat_stat_mech" />
+    </record>
+    <record id="mapping_cond_mat_str_el" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cond-mat.str-el</field>
+        <field name="topic_id" ref="infohub_paper.topic_cond_mat_str_el" />
+    </record>
+    <record id="mapping_cond_mat_supr_con" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">cond-mat.supr-con</field>
+        <field name="topic_id" ref="infohub_paper.topic_cond_mat_supr_con" />
+    </record>
+
+    <record id="mapping_physics" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">physics</field>
+        <field name="topic_id" ref="infohub_paper.topic_physics" />
+    </record>
+    <record id="mapping_physics_acc_ph" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">physics.acc-ph</field>
+        <field name="topic_id" ref="infohub_paper.topic_physics_acc_ph" />
+    </record>
+    <record id="mapping_physics_app_ph" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">physics.app-ph</field>
+        <field name="topic_id" ref="infohub_paper.topic_physics_app_ph" />
+    </record>
+    <record id="mapping_physics_atom_ph" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">physics.atom-ph</field>
+        <field name="topic_id" ref="infohub_paper.topic_physics_atom_ph" />
+    </record>
+    <record id="mapping_physics_bio_ph" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">physics.bio-ph</field>
+        <field name="topic_id" ref="infohub_paper.topic_physics_bio_ph" />
+    </record>
+    <record id="mapping_physics_chem_ph" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">physics.chem-ph</field>
+        <field name="topic_id" ref="infohub_paper.topic_physics_chem_ph" />
+    </record>
+    <record id="mapping_physics_comp_ph" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">physics.comp-ph</field>
+        <field name="topic_id" ref="infohub_paper.topic_physics_comp_ph" />
+    </record>
+    <record id="mapping_physics_data_an" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">physics.data-an</field>
+        <field name="topic_id" ref="infohub_paper.topic_physics_data_an" />
+    </record>
+    <record id="mapping_physics_flu_dyn" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">physics.flu-dyn</field>
+        <field name="topic_id" ref="infohub_paper.topic_physics_flu_dyn" />
+    </record>
+    <record id="mapping_physics_gen_ph" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">physics.gen-ph</field>
+        <field name="topic_id" ref="infohub_paper.topic_physics_gen_ph" />
+    </record>
+    <record id="mapping_physics_geo_ph" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">physics.geo-ph</field>
+        <field name="topic_id" ref="infohub_paper.topic_physics_geo_ph" />
+    </record>
+    <record id="mapping_physics_hist_ph" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">physics.hist-ph</field>
+        <field name="topic_id" ref="infohub_paper.topic_physics_hist_ph" />
+    </record>
+    <record id="mapping_physics_ins_det" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">physics.ins-det</field>
+        <field name="topic_id" ref="infohub_paper.topic_physics_ins_det" />
+    </record>
+    <record id="mapping_physics_med_ph" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">physics.med-ph</field>
+        <field name="topic_id" ref="infohub_paper.topic_physics_med_ph" />
+    </record>
+    <record id="mapping_physics_optics" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">physics.optics</field>
+        <field name="topic_id" ref="infohub_paper.topic_physics_optics" />
+    </record>
+    <record id="mapping_physics_plasm_ph" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">physics.plasm-ph</field>
+        <field name="topic_id" ref="infohub_paper.topic_physics_plasm_ph" />
+    </record>
+    <record id="mapping_physics_soc_ph" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">physics.soc-ph</field>
+        <field name="topic_id" ref="infohub_paper.topic_physics_soc_ph" />
+    </record>
+    <record id="mapping_physics_space_ph" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">physics.space-ph</field>
+        <field name="topic_id" ref="infohub_paper.topic_physics_space_ph" />
+    </record>
+
+    <record id="mapping_gr_qc" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">gr-qc</field>
+        <field name="topic_id" ref="infohub_paper.topic_gr_qc" />
+    </record>
+
+    <record id="mapping_hep_ex" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">hep-ex</field>
+        <field name="topic_id" ref="infohub_paper.topic_hep_ex" />
+    </record>
+
+    <record id="mapping_hep_lat" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">hep-lat</field>
+        <field name="topic_id" ref="infohub_paper.topic_hep_lat" />
+    </record>
+
+    <record id="mapping_hep_ph" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">hep-ph</field>
+        <field name="topic_id" ref="infohub_paper.topic_hep_ph" />
+    </record>
+
+    <record id="mapping_hep_th" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">hep-th</field>
+        <field name="topic_id" ref="infohub_paper.topic_hep_th" />
+    </record>
+
+    <record id="mapping_math_ph" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">math-ph</field>
+        <field name="topic_id" ref="infohub_paper.topic_math_ph" />
+    </record>
+
+    <record id="mapping_nlin" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">nlin</field>
+        <field name="topic_id" ref="infohub_paper.topic_nlin" />
+    </record>
+    <record id="mapping_nlin_AO" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">nlin.AO</field>
+        <field name="topic_id" ref="infohub_paper.topic_nlin_AO" />
+    </record>
+    <record id="mapping_nlin_CD" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">nlin.CD</field>
+        <field name="topic_id" ref="infohub_paper.topic_nlin_CD" />
+    </record>
+    <record id="mapping_nlin_CG" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">nlin.CG</field>
+        <field name="topic_id" ref="infohub_paper.topic_nlin_CG" />
+    </record>
+    <record id="mapping_nlin_PS" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">nlin.PS</field>
+        <field name="topic_id" ref="infohub_paper.topic_nlin_PS" />
+    </record>
+    <record id="mapping_nlin_SI" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">nlin.SI</field>
+        <field name="topic_id" ref="infohub_paper.topic_nlin_SI" />
+    </record>
+
+    <record id="mapping_nucl_ex" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">nucl-ex</field>
+        <field name="topic_id" ref="infohub_paper.topic_nucl_ex" />
+    </record>
+
+    <record id="mapping_nucl_th" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">nucl-th</field>
+        <field name="topic_id" ref="infohub_paper.topic_nucl_th" />
+    </record>
+
+    <record id="mapping_quant_ph" model="infohub.topic.mapping">
+        <field name="provider">arxiv</field>
+        <field name="external_code">quant-ph</field>
+        <field name="topic_id" ref="infohub_paper.topic_quant_ph" />
+    </record>
+
+</odoo>

@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo noupdate="1">
+
+    <!--
+        常见 RSS 分类名到核心学科的映射。
+
+        RSS 的 <category> 是自由文本、没有受控编码，而学科词表用中文命名，两者
+        对不上——没有这张映射表，classifier 开箱即完全不工作。
+
+        provider 用 'rss' 而不是源的 provider（generic）：generic 会被其他传输
+        共用，而这里的语义明确是"RSS 分类名 → 学科"。
+
+        管理员可以在「配置 → 学科映射」里继续追加，无需改代码（R4.5）。
+    -->
+
+    <record id="mapping_technology" model="infohub.topic.mapping">
+        <field name="provider">rss</field>
+        <field name="external_code">Technology</field>
+        <field name="external_name">Technology</field>
+        <field name="topic_id" ref="infohub.topic_technology" />
+    </record>
+    <record id="mapping_tech" model="infohub.topic.mapping">
+        <field name="provider">rss</field>
+        <field name="external_code">Tech</field>
+        <field name="topic_id" ref="infohub.topic_technology" />
+    </record>
+    <record id="mapping_software" model="infohub.topic.mapping">
+        <field name="provider">rss</field>
+        <field name="external_code">Software</field>
+        <field name="topic_id" ref="infohub.topic_technology" />
+    </record>
+    <record id="mapping_ai" model="infohub.topic.mapping">
+        <field name="provider">rss</field>
+        <field name="external_code">Artificial Intelligence</field>
+        <field name="topic_id" ref="infohub.topic_technology" />
+    </record>
+
+    <record id="mapping_science" model="infohub.topic.mapping">
+        <field name="provider">rss</field>
+        <field name="external_code">Science</field>
+        <field name="topic_id" ref="infohub.topic_academic" />
+    </record>
+    <record id="mapping_research" model="infohub.topic.mapping">
+        <field name="provider">rss</field>
+        <field name="external_code">Research</field>
+        <field name="topic_id" ref="infohub.topic_academic" />
+    </record>
+
+    <record id="mapping_business" model="infohub.topic.mapping">
+        <field name="provider">rss</field>
+        <field name="external_code">Business</field>
+        <field name="topic_id" ref="infohub.topic_business" />
+    </record>
+    <record id="mapping_finance" model="infohub.topic.mapping">
+        <field name="provider">rss</field>
+        <field name="external_code">Finance</field>
+        <field name="topic_id" ref="infohub.topic_business" />
+    </record>
+    <record id="mapping_economics" model="infohub.topic.mapping">
+        <field name="provider">rss</field>
+        <field name="external_code">Economics</field>
+        <field name="topic_id" ref="infohub.topic_business" />
+    </record>
+
+    <record id="mapping_health" model="infohub.topic.mapping">
+        <field name="provider">rss</field>
+        <field name="external_code">Health</field>
+        <field name="topic_id" ref="infohub.topic_health" />
+    </record>
+    <record id="mapping_medicine" model="infohub.topic.mapping">
+        <field name="provider">rss</field>
+        <field name="external_code">Medicine</field>
+        <field name="topic_id" ref="infohub.topic_health" />
+    </record>
+
+    <record id="mapping_society" model="infohub.topic.mapping">
+        <field name="provider">rss</field>
+        <field name="external_code">Society</field>
+        <field name="topic_id" ref="infohub.topic_society" />
+    </record>
+    <record id="mapping_politics" model="infohub.topic.mapping">
+        <field name="provider">rss</field>
+        <field name="external_code">Politics</field>
+        <field name="topic_id" ref="infohub.topic_society" />
+    </record>
+
+    <record id="mapping_culture" model="infohub.topic.mapping">
+        <field name="provider">rss</field>
+        <field name="external_code">Culture</field>
+        <field name="topic_id" ref="infohub.topic_culture" />
+    </record>
+    <record id="mapping_arts" model="infohub.topic.mapping">
+        <field name="provider">rss</field>
+        <field name="external_code">Arts</field>
+        <field name="topic_id" ref="infohub.topic_culture" />
+    </record>
+
+</odoo>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+
+    <record id="view_infohub_source_form_fulltext" model="ir.ui.view">
+        <field name="name">infohub.source.form.fulltext</field>
+        <field name="model">infohub.source</field>
+        <field name="inherit_id" ref="infohub.view_infohub_source_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//group[@name='classification']" position="after">
+                <group string="正文提取" name="fulltext">
+                    <field name="fulltext_enabled" />
+                    <field
+                        name="fulltext_min_length"
+                        invisible="not fulltext_enabled"
+                    />
+                </group>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

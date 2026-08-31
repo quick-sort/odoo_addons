@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+
+    <!--
+        公开学科浏览页。用 website.layout（公开 CMS 页），分页用 website.pager
+        ——与 portal 页用 portal.portal_layout + portal.pager 是 Odoo 的既有分工。
+
+        这一页只展示 state=published 且来源 access_level=public 的条目，控制器里
+        显式加了这两个条件（不能只依赖记录规则：公开页的访客是 public 用户）。
+    -->
+
+    <template id="public_topic" name="InfoHub: 学科浏览">
+        <t t-call="website.layout">
+            <div id="wrap" class="o_infohub_public py-4">
+                <div class="container">
+                    <div class="d-flex justify-content-between align-items-end mb-4">
+                        <div>
+                            <h1 class="mb-1" t-out="topic.name" />
+                            <p
+                                t-if="topic.parent_id"
+                                class="text-muted mb-0 small"
+                                t-out="topic.complete_name"
+                            />
+                            <p t-if="topic.description" class="text-muted mb-0" t-out="topic.description" />
+                        </div>
+                        <div class="text-muted small">
+                            共 <span t-out="total_count" /> 条
+                        </div>
+                    </div>
+
+                    <div t-if="not items" class="alert alert-info" role="alert">
+                        该学科下暂无公开内容。
+                    </div>
+
+                    <div t-if="items" class="row g-3">
+                        <div t-foreach="items" t-as="item" class="col-12 col-md-6 col-lg-4">
+                            <div class="card h-100">
+                                <div class="card-body d-flex flex-column">
+                                    <h5 class="card-title">
+                                        <a
+                                            t-att-href="item.url or '#'"
+                                            target="_blank"
+                                            rel="noreferrer noopener"
+                                            t-out="item.title"
+                                        />
+                                    </h5>
+                                    <div class="text-muted small mb-2">
+                                        <span t-out="item.source_id.name" />
+                                        <t t-if="item.published_at">
+                                            · <span
+                                                t-out="item.published_at"
+                                                t-options="{'widget': 'date'}"
+                                            />
+                                        </t>
+                                    </div>
+                                    <div
+                                        t-if="item.summary"
+                                        class="o_infohub_summary small text-body-secondary flex-grow-1"
+                                    >
+                                        <t t-out="item.summary" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-center mt-4">
+                        <t t-call="website.pager" />
+                    </div>
+
+                    <div class="alert alert-light mt-4" role="alert">
+                        想按自己的关注面订阅这些内容？
+                        <a href="/web/signup">注册一个账号</a>，或
+                        <a href="/web/login">登录</a>后前往
+                        <a href="/infohub">我的信息流</a>。
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+
+</odoo>

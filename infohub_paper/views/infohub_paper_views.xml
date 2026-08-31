@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+
+    <!--
+        论文有自己的一套视图，而不是只在条目表单里内联。
+        论文场景本来就更常按论文维度浏览（按作者、按期刊、按 DOI 找），而载荷表上把
+        title / published_at / source_id / state 做成了 store=True 的 related，
+        列表页不需要联表。
+    -->
+
+    <record id="view_infohub_paper_list" model="ir.ui.view">
+        <field name="name">infohub.paper.list</field>
+        <field name="model">infohub.paper</field>
+        <field name="arch" type="xml">
+            <list string="论文" create="false">
+                <field name="published_at" />
+                <field name="title" />
+                <field name="author_names" string="作者" optional="show" />
+                <field name="journal_id" optional="show" />
+                <field name="published_version" optional="show" />
+                <field name="doi" optional="show" />
+                <field name="arxiv_id" optional="hide" />
+                <field name="citation_count" optional="hide" />
+                <field name="source_id" optional="hide" />
+                <field name="state" widget="badge" optional="hide" />
+                <button
+                    name="action_open_pdf"
+                    type="object"
+                    string="PDF"
+                    icon="fa-file-pdf-o"
+                    class="btn-link"
+                    invisible="not pdf_url"
+                />
+                <field name="pdf_url" column_invisible="True" />
+            </list>
+        </field>
+    </record>
+
+    <record id="view_infohub_paper_form" model="ir.ui.view">
+        <field name="name">infohub.paper.form</field>
+        <field name="model">infohub.paper</field>
+        <field name="arch" type="xml">
+            <form string="论文" create="false">
+                <header>
+                    <button
+                        name="action_open_doi"
+                        type="object"
+                        string="打开 DOI"
+                        class="btn-primary"
+                        invisible="not doi_normalized"
+                    />
+                    <button
+                        name="action_open_pdf"
+                        type="object"
+                        string="打开 PDF"
+                        invisible="not pdf_url"
+                    />
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="title" readonly="1" /></h1>
+                    </div>
+                    <group>
+                        <group string="身份" name="identity">
+                            <field name="doi" />
+                            <field name="doi_normalized" readonly="1" />
+                            <field name="arxiv_id" />
+                            <field name="item_id" readonly="1" />
+                        </group>
+                        <group string="出版信息" name="publication">
+                            <field name="journal_id" />
+                            <field name="published_version" />
+                            <label for="volume" string="卷 / 期 / 页" />
+                            <div class="o_row">
+                                <field name="volume" placeholder="卷" class="oe_inline" />
+                                <field name="issue" placeholder="期" class="oe_inline" />
+                                <field name="pages" placeholder="页" class="oe_inline" />
+                            </div>
+                            <field name="citation_count" />
+                            <field name="pdf_url" widget="url" />
+                        </group>
+                    </group>
+                    <group string="作者">
+                        <field name="author_ids" widget="many2many_tags" nolabel="1" />
+                    </group>
+                    <notebook>
+                        <page string="摘要" name="abstract">
+                            <field name="abstract" readonly="1" />
+                        </page>
+                        <page string="学科" name="topics">
+                            <field name="topic_ids" widget="many2many_tags" readonly="1" />
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_infohub_paper_search" model="ir.ui.view">
+        <field name="name">infohub.paper.search</field>
+        <field name="model">infohub.paper</field>
+        <field name="arch" type="xml">
+            <search string="论文">
+                <field name="title" />
+                <field
+                    name="author_names"
+                    string="作者"
+                    filter_domain="[('author_names', 'ilike', self)]"
+                />
+                <field name="doi" />
+                <field name="arxiv_id" />
+                <field name="journal_id" />
+                <field name="abstract" />
+                <field name="topic_ids" />
+                <filter
+                    name="filter_preprint"
+                    string="预印本"
+                    domain="[('published_version', '=', 'preprint')]"
+                />
+                <filter
+                    name="filter_published"
+                    string="已发表"
+                    domain="[('published_version', '=', 'published')]"
+                />
+                <separator />
+                <filter name="filter_has_doi" string="有 DOI" domain="[('doi_normalized', '!=', False)]" />
+                <filter name="filter_has_pdf" string="有 PDF" domain="[('pdf_url', '!=', False)]" />
+                <group name="group_by">
+                    <filter
+                        name="group_by_journal"
+                        string="期刊"
+                        context="{'group_by': 'journal_id'}"
+                    />
+                    <filter
+                        name="group_by_version"
+                        string="发表阶段"
+                        context="{'group_by': 'published_version'}"
+                    />
+                    <filter
+                        name="group_by_source"
+                        string="来源"
+                        context="{'group_by': 'source_id'}"
+                    />
+                    <filter
+                        name="group_by_date"
+                        string="发布月份"
+                        context="{'group_by': 'published_at:month'}"
+                    />
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_infohub_paper" model="ir.actions.act_window">
+        <field name="name">论文</field>
+        <field name="res_model">infohub.paper</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">还没有论文</p>
+            <p>
+                论文由 medium 为「论文」的信息源产出。安装 infohub_arxiv 后可以从源预设里
+                直接建 arXiv 源；期刊 RSS 只要把源的介质设成「论文」，DOI 去重就会自动生效。
+            </p>
+        </field>
+    </record>
+
+</odoo>

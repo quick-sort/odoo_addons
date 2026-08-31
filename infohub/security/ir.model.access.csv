@@ -1,0 +1,24 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_infohub_source_reader,infohub.source reader,model_infohub_source,group_reader,1,0,0,0
+access_infohub_source_manager,infohub.source manager,model_infohub_source,group_manager,1,1,1,1
+access_infohub_source_run_user,infohub.source.run user,model_infohub_source_run,group_user,1,0,0,0
+access_infohub_source_run_manager,infohub.source.run manager,model_infohub_source_run,group_manager,1,1,1,1
+access_infohub_source_preset_user,infohub.source.preset user,model_infohub_source_preset,group_user,1,0,0,0
+access_infohub_source_preset_manager,infohub.source.preset manager,model_infohub_source_preset,group_manager,1,1,1,1
+access_infohub_item_reader,infohub.item reader,model_infohub_item,group_reader,1,0,0,0
+access_infohub_item_moderator,infohub.item moderator,model_infohub_item,group_moderator,1,1,0,0
+access_infohub_item_manager,infohub.item manager,model_infohub_item,group_manager,1,1,1,1
+access_infohub_item_read_reader,infohub.item.read reader,model_infohub_item_read,group_reader,1,1,1,1
+access_infohub_item_read_manager,infohub.item.read manager,model_infohub_item_read,group_manager,1,1,1,1
+access_infohub_subscription_reader,infohub.subscription reader,model_infohub_subscription,group_reader,1,1,1,1
+access_infohub_subscription_manager,infohub.subscription manager,model_infohub_subscription,group_manager,1,1,1,1
+access_infohub_topic_reader,infohub.topic reader,model_infohub_topic,group_reader,1,0,0,0
+access_infohub_topic_manager,infohub.topic manager,model_infohub_topic,group_manager,1,1,1,1
+access_infohub_topic_mapping_user,infohub.topic.mapping user,model_infohub_topic_mapping,group_user,1,0,0,0
+access_infohub_topic_mapping_manager,infohub.topic.mapping manager,model_infohub_topic_mapping,group_manager,1,1,1,1
+access_infohub_tag_reader,infohub.tag reader,model_infohub_tag,group_reader,1,0,0,0
+access_infohub_tag_moderator,infohub.tag moderator,model_infohub_tag,group_moderator,1,1,1,0
+access_infohub_tag_manager,infohub.tag manager,model_infohub_tag,group_manager,1,1,1,1
+access_infohub_blocklist_user,infohub.blocklist user,model_infohub_blocklist,group_user,1,0,0,0
+access_infohub_blocklist_moderator,infohub.blocklist moderator,model_infohub_blocklist,group_moderator,1,1,1,1
+access_infohub_credential_manager,infohub.credential manager,model_infohub_credential,group_manager,1,1,1,1

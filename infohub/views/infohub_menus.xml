@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+
+    <menuitem
+        id="menu_infohub_root"
+        name="InfoHub"
+        sequence="90"
+        groups="infohub.group_user"
+    />
+
+    <!-- 内容 -->
+    <menuitem id="menu_infohub_content" name="内容" parent="menu_infohub_root" sequence="10" />
+    <menuitem
+        id="menu_infohub_item"
+        name="全部条目"
+        parent="menu_infohub_content"
+        action="action_infohub_item"
+        sequence="10"
+    />
+    <menuitem
+        id="menu_infohub_item_pending"
+        name="待审核"
+        parent="menu_infohub_content"
+        action="action_infohub_item_pending"
+        sequence="20"
+        groups="infohub.group_moderator"
+    />
+    <menuitem
+        id="menu_infohub_blocklist"
+        name="黑名单"
+        parent="menu_infohub_content"
+        action="action_infohub_blocklist"
+        sequence="30"
+        groups="infohub.group_moderator"
+    />
+
+    <!-- 信息源 -->
+    <menuitem id="menu_infohub_sources" name="信息源" parent="menu_infohub_root" sequence="20" />
+    <menuitem
+        id="menu_infohub_source"
+        name="信息源"
+        parent="menu_infohub_sources"
+        action="action_infohub_source"
+        sequence="10"
+    />
+    <menuitem
+        id="menu_infohub_source_preset"
+        name="源预设"
+        parent="menu_infohub_sources"
+        action="action_infohub_source_preset"
+        sequence="20"
+    />
+    <menuitem
+        id="menu_infohub_source_run"
+        name="抓取日志"
+        parent="menu_infohub_sources"
+        action="action_infohub_source_run"
+        sequence="30"
+    />
+
+    <!-- 订阅 -->
+    <menuitem id="menu_infohub_readers" name="读者" parent="menu_infohub_root" sequence="30" />
+    <menuitem
+        id="menu_infohub_subscription"
+        name="订阅"
+        parent="menu_infohub_readers"
+        action="action_infohub_subscription"
+        sequence="10"
+    />
+
+    <!-- 配置 -->
+    <menuitem
+        id="menu_infohub_config"
+        name="配置"
+        parent="menu_infohub_root"
+        sequence="90"
+        groups="infohub.group_manager"
+    />
+    <menuitem
+        id="menu_infohub_topic"
+        name="学科"
+        parent="menu_infohub_config"
+        action="action_infohub_topic"
+        sequence="10"
+    />
+    <menuitem
+        id="menu_infohub_topic_mapping"
+        name="学科映射"
+        parent="menu_infohub_config"
+        action="action_infohub_topic_mapping"
+        sequence="20"
+    />
+    <menuitem
+        id="menu_infohub_tag"
+        name="标签"
+        parent="menu_infohub_config"
+        action="action_infohub_tag"
+        sequence="30"
+    />
+    <menuitem
+        id="menu_infohub_credential"
+        name="凭证"
+        parent="menu_infohub_config"
+        action="action_infohub_credential"
+        sequence="40"
+    />
+
+</odoo>

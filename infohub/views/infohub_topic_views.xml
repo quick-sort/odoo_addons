@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+
+    <record id="view_infohub_topic_list" model="ir.ui.view">
+        <field name="name">infohub.topic.list</field>
+        <field name="model">infohub.topic</field>
+        <field name="arch" type="xml">
+            <list string="学科">
+                <field name="complete_name" string="学科" />
+                <field name="code" />
+                <field name="item_count" string="条目（直接）" />
+                <field name="is_recommended" />
+                <field name="sequence" column_invisible="True" />
+            </list>
+        </field>
+    </record>
+
+    <record id="view_infohub_topic_form" model="ir.ui.view">
+        <field name="name">infohub.topic.form</field>
+        <field name="model">infohub.topic</field>
+        <field name="arch" type="xml">
+            <form string="学科">
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button
+                            name="action_view_items"
+                            type="object"
+                            class="oe_stat_button"
+                            icon="fa-newspaper-o"
+                            string="条目（含子学科）"
+                        />
+                    </div>
+                    <div class="oe_title">
+                        <label for="name" />
+                        <h1><field name="name" /></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="code" placeholder="例如 cs.LG" />
+                            <field name="parent_id" />
+                            <field name="sequence" />
+                        </group>
+                        <group>
+                            <field name="active" />
+                            <field name="is_recommended" />
+                            <field name="item_count" />
+                        </group>
+                    </group>
+                    <field name="description" placeholder="学科说明..." />
+                    <notebook>
+                        <page string="外部编码映射" name="mappings">
+                            <p class="text-muted">
+                                来源方分类码到本学科的映射。各渠道模块以数据形式带入
+                                （arXiv 分类码、MeSH 等），这样接入新学科领域只需加
+                                数据、不改代码。
+                            </p>
+                            <field name="mapping_ids">
+                                <list editable="bottom">
+                                    <field name="provider" />
+                                    <field name="external_code" />
+                                    <field name="external_name" />
+                                </list>
+                            </field>
+                        </page>
+                        <page string="子学科" name="children">
+                            <field name="child_ids">
+                                <list>
+                                    <field name="name" />
+                                    <field name="code" />
+                                    <field name="item_count" />
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_infohub_topic" model="ir.actions.act_window">
+        <field name="name">学科</field>
+        <field name="res_model">infohub.topic</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">维护学科词表</p>
+            <p>
+                学科是层级受控词表，也是订阅的主要维度。订阅某个学科会自动覆盖
+                它的全部子学科。
+            </p>
+        </field>
+    </record>
+
+    <record id="action_infohub_topic_mapping" model="ir.actions.act_window">
+        <field name="name">学科映射</field>
+        <field name="res_model">infohub.topic.mapping</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="view_infohub_topic_mapping_list" model="ir.ui.view">
+        <field name="name">infohub.topic.mapping.list</field>
+        <field name="model">infohub.topic.mapping</field>
+        <field name="arch" type="xml">
+            <list string="学科映射" editable="bottom">
+                <field name="provider" />
+                <field name="external_code" />
+                <field name="external_name" />
+                <field name="topic_id" />
+            </list>
+        </field>
+    </record>
+
+    <record id="view_infohub_topic_mapping_search" model="ir.ui.view">
+        <field name="name">infohub.topic.mapping.search</field>
+        <field name="model">infohub.topic.mapping</field>
+        <field name="arch" type="xml">
+            <search string="学科映射">
+                <field name="external_code" />
+                <field name="topic_id" />
+                <field name="provider" />
+                <group name="group_by">
+                    <filter
+                        name="group_by_provider"
+                        string="来源"
+                        context="{'group_by': 'provider'}"
+                    />
+                    <filter name="group_by_topic" string="学科" context="{'group_by': 'topic_id'}" />
+                </group>
+            </search>
+        </field>
+    </record>
+
+</odoo>

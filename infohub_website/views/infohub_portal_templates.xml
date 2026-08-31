@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+
+    <!--
+        接入 portal 框架：/my 首页卡片 + 面包屑。
+        卡片的未读数由 portal 的 JS 交互异步拉 /my/counters 填充，
+        placeholder_count 的键名必须与控制器 _prepare_home_portal_values 返回的键一致。
+    -->
+
+    <template
+        id="portal_my_home_infohub"
+        name="Portal: InfoHub 入口"
+        inherit_id="portal.portal_my_home"
+        priority="40"
+    >
+        <xpath expr="//div[hasclass('o_portal_docs')]" position="inside">
+            <t t-call="portal.portal_docs_entry">
+                <t t-set="title">我的信息流</t>
+                <t t-set="text">浏览你订阅的新闻、博客与论文</t>
+                <t t-set="url" t-value="'/infohub'" />
+                <t t-set="placeholder_count" t-value="'infohub_unread_count'" />
+            </t>
+        </xpath>
+    </template>
+
+    <template
+        id="portal_breadcrumbs_infohub"
+        name="Portal: InfoHub 面包屑"
+        inherit_id="portal.portal_breadcrumbs"
+        priority="40"
+    >
+        <xpath expr="//ol[hasclass('o_portal_submenu')]" position="inside">
+            <li
+                t-if="page_name in ('infohub_timeline', 'infohub_item', 'infohub_subscriptions')"
+                t-attf-class="breadcrumb-item #{'active ' if page_name == 'infohub_timeline' else ''}"
+            >
+                <a t-if="page_name != 'infohub_timeline'" t-attf-href="/infohub?{{ keep_query() }}">信息流</a>
+                <span t-else="">信息流</span>
+            </li>
+            <li t-if="page_name == 'infohub_subscriptions'" class="breadcrumb-item active">
+                订阅管理
+            </li>
+            <li
+                t-if="page_name == 'infohub_item' and item"
+                class="breadcrumb-item active text-truncate"
+                style="max-width: 24rem;"
+            >
+                <span t-out="item.title" />
+            </li>
+        </xpath>
+    </template>
+
+</odoo>

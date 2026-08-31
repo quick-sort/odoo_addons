@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+
+    <!--
+        后台的订阅视图主要给管理员排查用（"某人为什么看不到某条内容"）。
+        读者自己管理订阅是在 website 端，见 infohub_website。
+    -->
+
+    <record id="view_infohub_subscription_list" model="ir.ui.view">
+        <field name="name">infohub.subscription.list</field>
+        <field name="model">infohub.subscription</field>
+        <field name="arch" type="xml">
+            <list string="订阅">
+                <field name="user_id" />
+                <field name="target_type" />
+                <field name="source_id" optional="show" />
+                <field name="topic_id" optional="show" />
+                <field name="tag_id" optional="show" />
+                <field name="medium_filter" optional="hide" />
+                <field name="unread_count" string="未读" />
+                <field name="digest_frequency" optional="hide" />
+                <field name="last_read_at" optional="hide" />
+                <field name="active" column_invisible="True" />
+            </list>
+        </field>
+    </record>
+
+    <record id="view_infohub_subscription_form" model="ir.ui.view">
+        <field name="name">infohub.subscription.form</field>
+        <field name="model">infohub.subscription</field>
+        <field name="arch" type="xml">
+            <form string="订阅">
+                <header>
+                    <button
+                        name="action_view_items"
+                        type="object"
+                        string="查看命中条目"
+                        class="btn-primary"
+                    />
+                    <button
+                        name="action_mark_all_read"
+                        type="object"
+                        string="全部标为已读"
+                    />
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="user_id" />
+                            <field name="target_type" />
+                            <field
+                                name="source_id"
+                                invisible="target_type != 'source'"
+                                required="target_type == 'source'"
+                            />
+                            <field
+                                name="topic_id"
+                                invisible="target_type != 'topic'"
+                                required="target_type == 'topic'"
+                            />
+                            <field
+                                name="tag_id"
+                                invisible="target_type != 'tag'"
+                                required="target_type == 'tag'"
+                            />
+                        </group>
+                        <group>
+                            <field name="medium_filter" placeholder="留空不限，例如 paper" />
+                            <field name="digest_frequency" />
+                            <field name="last_read_at" />
+                            <field name="unread_count" />
+                            <field name="active" />
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_infohub_subscription_search" model="ir.ui.view">
+        <field name="name">infohub.subscription.search</field>
+        <field name="model">infohub.subscription</field>
+        <field name="arch" type="xml">
+            <search string="订阅">
+                <field name="user_id" />
+                <field name="topic_id" />
+                <field name="source_id" />
+                <field name="tag_id" />
+                <filter
+                    name="filter_mine"
+                    string="我的订阅"
+                    domain="[('user_id', '=', uid)]"
+                />
+                <filter name="filter_inactive" string="已停用" domain="[('active', '=', False)]" />
+                <group name="group_by">
+                    <filter name="group_by_user" string="用户" context="{'group_by': 'user_id'}" />
+                    <filter
+                        name="group_by_type"
+                        string="订阅类型"
+                        context="{'group_by': 'target_type'}"
+                    />
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_infohub_subscription" model="ir.actions.act_window">
+        <field name="name">订阅</field>
+        <field name="res_model">infohub.subscription</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+</odoo>

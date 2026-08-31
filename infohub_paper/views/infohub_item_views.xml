@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+
+    <record id="view_infohub_item_form_paper" model="ir.ui.view">
+        <field name="name">infohub.item.form.paper</field>
+        <field name="model">infohub.item</field>
+        <field name="inherit_id" ref="infohub.view_infohub_item_form" />
+        <field name="arch" type="xml">
+            <!-- 论文载荷内联展示，只在介质为论文时出现 -->
+            <xpath expr="//notebook" position="inside">
+                <page string="论文数据" name="paper" invisible="medium != 'paper'">
+                    <field name="paper_ids" nolabel="1" readonly="1">
+                        <form>
+                            <group>
+                                <group>
+                                    <field name="doi" />
+                                    <field name="arxiv_id" />
+                                    <field name="journal_id" />
+                                    <field name="published_version" />
+                                </group>
+                                <group>
+                                    <field name="volume" />
+                                    <field name="issue" />
+                                    <field name="pages" />
+                                    <field name="citation_count" />
+                                    <field name="pdf_url" widget="url" />
+                                </group>
+                            </group>
+                            <group string="作者">
+                                <field name="author_ids" widget="many2many_tags" nolabel="1" />
+                            </group>
+                            <separator string="摘要" />
+                            <field name="abstract" />
+                        </form>
+                    </field>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_infohub_item_search_paper" model="ir.ui.view">
+        <field name="name">infohub.item.search.paper</field>
+        <field name="model">infohub.item</field>
+        <field name="inherit_id" ref="infohub.view_infohub_item_search" />
+        <field name="arch" type="xml">
+            <xpath expr="//filter[@name='filter_blocked']" position="after">
+                <separator />
+                <filter
+                    name="filter_papers"
+                    string="仅论文"
+                    domain="[('medium', '=', 'paper')]"
+                />
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

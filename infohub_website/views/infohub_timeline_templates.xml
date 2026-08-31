@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+
+    <!--
+        个人信息流。
+
+        用卡片列表而不是 portal.portal_table：阅读场景需要看到摘要，表格不合适。
+        代价是分页器要自己 t-call="portal.pager"（portal_table 会自动带上）。
+
+        安全：条目正文是第三方 HTML，一律用 t-out（Odoo 会按 Html 字段的
+        sanitize 结果输出），**绝不用 t-raw**。
+    -->
+
+    <template id="portal_timeline" name="InfoHub: 我的信息流">
+        <t t-call="portal.portal_layout">
+            <t t-set="breadcrumbs_searchbar" t-value="True" />
+
+            <t t-call="portal.portal_searchbar">
+                <t t-set="title">我的信息流</t>
+            </t>
+
+            <!-- 当前钻取条件提示 -->
+            <div
+                t-if="active_topic or active_source"
+                class="alert alert-info d-flex align-items-center justify-content-between"
+                role="alert"
+            >
+                <span>
+                    正在筛选：
+                    <strong t-if="active_topic" t-out="active_topic.complete_name" />
+                    <strong t-if="active_source" t-out="active_source.name" />
+                </span>
+                <a href="/infohub" class="btn btn-sm btn-light">清除筛选</a>
+            </div>
+
+            <!-- 空状态：分开处理"没有订阅"和"订阅了但没内容" -->
+            <div t-if="not items and not subscriptions" class="alert alert-warning" role="alert">
+                <h5 class="alert-heading">你还没有任何订阅</h5>
+                <p class="mb-2">订阅感兴趣的学科、信息源或标签，内容就会出现在这里。</p>
+                <a href="/infohub/subscriptions" class="btn btn-primary btn-sm">去添加订阅</a>
+            </div>
+            <div t-elif="not items" class="alert alert-info" role="alert">
+                <span t-if="search or filterby != 'all'">当前筛选条件下没有内容，试试放宽条件。</span>
+                <span t-else="">你订阅的来源还没有新内容。</span>
+            </div>
+
+            <div t-if="items" class="o_infohub_timeline">
+                <div class="text-muted small mb-3">
+                    共 <span t-out="total_count" /> 条
+                </div>
+
+                <article
+                    t-foreach="items"
+                    t-as="item"
+                    t-attf-class="card mb-3 o_infohub_card #{'o_infohub_read' if item_states.get(item.id) and item_states[item.id].is_read else ''}"
+                    t-att-data-item-id="item.id"
+                >
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start gap-3">
+                            <h5 class="card-title mb-1">
+                                <a t-attf-href="/infohub/item/#{item.id}" t-out="item.title" />
+                            </h5>
+                            <button
+                                type="button"
+                                t-attf-class="btn btn-sm btn-link o_infohub_star #{'o_infohub_starred' if item_states.get(item.id) and item_states[item.id].is_starred else ''}"
+                                t-att-data-item-id="item.id"
+                                title="收藏"
+                            >
+                                <i class="fa fa-star" />
+                            </button>
+                        </div>
+
+                        <div class="text-muted small mb-2">
+                            <span t-out="item.source_id.name" />
+                            <t t-if="item.author_name">
+                                · <span t-out="item.author_name" />
+                            </t>
+                            <t t-if="item.published_at">
+                                · <span t-out="item.published_at" t-options="{'widget': 'datetime'}" />
+                            </t>
+                            <t t-if="item.url_host">
+                                · <span t-out="item.url_host" />
+                            </t>
+                        </div>
+
+                        <div t-if="item.summary" class="o_infohub_summary text-body-secondary">
+                            <t t-out="item.summary" />
+                        </div>
+
+                        <div class="mt-2 d-flex flex-wrap gap-1 align-items-center">
+                            <a
+                                t-foreach="item.topic_ids"
+                                t-as="topic"
+                                t-attf-href="/infohub?topic_id=#{topic.id}"
+                                class="badge text-bg-light text-decoration-none"
+                                t-out="topic.name"
+                            />
+                            <span
+                                t-foreach="item.tag_ids"
+                                t-as="tag"
+                                class="badge text-bg-secondary"
+                                t-out="tag.name"
+                            />
+                        </div>
+                    </div>
+                </article>
+
+                <div class="o_infohub_pager d-flex justify-content-center">
+                    <t t-call="portal.pager" />
+                </div>
+            </div>
+        </t>
+    </template>
+
+</odoo>

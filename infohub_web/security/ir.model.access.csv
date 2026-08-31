@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_infohub_web_profile_user,infohub.web.profile user,model_infohub_web_profile,infohub.group_user,1,0,0,0
+access_infohub_web_profile_manager,infohub.web.profile manager,model_infohub_web_profile,infohub.group_manager,1,1,1,1

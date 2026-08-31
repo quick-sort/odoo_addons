@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+
+    <!--
+        记录规则。
+
+        Odoo 的规则语义：同一模型上，**用户所属各组的规则取并集（OR）**，全局
+        规则（不挂组）与之取交集（AND）。本文件全部用挂组的规则。
+
+        因为 group_user implied group_reader，内部用户同时命中"读者规则"与
+        "内部规则"，OR 之后得到宽松结果；portal 读者只命中读者规则，因此被
+        限制住。
+
+        故意不加 noupdate="1"：安全规则要能随模块升级被修正。
+    -->
+
+    <!-- ============================================================
+         infohub.item
+         portal 读者只能看到「已发布」且来源为「公开」的条目。
+
+         规则**只查 state 与 access_level 两个索引字段，不按订阅过滤**
+         （ADR-015）：按 m2m 订阅做记录规则需要联表，在几十万行上会退化成慢
+         查询。个性化由控制器用订阅 domain 完成，属于展示逻辑。
+
+         这个取舍的安全前提是「内容都是公开网页信息」，读到未订阅的条目不构成
+         机密泄露。若将来接入付费或内部机密源，必须重新评估本规则。
+         ============================================================ -->
+    <record id="rule_item_reader" model="ir.rule">
+        <field name="name">InfoHub 条目：读者只见已发布的公开条目</field>
+        <field name="model_id" ref="model_infohub_item" />
+        <field
+            name="domain_force"
+        >[('state', '=', 'published'), ('access_level', '=', 'public')]</field>
+        <field name="groups" eval="[(4, ref('infohub.group_reader'))]" />
+        <field name="perm_read" eval="True" />
+        <field name="perm_write" eval="False" />
+        <field name="perm_create" eval="False" />
+        <field name="perm_unlink" eval="False" />
+    </record>
+
+    <record id="rule_item_internal" model="ir.rule">
+        <field name="name">InfoHub 条目：内部用户可见全部</field>
+        <field name="model_id" ref="model_infohub_item" />
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('infohub.group_user'))]" />
+    </record>
+
+    <!-- ============================================================
+         infohub.subscription
+         订阅是真正需要隔离的数据：漏了这条规则，portal 用户可以读改他人的
+         订阅（N7）。
+         ============================================================ -->
+    <record id="rule_subscription_own" model="ir.rule">
+        <field name="name">InfoHub 订阅：只能访问自己的</field>
+        <field name="model_id" ref="model_infohub_subscription" />
+        <field name="domain_force">[('user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('infohub.group_reader'))]" />
+    </record>
+
+    <record id="rule_subscription_manager" model="ir.rule">
+        <field name="name">InfoHub 订阅：管理员可见全部</field>
+        <field name="model_id" ref="model_infohub_subscription" />
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('infohub.group_manager'))]" />
+    </record>
+
+    <!-- ============================================================
+         infohub.item.read
+         同上：阅读状态必须限定在本人范围内（N7）。
+         ============================================================ -->
+    <record id="rule_item_read_own" model="ir.rule">
+        <field name="name">InfoHub 阅读状态：只能访问自己的</field>
+        <field name="model_id" ref="model_infohub_item_read" />
+        <field name="domain_force">[('user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('infohub.group_reader'))]" />
+    </record>
+
+    <record id="rule_item_read_manager" model="ir.rule">
+        <field name="name">InfoHub 阅读状态：管理员可见全部</field>
+        <field name="model_id" ref="model_infohub_item_read" />
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('infohub.group_manager'))]" />
+    </record>
+
+    <!-- ============================================================
+         infohub.source
+         portal 读者要能按源订阅，所以对源有读权限；但只应看到公开源。
+         凭证不在本模型上（独立的 infohub.credential，portal 无任何 ACL），
+         所以这里给读权限不会泄露 token（N6）。
+         ============================================================ -->
+    <record id="rule_source_reader" model="ir.rule">
+        <field name="name">InfoHub 信息源：读者只见公开源</field>
+        <field name="model_id" ref="model_infohub_source" />
+        <field name="domain_force">[('access_level', '=', 'public')]</field>
+        <field name="groups" eval="[(4, ref('infohub.group_reader'))]" />
+        <field name="perm_read" eval="True" />
+        <field name="perm_write" eval="False" />
+        <field name="perm_create" eval="False" />
+        <field name="perm_unlink" eval="False" />
+    </record>
+
+    <record id="rule_source_internal" model="ir.rule">
+        <field name="name">InfoHub 信息源：内部用户可见全部</field>
+        <field name="model_id" ref="model_infohub_source" />
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('infohub.group_user'))]" />
+    </record>
+
+</odoo>

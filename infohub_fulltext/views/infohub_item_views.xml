@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+
+    <record id="view_infohub_item_form_fulltext" model="ir.ui.view">
+        <field name="name">infohub.item.form.fulltext</field>
+        <field name="model">infohub.item</field>
+        <field name="inherit_id" ref="infohub.view_infohub_item_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//header" position="inside">
+                <button
+                    name="action_fulltext_retry"
+                    type="object"
+                    string="重新提取正文"
+                    groups="infohub.group_manager"
+                    invisible="not url"
+                />
+            </xpath>
+            <xpath expr="//page[@name='content']" position="attributes">
+                <attribute name="string">正文</attribute>
+            </xpath>
+            <xpath expr="//page[@name='content']" position="inside">
+                <group name="fulltext_status" col="4">
+                    <field name="fulltext_state" readonly="1" />
+                    <field name="fulltext_length" readonly="1" />
+                </group>
+                <div
+                    class="alert alert-warning"
+                    role="alert"
+                    invisible="fulltext_state != 'failed'"
+                >
+                    <strong>正文提取失败：</strong>
+                    <field name="fulltext_error" readonly="1" nolabel="1" />
+                </div>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_infohub_item_search_fulltext" model="ir.ui.view">
+        <field name="name">infohub.item.search.fulltext</field>
+        <field name="model">infohub.item</field>
+        <field name="inherit_id" ref="infohub.view_infohub_item_search" />
+        <field name="arch" type="xml">
+            <xpath expr="//filter[@name='filter_blocked']" position="after">
+                <separator />
+                <filter
+                    name="filter_fulltext_failed"
+                    string="正文提取失败"
+                    domain="[('fulltext_state', '=', 'failed')]"
+                />
+                <filter
+                    name="filter_fulltext_pending"
+                    string="正文待提取"
+                    domain="[('fulltext_state', '=', 'pending')]"
+                />
+            </xpath>
+            <xpath expr="//group[@name='group_by']" position="inside">
+                <filter
+                    name="group_by_fulltext"
+                    string="正文提取状态"
+                    context="{'group_by': 'fulltext_state'}"
+                />
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

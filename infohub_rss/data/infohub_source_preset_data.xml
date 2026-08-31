@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo noupdate="1">
+
+    <!--
+        源预设：管理员选一个就能建源，不必自己拼三个维度（ADR-019）。
+
+        这是"新增来源优先加数据记录，不加模块"（ADR-018）的落点——下面每一条都是
+        纯数据，加第二十个 RSS 源同样不需要写代码。
+    -->
+
+    <record id="preset_rss_generic" model="infohub.source.preset">
+        <field name="name">通用 RSS / Atom 源</field>
+        <field name="sequence">1</field>
+        <field name="medium">article</field>
+        <field name="transport">rss</field>
+        <field name="provider">generic</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">hours</field>
+        <field
+            name="description"
+        >任何标准 RSS 2.0 / Atom 1.0 地址。建源后把 feed 地址填进「端点」即可。</field>
+    </record>
+
+    <record id="preset_rss_hacker_news" model="infohub.source.preset">
+        <field name="name">Hacker News — 首页</field>
+        <field name="sequence">10</field>
+        <field name="medium">article</field>
+        <field name="transport">rss</field>
+        <field name="provider">generic</field>
+        <field name="endpoint">https://news.ycombinator.com/rss</field>
+        <field name="interval_number">30</field>
+        <field name="interval_type">minutes</field>
+        <field name="topic_ids" eval="[(4, ref('infohub.topic_technology'))]" />
+    </record>
+
+    <record id="preset_rss_arxiv_cs_blog" model="infohub.source.preset">
+        <field name="name">Google Research 博客</field>
+        <field name="sequence">20</field>
+        <field name="medium">article</field>
+        <field name="transport">rss</field>
+        <field name="provider">generic</field>
+        <field name="endpoint">https://research.google/blog/rss/</field>
+        <field name="interval_number">6</field>
+        <field name="interval_type">hours</field>
+        <field name="topic_ids" eval="[(4, ref('infohub.topic_technology'))]" />
+    </record>
+
+</odoo>

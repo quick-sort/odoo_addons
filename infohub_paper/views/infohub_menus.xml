@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+
+    <menuitem
+        id="menu_infohub_paper"
+        name="论文"
+        parent="infohub.menu_infohub_content"
+        action="action_infohub_paper"
+        sequence="15"
+    />
+
+    <menuitem
+        id="menu_infohub_paper_author"
+        name="论文作者"
+        parent="infohub.menu_infohub_config"
+        action="action_infohub_paper_author"
+        sequence="50"
+    />
+
+    <menuitem
+        id="menu_infohub_journal"
+        name="期刊"
+        parent="infohub.menu_infohub_config"
+        action="action_infohub_journal"
+        sequence="60"
+    />
+
+</odoo>
