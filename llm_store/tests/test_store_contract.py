@@ -1,4 +1,4 @@
-"""Tests for the ``llm.store`` adapter contract split.
+"""Tests for the ``llm.store`` adapter contract.
 
 Reads the abstract base component straight out of the component registry, so no
 store service has to be registered.
@@ -7,6 +7,24 @@ store service has to be registered.
 from odoo.tests import TransactionCase, tagged
 
 from odoo.addons.component.core import _component_databases
+
+#: Methods every ``llm.store.adapter`` must implement, dispatched by the base
+#: model. Hardcoded here rather than read off a class attribute: the contract
+#: lives in the code (the base component's stubs, and the model's
+#: ``_dispatch`` call sites), not in a separate declaration. Unlike
+#: ``llm.provider``, none of these is probed with ``_has_service_method``
+#: before dispatch -- there is no optional contract on ``llm.store``.
+MANDATORY_CONTRACT = (
+    "create_collection",
+    "delete_collection",
+    "list_collections",
+    "collection_exists",
+    "sanitize_collection_name",
+    "insert_vectors",
+    "delete_vectors",
+    "search_vectors",
+    "create_index",
+)
 
 
 @tagged("post_install", "-at_install")
@@ -18,20 +36,9 @@ class TestStoreContract(TransactionCase):
         registry = _component_databases[cls.env.cr.dbname]
         cls.adapter_cls = registry["llm.store.adapter"]
 
-    def test_no_store_contract_is_optional(self):
-        """Nothing on ``llm.store`` is probed, so nothing may be optional.
-
-        If a fallback is ever added for one of these, it has to be listed in
-        ``_OPTIONAL_SERVICE_CONTRACT`` *and* removed from
-        ``llm.store.adapter``, or the fallback will be dead on arrival.
-        """
-        self.assertEqual(self.Store._OPTIONAL_SERVICE_CONTRACT, frozenset())
-
     def test_every_contract_is_declared_on_the_base(self):
         missing = [
-            name
-            for name in self.Store._SERVICE_CONTRACT
-            if not hasattr(self.adapter_cls, name)
+            name for name in MANDATORY_CONTRACT if not hasattr(self.adapter_cls, name)
         ]
 
         self.assertFalse(
@@ -53,7 +60,7 @@ class TestStoreContract(TransactionCase):
         not a fallback the model applies -- so a store that omits
         ``sanitize_collection_name`` breaks rather than degrading.
         """
-        self.assertIn("sanitize_collection_name", self.Store._SERVICE_CONTRACT)
-        self.assertNotIn(
-            "sanitize_collection_name", self.Store._OPTIONAL_SERVICE_CONTRACT
-        )
+        adapter = object.__new__(self.adapter_cls)
+
+        with self.assertRaises(NotImplementedError):
+            adapter.sanitize_collection_name(self.Store, "probe")

@@ -11,28 +11,16 @@ class LLMStore(models.Model):
     _inherit = ["mail.thread", "collection.base", "llm.service.dispatch.mixin"]
     _description = "LLM Vector Store"
 
-    #: Methods an adapter must implement. Unlike ``llm.provider``, no store
-    #: contract is optional: nothing here is probed with
-    #: ``_has_service_method``, so all of them are declared on
-    #: ``llm.store.adapter``.
+    #: Adapters are the ``llm.store.adapter`` components (see
+    #: llm_store/components/), one per service, resolved by ``_usage`` ==
+    #: ``service``. Every contract listed on ``llm.store.adapter`` is
+    #: mandatory: unlike ``llm.provider``, nothing here is probed with
+    #: ``_has_service_method``.
     #:
     #: In particular ``sanitize_collection_name`` is mandatory --
     #: :meth:`sanitize_collection_name` dispatches it unconditionally.
     #: ``_default_sanitize_collection_name`` is a helper an adapter may *call*
     #: (``llm_qdrant`` does), not a fallback the model applies.
-    _SERVICE_CONTRACT = (
-        "create_collection",
-        "delete_collection",
-        "list_collections",
-        "collection_exists",
-        "sanitize_collection_name",
-        "insert_vectors",
-        "delete_vectors",
-        "search_vectors",
-        "create_index",
-    )
-
-    _OPTIONAL_SERVICE_CONTRACT = frozenset()
 
     name = fields.Char(required=True, tracking=True)
     service = fields.Selection(

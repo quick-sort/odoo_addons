@@ -20,9 +20,9 @@ Two contracts are deliberately not overridden: ``list_collections`` (there are
 no separate collections here -- everything lives in one Odoo table) and
 ``create_index`` (indexes are created implicitly by :meth:`create_collection`
 and :meth:`insert_vectors`). Both inherit the ``llm.store.adapter`` stub and
-raise ``NotImplementedError`` if dispatched. Nothing probes them with
-``_has_service_method``; ``llm.store._OPTIONAL_SERVICE_CONTRACT`` is empty, so
-this adapter is formally incomplete rather than selectively capable.
+raise ``NotImplementedError`` if dispatched. Nothing on ``llm.store`` probes
+them with ``_has_service_method`` before dispatch, so this adapter is formally
+incomplete rather than selectively capable.
 
 TODO, DEFERRED TO THE llm_knowledge REWORK -- withdraw this from ``llm.store``
 altogether. Its natural access path is the ``llm.knowledge.chunk.embedding``

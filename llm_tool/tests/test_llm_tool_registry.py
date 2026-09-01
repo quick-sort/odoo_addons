@@ -31,11 +31,18 @@ class TestRegistryShape(LLMToolCase):
         )
 
     def test_every_executor_has_a_handler(self):
-        """``execute`` dispatches to ``_execute_<executor>``; none may be missing."""
+        """``execute`` dispatches to the ``llm.tool.executor`` component whose
+        ``_usage`` matches ``executor``; none may be missing.
+
+        ``new()`` rather than ``create()``: this only probes component
+        registration, and a real row would need the executor's own required
+        fields (server_action_id, mcp_client_id, ...) to pass validation.
+        """
         for executor in self.LLMTool._fields["executor"].get_values(self.env):
-            self.assertTrue(
-                hasattr(self.LLMTool, f"_execute_{executor}"),
-                f"no _execute_{executor} for executor '{executor}'",
+            tool = self.LLMTool.new({"executor": executor})
+            self.assertIsNotNone(
+                tool._get_adapter(),
+                f"no llm.tool.executor component for executor '{executor}'",
             )
 
     def test_removed_fields_are_gone(self):

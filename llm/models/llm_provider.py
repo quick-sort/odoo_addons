@@ -1,4 +1,3 @@
-import json
 from datetime import datetime
 
 from odoo import _, api, fields, models
@@ -12,13 +11,6 @@ class LLMProvider(models.Model):
     # ``llm.service.dispatch.mixin`` resolves them.
     _inherit = ["mail.thread", "collection.base", "llm.service.dispatch.mixin"]
     _description = "LLM Provider"
-
-    # Connectivity test payloads: kept deliberately tiny, the goal is to reach
-    # the endpoint, not to get a useful answer.
-    TEST_CHAT_PROMPT = "ping"
-    TEST_CHAT_MAX_TOKENS = 16
-    TEST_IMAGE_PROMPT = "a small red circle on a white background"
-    TEST_EMBED_TEXT = "ping"
 
     name = fields.Char(required=True)
     service = fields.Selection(
@@ -62,34 +54,16 @@ class LLMProvider(models.Model):
     # Service dispatch
     # ------------------------------------------------------------------
     #
-    # Resolution lives in ``llm.service.dispatch.mixin``; this model only
-    # declares its contract. Adapters are the ``llm.provider.adapter``
-    # components (see llm/components/), one per service, resolved by
-    # ``_usage`` == ``service``.
-
-    #: Methods an adapter must implement, except for
-    #: :attr:`_OPTIONAL_SERVICE_CONTRACT` which the model can fall back for.
-    _SERVICE_CONTRACT = (
-        "get_client",
-        "normalize_prepend_messages",
-        "chat",
-        "embedding",
-        "generate",
-        "models",
-        "format_tools",
-        "format_messages",
-        "test_model",
-        "determine_model_use",
-    )
-
-    #: Both have a service-agnostic fallback on this model, so both are probed
-    #: before dispatch and neither may be declared on ``llm.provider.adapter``.
-    _OPTIONAL_SERVICE_CONTRACT = frozenset(
-        {
-            "test_model",  # -> _default_test_model
-            "determine_model_use",  # -> the rules in _determine_model_use
-        }
-    )
+    # Resolution lives in ``llm.service.dispatch.mixin``; adapters are the
+    # ``llm.provider.adapter`` components (see llm/components/), one per
+    # service, resolved by ``_usage`` == ``service``.
+    #
+    # ``test_model`` and ``determine_model_use`` are not dispatched: neither
+    # has a service-specific variant any more (connectivity testing is routed
+    # on ``model.model_use``, not on the adapter -- see :meth:`test_model`;
+    # nothing ever implemented ``determine_model_use``). Both are plain model
+    # methods, overridden the usual Odoo way (``_inherit`` + ``super()``)
+    # rather than through dispatch.
 
     def chat(
         self,
@@ -200,250 +174,14 @@ class LLMProvider(models.Model):
         return self._dispatch("models", model_id=model_id)
 
     # ------------------------------------------------------------------
-    # Connectivity tests
+    # Connectivity test support
     # ------------------------------------------------------------------
-
-    def test_model(self, model):
-        """Probe the provider API for ``model`` and report reachability.
-
-        A provider may implement ``<service>_test_model(model)`` to run a
-        cheaper or more accurate probe (e.g. a dedicated health endpoint).
-        Otherwise the generic probe selected by ``model.model_use`` is used.
-
-        Args:
-            model: llm.model record to probe
-
-        Returns:
-            dict with keys:
-                - state: "success", "warning" or "failed"
-                - message: short human readable summary
-                - detail: optional longer text (excerpt of the raw response)
-
-        Raises:
-            Any provider/API exception. Callers are expected to catch them
-            (see ``llm.model._run_connectivity_test``).
-        """
-        self.ensure_one()
-        if self._has_service_method("test_model"):
-            return self._dispatch("test_model", model)
-        return self._default_test_model(model)
-
-    def _default_test_model(self, model):
-        """Service-agnostic connectivity probe, routed on ``model.model_use``."""
-        handler = self._get_test_handler_name(model)
-        if not handler:
-            raise UserError(
-                _(
-                    "Connectivity test is not available for models used as '%s'.",
-                    model.model_use,
-                ),
-            )
-        return getattr(self, handler)(model)
-
-    def _can_test_model(self, model):
-        """Return True when a connectivity probe exists for ``model``.
-
-        EXTENSION POINT: override (together with ``<service>_test_model``) when
-        a service can probe usages the generic layer does not handle.
-        """
-        self.ensure_one()
-        return bool(self._get_test_handler_name(model))
-
-    def _get_test_handler_name(self, model):
-        """Map a model usage to the method probing it.
-
-        Usages backed by a text endpoint route to the chat probe; embeddings
-        and image generation have dedicated probes. Usages with no generic
-        probe (e.g. ``rerank``, ``image_ocr``) return ``False``: connectivity
-        testing is skipped unless a subclass or adapter provides one.
-
-        EXTENSION POINT: override to support additional usages added via
-        ``selection_add`` on ``model_use``.
-        """
-        return {
-            "chat": "_test_chat_model",
-            "completion": "_test_chat_model",
-            "embedding": "_test_embedding_model",
-            "image_generation": "_test_generation_model",
-        }.get(model.model_use, False)
-
-    def _test_chat_model(self, model):
-        """Send a minimal chat request to check the chat endpoint."""
-        self.ensure_one()
-        response = self.chat(
-            self.env["mail.message"],  # no history, the prompt is prepended
-            model=model,
-            stream=False,
-            prepend_messages=[{"role": "user", "content": self.TEST_CHAT_PROMPT}],
-            max_tokens=self.TEST_CHAT_MAX_TOKENS,
-        )
-
-        if not isinstance(response, dict):
-            # Defensive: a provider returning a generator for stream=False
-            return {
-                "state": "warning",
-                "message": _("Chat endpoint answered with an unexpected payload."),
-                "detail": str(response),
-            }
-
-        if response.get("error"):
-            return {
-                "state": "failed",
-                "message": _("The chat endpoint returned an error."),
-                "detail": str(response["error"]),
-            }
-
-        content = self._extract_content_text(response.get("content") or "")
-        if not content and not response.get("tool_calls"):
-            return {
-                "state": "warning",
-                "message": _("Chat endpoint reached but the answer was empty."),
-                "detail": self._test_dump(response),
-            }
-
-        return {
-            "state": "success",
-            "message": _("Chat endpoint reached, the model answered."),
-            "detail": content or self._test_dump(response),
-        }
-
-    def _test_embedding_model(self, model):
-        """Request a minimal embedding to check the embedding endpoint."""
-        self.ensure_one()
-        response = self.embedding([self.TEST_EMBED_TEXT], model=model)
-
-        vectors = self._test_extract_embeddings(response)
-        if not vectors:
-            return {
-                "state": "warning",
-                "message": _("Embedding endpoint reached but no vector was returned."),
-                "detail": self._test_dump(response),
-            }
-
-        dimensions = len(vectors[0]) if hasattr(vectors[0], "__len__") else 0
-        return {
-            "state": "success",
-            "message": _(
-                "Embedding endpoint reached, %(dims)d-dimension vector returned.",
-                dims=dimensions,
-            ),
-            "detail": self._test_dump({"count": len(vectors), "dimensions": dimensions}),
-        }
-
-    @staticmethod
-    def _test_extract_embeddings(response):
-        """Normalize an ``embedding()`` result into a list of vectors."""
-        if response is None:
-            return []
-        if isinstance(response, dict):
-            data = response.get("data")
-            if isinstance(data, list):
-                return [
-                    item.get("embedding") if isinstance(item, dict) else item
-                    for item in data
-                ]
-            return response.get("embeddings") or response.get("embedding") or []
-        if isinstance(response, (list, tuple)):
-            return list(response)
-        return []
-
-    def _test_generation_model(self, model):
-        """Run a minimal generation request (image or other binary output).
-
-        When the provider has no ``generate`` implementation, fall back to
-        checking that the model can be retrieved from the provider API: that
-        still validates credentials, base URL and model name, so the result is
-        reported as a partial success.
-        """
-        self.ensure_one()
-        try:
-            result = self.generate(self.TEST_IMAGE_PROMPT, model=model, stream=False)
-        except NotImplementedError:
-            return self._test_generation_fallback(model)
-
-        output, urls = self._test_split_generate_result(result)
-
-        if isinstance(output, dict) and output.get("error"):
-            return {
-                "state": "failed",
-                "message": _("The generation endpoint returned an error."),
-                "detail": str(output["error"]),
-            }
-
-        if not output and not urls:
-            return {
-                "state": "warning",
-                "message": _("Generation endpoint reached but nothing was returned."),
-                "detail": self._test_dump(result),
-            }
-
-        return {
-            "state": "success",
-            "message": _(
-                "Generation endpoint reached, %(count)d result(s) returned.",
-                count=len(urls) if urls else 1,
-            ),
-            "detail": self._test_dump({"output": output, "urls": urls}),
-        }
-
-    def _test_generation_fallback(self, model):
-        """Reachability check used when generation is not implemented."""
-        try:
-            available = self._test_model_is_listed(model)
-        except NotImplementedError:
-            return {
-                "state": "failed",
-                "message": _(
-                    "Service '%s' implements neither generation nor model listing, "
-                    "connectivity cannot be checked.",
-                    self.service,
-                ),
-                "detail": "",
-            }
-
-        if not available:
-            return {
-                "state": "failed",
-                "message": _(
-                    "API reached but model '%s' was not returned by the provider.",
-                    model.name,
-                ),
-                "detail": "",
-            }
-
-        return {
-            "state": "warning",
-            "message": _(
-                "API credentials valid and model '%s' exists, but service '%s' does not "
-                "implement generation, so no image was requested.",
-                model.name,
-                self.service,
-            ),
-            "detail": "",
-        }
-
-    def _test_model_is_listed(self, model):
-        """Return True when the provider API knows about ``model``."""
-        for model_data in self.list_models(model_id=model.name):
-            details = model_data.get("details") or {}
-            if (model_data.get("name") or details.get("id")) == model.name:
-                return True
-        return False
-
-    @staticmethod
-    def _test_split_generate_result(result):
-        """Normalize ``generate()`` output into an ``(output, urls)`` tuple."""
-        if isinstance(result, tuple) and len(result) == 2:
-            output, urls = result
-            return output, list(urls or [])
-        return result, []
-
-    def _test_dump(self, value):
-        """Serialize a probe payload for storage in the test details field."""
-        try:
-            return json.dumps(value, default=str, ensure_ascii=False, indent=2)
-        except (TypeError, ValueError):
-            return str(value)
+    #
+    # The probe itself (test_model and friends) lives on ``llm.model``: testing
+    # a model's reachability is that model's concern, dispatched to whichever
+    # of this provider's own chat/embedding/generate methods matches its
+    # model_use. Only what genuinely belongs to the provider -- keeping its
+    # credentials out of stored/displayed text -- stays here.
 
     def _sanitize_test_output(self, text):
         """Strip the API key from any text before it is stored or displayed."""
@@ -585,13 +323,6 @@ class LLMProvider(models.Model):
             - llm_mistral.models.mistral_provider for a working example
             - _<provider>_parse_model() for setting capabilities
         """
-        # A service adapter may classify models itself. Optional contract: when
-        # absent, the service-agnostic rules below apply. Preferred over an
-        # ``_inherit`` override, which would run for every service and so has
-        # to self-guard on ``self.service``.
-        if self._has_service_method("determine_model_use"):
-            return self._dispatch("determine_model_use", name, capabilities)
-
         # Priority 1: Embedding models (specialized, distinct use case)
         if (
             any(cap in capabilities for cap in ["embedding", "text-embedding"])

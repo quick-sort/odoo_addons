@@ -30,7 +30,7 @@ component, and a ``selection_add`` entry with an ``ondelete`` policy -- use
 from odoo import _, models
 from odoo.exceptions import UserError
 
-from odoo.addons.component.exception import NoComponentError
+from odoo.addons.component.exception import NoComponentError, RegistryNotReadyError
 
 
 def archive_dangling_service(records):
@@ -75,24 +75,6 @@ class LLMServiceDispatchMixin(models.AbstractModel):
     #: record from ``self.collection`` instead.
     _dispatch_pass_record = True
 
-    #: Method names an adapter may implement. Informational: dispatch resolves
-    #: by attribute lookup, this tuple documents the contract and lets tests
-    #: assert it stays in sync with the entry points.
-    _SERVICE_CONTRACT = ()
-
-    #: Subset of :attr:`_SERVICE_CONTRACT` that is *probed* with
-    #: :meth:`_has_service_method` before dispatch, because the model has a
-    #: service-agnostic fallback for it.
-    #:
-    #: These must **not** be declared on the adapter base component: a stub --
-    #: even one that only raises ``NotImplementedError`` -- would make
-    #: ``hasattr`` true for every adapter and the fallback would never run.
-    #: Everything else in ``_SERVICE_CONTRACT`` is mandatory and *is* declared
-    #: there, so signatures are documented and typos surface early.
-    #:
-    #: ``test_service_dispatch`` asserts this split holds.
-    _OPTIONAL_SERVICE_CONTRACT = frozenset()
-
     def _service_key(self):
         """Return the configured service key, or a falsy value."""
         return self[self._service_field]
@@ -104,9 +86,20 @@ class LLMServiceDispatchMixin(models.AbstractModel):
         :meth:`_dispatch` turns into a clear ``UserError`` -- normally it means
         the addon providing the service is not installed.
 
-        Only :exc:`NoComponentError` is swallowed. ``SeveralComponentError``
-        propagates on purpose: two adapters claiming the same ``_usage`` is a
-        deployment mistake, not something to paper over.
+        :exc:`NoComponentError` and :exc:`RegistryNotReadyError` are both
+        swallowed. The latter happens when a record is created from an
+        addon's own ``data/*.xml`` during module loading (e.g. ``llm.tool``'s
+        built-in tools): that runs before ``component.builder._register_hook``
+        has built the component registry for this database, since components
+        are only wired up after every module's data has loaded. Treating it
+        the same as "no adapter yet" is correct here -- optional-contract
+        probes (:meth:`_has_service_method`) fall back cleanly, and
+        :meth:`_dispatch` itself is never reached that early because nothing
+        calls ``execute``/``chat``/... during module loading.
+
+        ``SeveralComponentError`` propagates on purpose: two adapters claiming
+        the same ``_usage`` is a deployment mistake, not something to paper
+        over.
 
         Adapter methods are called with the record as their first positional
         argument (unless :attr:`_dispatch_pass_record` is False), so an adapter
@@ -117,11 +110,11 @@ class LLMServiceDispatchMixin(models.AbstractModel):
         service field before consulting the adapter, and reading a field on a
         multi-record recordset already raises.
         """
-        with self.work_on(self._name) as work:
-            try:
+        try:
+            with self.work_on(self._name) as work:
                 return work.component(usage=self._service_key())
-            except NoComponentError:
-                return None
+        except (NoComponentError, RegistryNotReadyError):
+            return None
 
     def _dispatch(self, method, *args, **kwargs):
         """Dispatch ``method`` to the adapter for this record's service.

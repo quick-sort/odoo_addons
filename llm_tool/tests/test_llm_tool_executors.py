@@ -67,7 +67,8 @@ class TestModelMethodExecutor(LLMToolCase):
 
     def test_resolved_callable_is_bound(self):
         """Unbound would leak ``self`` into the derived schema."""
-        method = self._builtin()._resolve_callable()
+        tool = self._builtin()
+        method = tool._dispatch("resolve_callable", tool)
 
         self.assertTrue(hasattr(method, "__self__"))
 

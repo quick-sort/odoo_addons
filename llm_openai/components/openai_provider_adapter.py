@@ -1,18 +1,18 @@
 """OpenAI service adapter.
 
 Implements the ``llm.provider.adapter`` contract for ``service == "openai"``,
-and by extension for every OpenAI-compatible endpoint reached through
-``api_base`` (litellm, Gemini via the chat-completions shim, local servers...).
+following the official OpenAI API only. Third-party endpoints that speak the
+same wire format but smuggle vendor extensions into the response (image parts
+inline in a chat completion, for instance) are covered by
+``llm_openai_compatible``, which inherits this adapter and overrides only what
+differs.
 
 Every method takes the ``llm.provider`` record as its first argument instead of
 reading ``self.collection``, which keeps the parsing and formatting logic
 testable without a database (see ``llm_openai/tests/``).
 
-Three branches make this adapter larger than a plain chat client:
+Two branches make this adapter larger than a plain chat client:
 
-- **image output** -- some compatible providers return image parts that the
-  official SDK's ``Optional[str]`` content field cannot parse, so the raw JSON
-  is read instead (:meth:`_chat_with_image_output`)
 - **streaming tool calls** -- arguments arrive fragmented across chunks and
   have to be reassembled (:meth:`_update_tool_call_chunk`)
 - **history repair** -- a tool message with no preceding assistant
@@ -22,12 +22,11 @@ Three branches make this adapter larger than a plain chat client:
 
 import json
 import logging
-import re
 import uuid
 
-from openai import BadRequestError, OpenAI, UnprocessableEntityError
+from openai import OpenAI
 
-from odoo import _, tools
+from odoo import tools
 
 from odoo.addons.component.core import Component
 
@@ -52,10 +51,6 @@ AUDIO_PATTERNS = (
     "audio-preview",
     "gpt-4o-audio",
 )
-
-# A 4xx raised by the model itself proves the endpoint was reached and the
-# credentials were accepted: only the request payload was refused.
-TEST_REACHED_ERRORS = (BadRequestError, UnprocessableEntityError)
 
 
 class OpenAIProviderAdapter(Component):
@@ -177,7 +172,7 @@ class OpenAIProviderAdapter(Component):
         prepend_messages=None,
         **kwargs,
     ):
-        """Send chat messages, with tool and image-output support."""
+        """Send chat messages, with tool-call support."""
         model = provider.get_model(model, "chat")
 
         formatted_messages = self.format_messages(provider, messages, model=model)
@@ -196,114 +191,11 @@ class OpenAIProviderAdapter(Component):
                 params["tools"] = formatted_tools
                 params["tool_choice"] = kwargs.get("tool_choice", "auto")
 
-        image_output = getattr(model, "supports_image_output", False)
-        client = provider.client
-
-        if not stream and image_output:
-            return self._chat_with_image_output(client, params)
-
-        response = client.chat.completions.create(**params)
+        response = provider.client.chat.completions.create(**params)
 
         if not stream:
             return self._process_non_streaming_response(response)
-        if image_output:
-            return self._process_streaming_response_with_images(provider, response)
         return self._process_streaming_response(provider, response)
-
-    def _chat_with_image_output(self, client, params):
-        """Read the raw JSON body for models that may return image parts.
-
-        ``with_raw_response`` bypasses the SDK's strict content typing: some
-        compatible providers return content as a list of parts (text + images)
-        which the SDK's ``Optional[str]`` field cannot parse.
-        """
-        raw_response = client.chat.completions.with_raw_response.create(**params)
-        return self._parse_raw_chat_response(json.loads(raw_response.text))
-
-    def _parse_raw_chat_response(self, raw_json):
-        """Parse a raw chat completion, handling both image response shapes.
-
-        1. a separate ``message.images`` field (litellm / Gemini style)
-        2. a multi-part ``content`` list holding ``image_url`` parts
-
-        Returns:
-            dict with any of ``content`` (str), ``tool_calls``, ``images``
-        """
-        try:
-            choices = raw_json.get("choices", [])
-            if not choices:
-                return {}
-            message = choices[0].get("message", {})
-        except (IndexError, AttributeError):
-            return {"error": "Failed to parse raw response"}
-
-        result = {}
-        images = []
-
-        raw_images = message.get("images")
-        if isinstance(raw_images, list):
-            for img_part in raw_images:
-                if not isinstance(img_part, dict):
-                    continue
-                parsed = self._parse_data_url(self._image_part_url(img_part))
-                if parsed:
-                    images.append(parsed)
-
-        content = message.get("content")
-        if isinstance(content, list):
-            text_parts = []
-            for part in content:
-                if not isinstance(part, dict):
-                    continue
-                if part.get("type") == "text":
-                    text_parts.append(part.get("text", ""))
-                elif part.get("type") == "image_url":
-                    parsed = self._parse_data_url(self._image_part_url(part))
-                    if parsed:
-                        images.append(parsed)
-            if text_parts:
-                result["content"] = "\n".join(text_parts)
-        elif isinstance(content, str):
-            result["content"] = content
-
-        if images:
-            result["images"] = images
-
-        tool_calls = message.get("tool_calls")
-        if tool_calls:
-            result["tool_calls"] = [
-                {
-                    "id": tc.get("id", ""),
-                    "type": tc.get("type", "function"),
-                    "function": {
-                        "name": tc.get("function", {}).get("name", ""),
-                        "arguments": tc.get("function", {}).get("arguments", ""),
-                    },
-                }
-                for tc in tool_calls
-            ]
-
-        return result
-
-    @staticmethod
-    def _image_part_url(part):
-        image_url = part.get("image_url", {})
-        return image_url.get("url", "") if isinstance(image_url, dict) else ""
-
-    @staticmethod
-    def _parse_data_url(url):
-        """Split a data URL into ``mimetype`` and base64 ``data``.
-
-        A plain http(s) URL is returned as a ``url`` entry instead.
-        """
-        if not url:
-            return None
-        match = re.match(r"data:([^;]+);base64,(.+)", url, re.DOTALL)
-        if match:
-            return {"mimetype": match.group(1), "data": match.group(2)}
-        if url.startswith(("http://", "https://")):
-            return {"mimetype": "image/png", "url": url}
-        return None
 
     def _process_non_streaming_response(self, response):
         """Collapse a non-streamed completion into one standardized dict."""
@@ -418,15 +310,6 @@ class OpenAIProviderAdapter(Component):
 
         except Exception as error:  # noqa: BLE001 - surfaced to the thread
             yield {"error": f"Internal error processing stream: {error}"}
-
-    def _process_streaming_response_with_images(self, provider, response_stream):
-        """Streaming variant for image-capable models.
-
-        Extension point only. Providers that return images through the
-        chat-completions protocol compute them atomically and do not stream
-        them, so today this only forwards the text and tool-call events.
-        """
-        yield from self._process_streaming_response(provider, response_stream)
 
     def _update_tool_call_chunk(
         self,
@@ -698,74 +581,3 @@ class OpenAIProviderAdapter(Component):
                 **model.model_dump(),
             },
         }
-
-    # ------------------------------------------------------------------
-    # Connectivity test
-    # ------------------------------------------------------------------
-
-    def test_model(self, provider, model):
-        """Probe the API for ``model``.
-
-        Image models are probed on ``/images/generations``; every other usage
-        falls back to the service-agnostic probes of ``llm.provider``.
-        """
-        if model.model_use == "image_generation":
-            return self._test_image_model(provider, model)
-        return provider._default_test_model(model)
-
-    def _test_image_model(self, provider, model):
-        """Ask for one small image to check the generation endpoint."""
-        try:
-            response = provider.client.images.generate(
-                model=model.name,
-                prompt=provider.TEST_IMAGE_PROMPT,
-                n=1,
-            )
-        except TEST_REACHED_ERRORS as error:
-            return {
-                "state": "warning",
-                "message": _(
-                    "Image endpoint reached and credentials accepted, but the "
-                    "model rejected the test request.",
-                ),
-                "detail": str(error),
-            }
-
-        images = getattr(response, "data", None) or []
-        if not images:
-            return {
-                "state": "warning",
-                "message": _("Image endpoint reached but no image was returned."),
-                "detail": provider._test_dump(self._test_response_dump(response)),
-            }
-
-        return {
-            "state": "success",
-            "message": _(
-                "Image endpoint reached, %(count)d image(s) generated.",
-                count=len(images),
-            ),
-            "detail": provider._test_dump(
-                [self._test_image_summary(image) for image in images],
-            ),
-        }
-
-    @staticmethod
-    def _test_image_summary(image):
-        """Summarize one generated image without storing its base64 payload."""
-        summary = {}
-        if getattr(image, "url", None):
-            summary["url"] = image.url
-        if getattr(image, "b64_json", None):
-            summary["b64_json_length"] = len(image.b64_json)
-        if getattr(image, "revised_prompt", None):
-            summary["revised_prompt"] = image.revised_prompt
-        return summary or {"image": "returned without url or payload"}
-
-    @staticmethod
-    def _test_response_dump(response):
-        """Best-effort serializable view of an API response object."""
-        try:
-            return response.model_dump()
-        except AttributeError:
-            return str(response)

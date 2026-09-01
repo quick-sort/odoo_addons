@@ -13,7 +13,7 @@ InfoHub LLM 增强
 
 1. **``chat(messages, ...)`` 的 ``messages`` 要的是 ``mail.message`` 记录集，不是
    dict 列表。** 一次性提问的正确姿势是传一个**空记录集**，把 system/user 两轮放进
-   ``prepend_messages``。参照 ``llm.provider._test_chat_model``。
+   ``prepend_messages``。参照 ``llm.model._test_chat_model``。
 
    .. code-block:: python
 

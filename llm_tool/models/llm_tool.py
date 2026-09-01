@@ -164,7 +164,10 @@ def derive_input_schema(method):
 class LLMTool(models.Model):
     _name = "llm.tool"
     _description = "LLM Tool"
-    _inherit = ["mail.thread"]
+    # ``collection.base`` makes this model a component collection, so executor
+    # components can be registered against it (see llm_tool/components/);
+    # ``llm.service.dispatch.mixin`` resolves them.
+    _inherit = ["mail.thread", "collection.base", "llm.service.dispatch.mixin"]
 
     # ------------------------------------------------------------------
     # Identity and dispatch
@@ -175,7 +178,8 @@ class LLMTool(models.Model):
         help="The name the LLM calls this tool by. Unique across the registry.",
     )
     executor = fields.Selection(
-        # Closed set.
+        # Closed set. A static list is what makes the value validated on
+        # write and the label translatable -- see llm.service.dispatch.mixin.
         selection=[
             ("model_method", "Model Method"),
             ("server_action", "Server Action"),
@@ -184,8 +188,8 @@ class LLMTool(models.Model):
         required=True,
         default="model_method",
         tracking=True,
-        help="How this tool is run. Each value has a matching _execute_<value> "
-        "method on this model.",
+        help="How this tool is run. Each value is the '_usage' of a "
+        "'llm.tool.executor' component (see llm_tool/components/).",
     )
     source = fields.Selection(
         [
@@ -302,6 +306,28 @@ class LLMTool(models.Model):
     )
 
     # ------------------------------------------------------------------
+    # Executor dispatch
+    # ------------------------------------------------------------------
+    #
+    # Resolution lives in ``llm.service.dispatch.mixin``. Executors are the
+    # ``llm.tool.executor`` components (see llm_tool/components/), one per
+    # executor, resolved by ``_usage`` == ``executor``. ``execute`` is
+    # mandatory on every executor; ``validate`` is optional -- not every
+    # executor needs extra fields to check -- and probed with
+    # ``_has_service_method`` before being called (see
+    # :meth:`_check_executor_configuration`), rather than declared as a stub
+    # on ``llm.tool.executor``.
+
+    _service_field = "executor"
+
+    #: Executors read the record from ``self.collection`` instead of a
+    #: leading positional argument: an executor method's signature is itself
+    #: the JSON Schema advertised to the LLM (via callable introspection for
+    #: 'model_method'), so an extra leading parameter would show up as a tool
+    #: argument.
+    _dispatch_pass_record = False
+
+    # ------------------------------------------------------------------
     # Constraints
     # ------------------------------------------------------------------
 
@@ -334,88 +360,19 @@ class LLMTool(models.Model):
 
     @api.constrains("executor", "res_model", "res_method", "server_action_id", "mcp_client_id")
     def _check_executor_configuration(self):
+        """Delegate to the executor component's optional ``validate`` method.
+
+        Not every executor needs one (there is nothing to check without extra
+        fields), so it is probed with :meth:`_has_service_method` rather than
+        called unconditionally.
+        """
         for tool in self:
-            if tool.executor == "model_method" and not (
-                tool.res_model and tool.res_method
-            ):
-                raise ValidationError(
-                    _(
-                        "Tool '%(name)s' uses the Model Method executor, which "
-                        "needs both a model and a method.",
-                        name=tool.name,
-                    )
-                )
-            if tool.executor == "server_action" and not tool.server_action_id:
-                raise ValidationError(
-                    _(
-                        "Tool '%(name)s' uses the Server Action executor, which "
-                        "needs a server action.",
-                        name=tool.name,
-                    )
-                )
-            if tool.executor == "mcp" and not tool.mcp_client_id:
-                raise ValidationError(
-                    _(
-                        "Tool '%(name)s' uses the MCP executor, which needs an "
-                        "MCP service.",
-                        name=tool.name,
-                    )
-                )
+            if tool._has_service_method("validate"):
+                tool._dispatch("validate", tool)
 
     # ------------------------------------------------------------------
     # Resolution
     # ------------------------------------------------------------------
-
-    def _resolve_callable(self):
-        """Return the bound callable for a ``model_method`` tool.
-
-        Bound, not unbound: :func:`derive_input_schema` must not see ``self``.
-        """
-        self.ensure_one()
-
-        if not self.res_model or not self.res_method:
-            raise UserError(
-                _(
-                    "Tool '%(name)s' has no model/method configured.",
-                    name=self.name,
-                )
-            )
-        if self.res_model not in self.env:
-            raise UserError(
-                _(
-                    "Model '%(model)s' of tool '%(name)s' does not exist. Is the "
-                    "addon providing it installed?",
-                    model=self.res_model,
-                    name=self.name,
-                )
-            )
-
-        target = self.env[self.res_model]
-        if self.res_id:
-            target = target.browse(self.res_id)
-            if not target.exists():
-                raise UserError(
-                    _(
-                        "Record %(id)s of %(model)s, bound to tool '%(name)s', "
-                        "no longer exists.",
-                        id=self.res_id,
-                        model=self.res_model,
-                        name=self.name,
-                    )
-                )
-
-        if not hasattr(target, self.res_method):
-            raise UserError(
-                _(
-                    "Method '%(method)s' not found on %(model)s for tool "
-                    "'%(name)s'.",
-                    method=self.res_method,
-                    model=self.res_model,
-                    name=self.name,
-                )
-            )
-
-        return getattr(target, self.res_method)
 
     def _contract_source(self):
         """Return the callable defining this tool's contract, or ``None``.
@@ -434,7 +391,7 @@ class LLMTool(models.Model):
             return None
 
         try:
-            method = self._resolve_callable()
+            method = self._dispatch("resolve_callable", self)
         except UserError:
             return None
         except Exception:  # noqa: BLE001 - callers cannot tolerate a raise
@@ -530,6 +487,9 @@ class LLMTool(models.Model):
 
         Only keys the caller actually supplied are forwarded, so parameters left
         out keep the callable's own Python defaults.
+
+        Dispatched to the ``llm.tool.executor`` component matching
+        :attr:`executor` -- see ``llm_tool/components/``.
         """
         self.ensure_one()
 
@@ -540,44 +500,7 @@ class LLMTool(models.Model):
         validated = arguments_model(**(parameters or {}))
         params = validated.model_dump(exclude_unset=True)
 
-        handler = getattr(self, f"_execute_{self.executor}", None)
-        if handler is None:
-            raise UserError(
-                _(
-                    "No handler for executor '%(executor)s' of tool "
-                    "'%(name)s'. Is the addon providing it installed?",
-                    executor=self.executor,
-                    name=self.name,
-                )
-            )
-        return handler(params)
-
-    def _execute_model_method(self, params):
-        return self._resolve_callable()(**params)
-
-    def _execute_server_action(self, params):
-        """Run the server action, passing arguments through the context.
-
-        ``ir.actions.server.run()`` takes no arguments, so the action's own code
-        has to read ``env.context['llm_tool_params']``. Nothing can check that
-        the action actually reads the keys the schema advertises -- which is why
-        this executor is the least safe of the three.
-        """
-        self.ensure_one()
-        if not self.server_action_id:
-            raise UserError(
-                _("Tool '%(name)s' has no server action configured.", name=self.name)
-            )
-        return self.server_action_id.with_context(llm_tool_params=params).run()
-
-    def _execute_mcp(self, params):
-        """Forward the call to the remote MCP server."""
-        self.ensure_one()
-        if not self.mcp_client_id:
-            raise UserError(
-                _("Tool '%(name)s' has no MCP service configured.", name=self.name)
-            )
-        return self.mcp_client_id.call_tool(self.res_method or self.name, params)
+        return self._dispatch("execute", params)
 
     # ------------------------------------------------------------------
     # Registration: _register_hook (scan) -> _sync_tools_to_db (raw SQL)
@@ -863,7 +786,7 @@ class LLMTool(models.Model):
         if not (self.res_model and self.res_method):
             return
         try:
-            method = self._resolve_callable()
+            method = self._dispatch("resolve_callable", self)
         except (UserError, KeyError):
             return
         schema = derive_input_schema(method)

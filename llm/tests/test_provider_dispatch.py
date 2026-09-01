@@ -147,27 +147,6 @@ class TestProviderDispatch(common.TransactionCase):
 
         self.assertFalse(provider._has_service_method("chat"))
 
-    # ------------------------------------------------------------------
-    # Contract declaration stays in sync with the base entry points
-    # ------------------------------------------------------------------
-
-    def test_service_contract_covers_dispatched_methods(self):
-        """Every contract dispatched by the base model must be declared."""
-        dispatched = {
-            "get_client",
-            "normalize_prepend_messages",
-            "chat",
-            "embedding",
-            "generate",
-            "models",
-            "format_tools",
-            "format_messages",
-            "test_model",
-            "determine_model_use",
-        }
-
-        self.assertEqual(set(self.Provider._SERVICE_CONTRACT), dispatched)
-
 
 
 @tagged("post_install", "-at_install")
@@ -249,6 +228,21 @@ class TestProviderAdapterLookup(TransactionComponentRegistryCase):
         with self.assertRaises(SeveralComponentError):
             self.provider._get_adapter()
 
+    #: Methods every ``llm.provider.adapter`` must implement, dispatched by
+    #: the base model. Hardcoded here rather than read off a class attribute:
+    #: the contract lives in the code (the base component's stubs, and the
+    #: model's ``_dispatch`` call sites), not in a separate declaration.
+    MANDATORY_CONTRACT = (
+        "get_client",
+        "normalize_prepend_messages",
+        "chat",
+        "embedding",
+        "generate",
+        "models",
+        "format_tools",
+        "format_messages",
+    )
+
     def test_mandatory_contracts_are_declared_on_the_base(self):
         """Mandatory contracts belong on the abstract base.
 
@@ -258,13 +252,9 @@ class TestProviderAdapterLookup(TransactionComponentRegistryCase):
         """
         self._build_stub("stub.provider.adapter", FAKE_SERVICE)
         adapter = self.provider._get_adapter()
-        Provider = self.env["llm.provider"]
 
         missing = [
-            name
-            for name in Provider._SERVICE_CONTRACT
-            if name not in Provider._OPTIONAL_SERVICE_CONTRACT
-            and not hasattr(adapter, name)
+            name for name in self.MANDATORY_CONTRACT if not hasattr(adapter, name)
         ]
 
         self.assertFalse(
@@ -273,71 +263,15 @@ class TestProviderAdapterLookup(TransactionComponentRegistryCase):
             "missing: %s" % missing,
         )
 
-    def test_optional_contracts_are_absent_from_the_base(self):
-        """Optional contracts must stay undeclared, or their fallback dies.
-
-        ``llm.provider`` probes them with ``_has_service_method`` and falls back
-        to service-agnostic behaviour. A stub on the base -- even one that only
-        raises ``NotImplementedError`` -- makes ``hasattr`` true for every
-        adapter, so the fallback would never run.
-        """
-        self._build_stub("stub.provider.adapter", FAKE_SERVICE)
-        adapter = self.provider._get_adapter()
-        Provider = self.env["llm.provider"]
-
-        self.assertTrue(
-            Provider._OPTIONAL_SERVICE_CONTRACT,
-            "llm.provider is expected to have optional contracts",
-        )
-
-        declared = [
-            name
-            for name in Provider._OPTIONAL_SERVICE_CONTRACT
-            if hasattr(adapter, name)
-        ]
-
-        self.assertFalse(
-            declared,
-            "llm.provider.adapter must not declare optional contracts, "
-            "found: %s" % declared,
-        )
-
-    def test_optional_contracts_are_a_subset_of_the_contract(self):
-        Provider = self.env["llm.provider"]
-
-        self.assertLessEqual(
-            Provider._OPTIONAL_SERVICE_CONTRACT,
-            set(Provider._SERVICE_CONTRACT),
-        )
-
-    def test_optional_contracts_are_probed_as_absent(self):
-        """An optional contract is only meaningful if the probe reports it missing.
-
-        The stub inherits ``llm.provider.adapter`` and overrides only ``chat``,
-        so this is exactly the situation the fallbacks exist for.
-        """
-        self._build_stub("stub.provider.adapter", FAKE_SERVICE)
-        Provider = self.env["llm.provider"]
-
-        for name in Provider._OPTIONAL_SERVICE_CONTRACT:
-            self.assertFalse(
-                self.provider._has_service_method(name),
-                f"'{name}' is declared optional but the probe already sees it, "
-                f"so its fallback is unreachable",
-            )
-
     def test_mandatory_contracts_are_probed_as_present(self):
-        """The flip side: declaring them makes the probe report them."""
+        """Declaring a contract on the base makes the probe report it."""
         self._build_stub("stub.provider.adapter", FAKE_SERVICE)
-        Provider = self.env["llm.provider"]
 
-        for name in Provider._SERVICE_CONTRACT:
-            if name in Provider._OPTIONAL_SERVICE_CONTRACT:
-                continue
+        for name in self.MANDATORY_CONTRACT:
             self.assertTrue(self.provider._has_service_method(name))
 
-    def test_missing_determine_model_use_falls_back_to_generic_rules(self):
-        """The fallback this split protects, exercised end to end."""
+    def test_determine_model_use_applies_generic_rules(self):
+        """No dispatch involved any more: a plain model method."""
         self._build_stub("stub.provider.adapter", FAKE_SERVICE)
 
         self.assertEqual(

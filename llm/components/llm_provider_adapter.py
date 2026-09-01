@@ -30,28 +30,20 @@ from odoo.addons.component.core import AbstractComponent
 class LLMProviderAdapter(AbstractComponent):
     """Service adapter contract for ``llm.provider``.
 
-    The mandatory contracts are declared below as stubs, so signatures are
+    Every contract below is mandatory and declared as a stub, so signatures are
     documented where they are implemented and a misspelled override surfaces as
     an unimplemented method rather than at call time.
 
-    **Two contracts are deliberately absent**: ``test_model`` and
-    ``determine_model_use``. ``llm.provider`` probes them with
-    ``_has_service_method`` and falls back to service-agnostic behaviour when
-    they are missing, so declaring a stub -- even one that only raises
-    ``NotImplementedError`` -- would make ``hasattr`` true for every adapter
-    and the fallback would never run. They are documented here instead:
+    This adapter has no optional contracts. Two methods that used to be
+    dispatched here no longer are:
 
-    ``test_model(provider, model)``
-        Connectivity probe returning ``{"state", "message", "detail"}``.
-        Without it, ``llm.provider._default_test_model`` routes on
-        ``model.model_use``.
-    ``determine_model_use(provider, name, capabilities)``
-        Classify a model into an ``llm.model.model_use`` value. Without it, the
-        service-agnostic rules in ``llm.provider._determine_model_use`` apply.
-
-    The split is declared on the model as
-    ``llm.provider._OPTIONAL_SERVICE_CONTRACT`` and asserted by
-    ``llm/tests/test_provider_dispatch.py``.
+    - ``test_model`` -- connectivity testing is routed purely on
+      ``model.model_use`` (see ``llm.provider.test_model``), never on the
+      adapter. A service needing a different probe for one usage overrides
+      the matching ``_test_<usage>_model`` model method directly (``_inherit``
+      + ``super()``), not this component.
+    - ``determine_model_use`` -- no adapter ever implemented it; it is a plain
+      model method now, overridden the same way.
     """
 
     _name = "llm.provider.adapter"

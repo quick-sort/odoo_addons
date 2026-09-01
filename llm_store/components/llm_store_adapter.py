@@ -28,10 +28,9 @@ from odoo.addons.component.core import AbstractComponent
 class LLMStoreAdapter(AbstractComponent):
     """Service adapter contract for ``llm.store``.
 
-    Unlike ``llm.provider.adapter``, **every** contract is declared here.
-    Nothing in ``llm.store._SERVICE_CONTRACT`` is probed with
-    ``_has_service_method``, so there is no fallback for a stub to break:
-    ``llm.store._OPTIONAL_SERVICE_CONTRACT`` is empty.
+    Unlike ``llm.provider.adapter``, **every** contract below is mandatory:
+    none of them is probed with ``_has_service_method`` before dispatch, so
+    there is no fallback for a stub to break.
 
     An adapter that omits one of these inherits the stub and raises
     ``NotImplementedError`` when that contract is dispatched -- which is what

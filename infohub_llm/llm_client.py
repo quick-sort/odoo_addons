@@ -8,7 +8,7 @@ Python 函数而不是 component：多个 component（enricher、classifier）�
 ----------------------------------
 1. **``chat(messages, ...)`` 的 ``messages`` 要的是 ``mail.message`` 记录集，不是
    dict 列表。** 一次性提问（无历史）的正确姿势是传一个**空记录集**，把 system/user
-   两轮放进 ``prepend_messages``。这是 ``llm.provider._test_chat_model`` 的做法，
+   两轮放进 ``prepend_messages``。这是 ``llm.model._test_chat_model`` 的做法，
    也是目前仓库里唯一的一次性提问先例。
 
 2. **解析失败不抛异常，而是在返回的 dict 里给 ``error`` 键。** 所以既要
