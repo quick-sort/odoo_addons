@@ -27,7 +27,7 @@
     "author": "quick-sort@outlook.com",
     "website": "quick-sort@outlook.com",
     "license": "LGPL-3",
-    "depends": ["base", "llm", "llm_tool", "web_json_editor"],
+    "depends": ["base", "llm", "web_json_editor"],
     "external_dependencies": {
         "python": ["mcp"],
     },

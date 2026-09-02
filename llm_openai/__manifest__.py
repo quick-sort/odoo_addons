@@ -9,7 +9,7 @@
     "website": "quick-sort@outlook.com",
     "category": "Technical",
     "version": "19.0.1.5.0",
-    "depends": ["llm", "llm_tool"],
+    "depends": ["llm"],
     "external_dependencies": {
         "python": ["openai"],
     },

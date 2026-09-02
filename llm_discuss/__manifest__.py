@@ -6,7 +6,7 @@
     "description": """
 LLM Discuss
 ===========
-Bridges ``llm_assistant`` with Odoo's Discuss app.
+Bridges the ``llm`` module's assistants with Odoo's Discuss app.
 
 Any ``llm.assistant`` can be promoted to an internal Discuss bot:
 
@@ -29,7 +29,7 @@ the companion module ``llm_discuss_livechat``.
     "depends": [
         "base",
         "mail",
-        "llm_assistant",
+        "llm",
     ],
     "author": "quick-sort@outlook.com",
     "website": "quick-sort@outlook.com",

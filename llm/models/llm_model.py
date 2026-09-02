@@ -112,9 +112,16 @@ class LLMModel(models.Model):
                 ).write({"is_default": False})
         return records
 
-    def chat(self, messages, stream=False, **kwargs):
+    def chat(self, messages, stream=False, tools=None, tool_choice="auto", **kwargs):
         """Send chat messages using this model"""
-        return self.provider_id.chat(messages, model=self, stream=stream, **kwargs)
+        return self.provider_id.chat(
+            messages,
+            model=self,
+            stream=stream,
+            tools=tools,
+            tool_choice=tool_choice,
+            **kwargs,
+        )
 
     def embedding(self, texts):
         """Generate embeddings using this model"""

@@ -2,4 +2,17 @@ from . import llm_service_dispatch
 from . import llm_model
 from . import llm_provider
 from . import llm_publisher
+from . import llm_thread
+from . import llm_tool
+from . import llm_mcp_client
+from . import llm_tool_builtin_records
+from . import llm_tool_builtin_method
+from . import llm_tool_builtin_inspector
+from . import llm_tool_consent_config
+from . import llm_assistant_category
+from . import llm_assistant_tag
+from . import llm_assistant
+from . import llm_assistant_action_mixin
+from . import llm_tool_invoke_assistant
 from . import mail_message
+from . import res_users

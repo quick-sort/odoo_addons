@@ -3,7 +3,7 @@
     <record id="view_llm_assistant_form_inherit_discuss" model="ir.ui.view">
         <field name="name">llm.assistant.form.inherit.discuss</field>
         <field name="model">llm.assistant</field>
-        <field name="inherit_id" ref="llm_assistant.view_llm_assistant_form" />
+        <field name="inherit_id" ref="llm.view_llm_assistant_form" />
         <field name="arch" type="xml">
             <xpath expr="//notebook" position="inside">
                 <page string="Discuss / Live Chat" name="discuss">

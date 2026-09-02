@@ -26,6 +26,15 @@
     sequence="10"
   />
 
+    <!-- Chat Menu -->
+    <menuitem
+    id="menu_llm_chat"
+    name="Chat"
+    action="action_llm_chat"
+    parent="menu_llm_root"
+    sequence="10"
+  />
+
     <!-- Publisher Menu -->
     <menuitem
     id="menu_llm_publisher"
@@ -42,5 +51,75 @@
     action="llm_model_action"
     parent="menu_llm_config"
     sequence="20"
+  />
+
+    <!-- Thread Menu -->
+    <menuitem
+    id="menu_llm_thread"
+    name="Threads"
+    action="llm_thread_action"
+    parent="menu_llm_config"
+    sequence="27"
+  />
+
+    <!-- Assistant Menu -->
+    <menuitem
+    id="menu_llm_assistant"
+    name="Assistants"
+    parent="menu_llm_config"
+    action="action_llm_assistant"
+    sequence="26"
+  />
+
+    <!-- Assistants Configuration Menu -->
+    <menuitem
+    id="llm_assistant_configuration_menu"
+    name="Assistants Configuration"
+    parent="menu_llm_config"
+    sequence="30"
+  />
+
+    <!-- Assistants Configuration Sub-menus -->
+    <menuitem
+    id="llm_assistant_category_menu"
+    name="Categories"
+    parent="llm_assistant_configuration_menu"
+    action="llm_assistant_category_action"
+    sequence="10"
+  />
+
+    <menuitem
+    id="llm_assistant_tag_menu"
+    name="Tags"
+    parent="llm_assistant_configuration_menu"
+    action="llm_assistant_tag_action"
+    sequence="20"
+  />
+
+    <!-- Tool Menu -->
+    <menuitem
+    id="menu_llm_tool"
+    name="Tools"
+    parent="menu_llm_config"
+    action="action_llm_tool"
+    sequence="20"
+  />
+
+    <!-- Tool Consent Config Menu -->
+    <menuitem
+    id="menu_llm_tool_consent_config"
+    name="Tool Consent"
+    parent="menu_llm_config"
+    action="action_llm_tool_consent_config"
+    sequence="25"
+  />
+
+    <!-- MCP Services Menu -->
+    <menuitem
+    id="menu_llm_mcp_client"
+    name="MCP Services"
+    parent="menu_llm_config"
+    action="action_llm_mcp_client"
+    sequence="30"
   />
 </odoo>
