@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="view_llm_knowledge_splitter_form" model="ir.ui.view">
+        <field name="name">llm.knowledge.splitter.form</field>
+        <field name="model">llm.knowledge.splitter</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name" placeholder="Splitter Name" /></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="splitter_type" />
+                            <field name="chunk_size" />
+                            <field name="chunk_overlap" />
+                        </group>
+                        <group invisible="splitter_type != 'contextual'">
+                            <field
+                name="context_model_id"
+                options="{'no_create': True}"
+              />
+                        </group>
+                    </group>
+                    <field name="active" invisible="1" />
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_llm_knowledge_splitter_tree" model="ir.ui.view">
+        <field name="name">llm.knowledge.splitter.tree</field>
+        <field name="model">llm.knowledge.splitter</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name" />
+                <field name="splitter_type" />
+                <field name="chunk_size" />
+                <field name="chunk_overlap" />
+            </list>
+        </field>
+    </record>
+
+    <record id="action_llm_knowledge_splitter" model="ir.actions.act_window">
+        <field name="name">Splitters</field>
+        <field name="res_model">llm.knowledge.splitter</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>

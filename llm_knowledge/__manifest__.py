@@ -8,8 +8,15 @@
         and Chroma vector stores.
     """,
     "category": "Technical",
-    "version": "19.0.1.1.0",
-    "depends": ["llm", "llm_store"],
+    "version": "19.0.2.0.0",
+    "depends": [
+        "llm",
+        "llm_store",
+        "component",
+        "storage_backend",
+        "one_storage",
+        "queue_job",
+    ],
     "external_dependencies": {
         "python": ["requests", "markdownify", "PyMuPDF", "numpy"],
     },
@@ -22,6 +29,10 @@
         "data/server_actions.xml",
         # Views for models
         "views/llm_resource_views.xml",  # Consolidated llm.resource views
+        "views/llm_resource_extractor_views.xml",
+        "views/llm_knowledge_splitter_views.xml",
+        "views/llm_knowledge_chunkset_views.xml",
+        "views/llm_knowledge_vector_views.xml",
         "views/llm_knowledge_collection_views.xml",
         "views/llm_knowledge_chunk_views.xml",
         # Wizard Views

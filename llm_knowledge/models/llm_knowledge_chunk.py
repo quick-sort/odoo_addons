@@ -7,9 +7,29 @@ _logger = logging.getLogger(__name__)
 
 
 class LLMKnowledgeChunk(models.Model):
+    """A chunk is a pointer/metadata row only: (resource, chunkset,
+    sequence). The chunk's text is never stored in Odoo's database, and
+    never written to a storage backend either -- it is produced transiently
+    during splitting (llm.knowledge.chunkset._split_resource), embedded
+    immediately, and persisted as payload alongside its vector inside the
+    vector store (llm.knowledge.vector._build_resource / insert_vectors).
+
+    ``content`` is only populated transiently on records returned by
+    ``search()`` with an 'embedding' domain term (see
+    ``_vector_search_aggregate`` below), which carries the text back from
+    the search hit's payload via context. It is otherwise empty for chunks
+    fetched by plain browse()/search() -- there is nowhere else to read it
+    from.
+    """
+
     _name = "llm.knowledge.chunk"
     _description = "Document Chunk for RAG"
     _order = "sequence, id"
+
+    _unique_chunk_position = models.Constraint(
+        "UNIQUE(chunkset_id, resource_id, sequence)",
+        "A chunk already exists at this position for this chunkset/resource.",
+    )
 
     name = fields.Char(
         string="Name",
@@ -23,15 +43,30 @@ class LLMKnowledgeChunk(models.Model):
         ondelete="cascade",
         index=True,
     )
+    chunkset_id = fields.Many2one(
+        "llm.knowledge.chunkset",
+        string="Chunking Configuration",
+        required=True,
+        ondelete="cascade",
+        index=True,
+    )
     sequence = fields.Integer(
         string="Sequence",
         default=10,
-        help="Order of the chunk within the resource",
+        help="Order of the chunk within the resource, for this chunkset",
     )
     content = fields.Text(
         string="Content",
-        required=True,
-        help="Chunk text content",
+        store=False,
+        compute="_compute_content",
+        help="Chunk text is not stored in Odoo -- it lives in the vector "
+        "store as payload alongside its embedding (see "
+        "llm.knowledge.vector._build_resource). This field is only "
+        "populated transiently on records returned by a vector search "
+        "(llm.knowledge.chunk.search() with an 'embedding' domain term), "
+        "which carries the text back from the search hit's payload via "
+        "context; it is otherwise empty for chunks fetched by plain "
+        "browse()/search().",
     )
     metadata = fields.Json(
         string="Metadata",
@@ -87,6 +122,13 @@ class LLMKnowledgeChunk(models.Model):
                 record.id, 0.0
             )
 
+    def _compute_content(self):
+        """Populate chunk text from the context stash set by
+        _vector_search_aggregate(); empty for records fetched normally."""
+        texts = self.env.context.get("chunk_texts", {})
+        for record in self:
+            record.content = texts.get(record.id, "")
+
     def open_chunk_detail(self):
         """Open a form view of the chunk for detailed viewing."""
         self.ensure_one()
@@ -99,38 +141,35 @@ class LLMKnowledgeChunk(models.Model):
         }
 
     def get_collection_embedding_models(self):
-        """Helper method to get embedding models for this chunk's collections"""
+        """Helper method to get embedding models used by vectors of this
+        chunk's chunkset."""
         self.ensure_one()
-        models = self.env["llm.model"]
-        for collection in self.collection_ids:
-            if collection.embedding_model_id:
-                models |= collection.embedding_model_id
-        return models
+        return self.chunkset_id.vector_ids.mapped("embedding_model_id")
 
     def unlink(self):
         """Override unlink to remove vectors from vector stores before deleting chunks"""
-        # Group chunks by collection for efficient processing
-        chunks_by_collection = {}
+        # Group chunks by chunkset for efficient processing
+        chunks_by_chunkset = {}
         for chunk in self:
-            for collection in chunk.collection_ids:
-                if collection.id not in chunks_by_collection:
-                    chunks_by_collection[collection.id] = self.env[
-                        "llm.knowledge.chunk"
-                    ]
-                chunks_by_collection[collection.id] |= chunk
+            chunks_by_chunkset.setdefault(
+                chunk.chunkset_id.id, self.env["llm.knowledge.chunk"]
+            )
+            chunks_by_chunkset[chunk.chunkset_id.id] |= chunk
 
-        # Remove vectors from each collection's store
-        for collection_id, chunks in chunks_by_collection.items():
-            collection = self.env["llm.knowledge.collection"].browse(collection_id)
-            if collection.store_id:
+        # Remove vectors from each chunkset's vector configurations
+        for chunkset_id, chunks in chunks_by_chunkset.items():
+            chunkset = self.env["llm.knowledge.chunkset"].browse(chunkset_id)
+            for vector in chunkset.vector_ids:
+                if not vector.store_id:
+                    continue
                 try:
-                    collection.delete_vectors(ids=chunks.ids)
+                    vector.delete_vectors(ids=chunks.ids)
                     _logger.info(
-                        f"Removed {len(chunks)} vectors from collection {collection.name} (ID: {collection.id})"
+                        f"Removed {len(chunks)} vectors from vector config {vector.name} (ID: {vector.id})"
                     )
                 except Exception as e:
                     _logger.warning(
-                        f"Error removing vectors for chunks from collection {collection.name} (ID: {collection.id}): {str(e)}"
+                        f"Error removing vectors for chunks from vector config {vector.name} (ID: {vector.id}): {str(e)}"
                     )
 
         # Proceed with standard deletion
@@ -180,46 +219,51 @@ class LLMKnowledgeChunk(models.Model):
 
         return vector_search_term, filtered_domain
 
-    def _get_vector_search_collections(
-        self, vector_search_term, query_vector, collection_id
-    ):
-        """Get collections eligible for vector search.
+    def _get_vector_search_vectors(self, vector_search_term, query_vector, vector_id):
+        """Get llm.knowledge.vector configurations eligible for vector
+        search.
+
+        Args:
+            vector_search_term: free-text query to embed, or None
+            query_vector: a pre-computed query vector, or None
+            vector_id: optional llm.knowledge.vector id to restrict to
 
         Returns:
-            llm.knowledge.collection recordset
+            llm.knowledge.vector recordset
         """
-        collections = self.env["llm.knowledge.collection"]
+        Vector = self.env["llm.knowledge.vector"]
 
-        if collection_id:
-            collection = self.env["llm.knowledge.collection"].browse(collection_id)
+        if vector_id:
+            vector = Vector.browse(vector_id)
             if (
-                collection.exists()
-                and collection.store_id
-                and (query_vector or collection.embedding_model_id)
+                vector.exists()
+                and vector.store_id
+                and (query_vector or vector.embedding_model_id)
             ):
-                collections |= collection
-        else:
-            domain = [
-                ("active", "=", True),
-                ("store_id", "!=", False),
-            ]
-            if vector_search_term and not query_vector:
-                domain.append(("embedding_model_id", "!=", False))
-            collections = self.env["llm.knowledge.collection"].search(domain)
+                return vector
+            return Vector
 
-        return collections
+        domain = [
+            ("active", "=", True),
+            ("store_id", "!=", False),
+            ("state", "=", "vectorized"),
+        ]
+        if vector_search_term and not query_vector:
+            domain.append(("embedding_model_id", "!=", False))
+        return Vector.search(domain)
 
-    def _generate_embeddings_for_collections(self, collections, vector_search_term):
-        """Generate embeddings for the search term across collection models.
+    def _generate_embeddings_for_vectors(self, vectors, vector_search_term):
+        """Generate embeddings for the search term across vectors'
+        embedding models.
 
         Returns:
-            tuple: (model_vector_map, filtered_collections)
+            tuple: (model_vector_map, filtered_vectors)
         """
         model_vector_map = {}
-        embedding_models = collections.mapped("embedding_model_id")
+        embedding_models = vectors.mapped("embedding_model_id")
 
         if not embedding_models:
-            return model_vector_map, collections
+            return model_vector_map, vectors
 
         for model in embedding_models:
             try:
@@ -227,13 +271,13 @@ class LLMKnowledgeChunk(models.Model):
                     vector_search_term.strip()
                 )[0]
             except Exception:
-                # Remove collections using this failed model
-                collections = collections.filtered(
-                    lambda c, failed_model_id=model.id: c.embedding_model_id.id
+                # Remove vectors using this failed model
+                vectors = vectors.filtered(
+                    lambda v, failed_model_id=model.id: v.embedding_model_id.id
                     != failed_model_id
                 )
 
-        return model_vector_map, collections
+        return model_vector_map, vectors
 
     @api.model
     def search_fetch(self, domain, field_names, offset=0, limit=None, order=None):
@@ -265,12 +309,12 @@ class LLMKnowledgeChunk(models.Model):
             vector_search_term = kwargs["vector_search_term"]
 
         query_vector = kwargs.get("query_vector")
-        specific_collection_id = kwargs.get("collection_id")
-        if query_vector and not specific_collection_id:
+        specific_vector_id = kwargs.get("vector_id") or kwargs.get("collection_id")
+        if query_vector and not specific_vector_id:
             raise UserError(
                 _(
-                    "A pre-computed 'query_vector' can only be used when a specific 'collection_id' is also provided."
-                    " Searching across multiple collections requires a 'vector_search_term' for model-specific embedding generation."
+                    "A pre-computed 'query_vector' can only be used when a specific 'vector_id' is also provided."
+                    " Searching across multiple vector configurations requires a 'vector_search_term' for model-specific embedding generation."
                 )
             )
 
@@ -285,23 +329,23 @@ class LLMKnowledgeChunk(models.Model):
                 **kwargs,
             )
 
-        # Get eligible collections
-        collections = self._get_vector_search_collections(
-            vector_search_term, query_vector, specific_collection_id
+        # Get eligible vector configurations
+        vectors = self._get_vector_search_vectors(
+            vector_search_term, query_vector, specific_vector_id
         )
 
-        if not collections:
+        if not vectors:
             return 0 if count else self.browse([])
 
         # Generate embeddings if needed
         model_vector_map = {}
         if vector_search_term and not query_vector:
-            model_vector_map, collections = self._generate_embeddings_for_collections(
-                collections, vector_search_term
+            model_vector_map, vectors = self._generate_embeddings_for_vectors(
+                vectors, vector_search_term
             )
 
             # If no embeddings generated (no models or all failed), fallback
-            if not model_vector_map or not collections:
+            if not model_vector_map or not vectors:
                 if count:
                     return super().search_count(search_args)
                 return super().search(
@@ -313,7 +357,7 @@ class LLMKnowledgeChunk(models.Model):
                 )
 
         return self._vector_search_aggregate(
-            collections=collections,
+            vectors=vectors,
             query_vector=query_vector,
             vector_search_term=vector_search_term,
             model_vector_map=model_vector_map,
@@ -332,7 +376,7 @@ class LLMKnowledgeChunk(models.Model):
 
     def _vector_search_aggregate(
         self,
-        collections,
+        vectors,
         query_vector,
         vector_search_term,
         model_vector_map,
@@ -343,22 +387,23 @@ class LLMKnowledgeChunk(models.Model):
         limit,
         count,
     ):
-        """Performs vector search across collections, aggregates, sorts, and limits."""
-        # List of tuples: (score, chunk_id)
+        """Performs vector search across vector configurations, aggregates,
+        sorts, and limits. Chunk text comes back from each hit's payload
+        (it is never stored in Odoo) and is stashed in context so the
+        ``content`` field can surface it on the returned recordset."""
+        # List of tuples: (score, chunk_id, text)
         aggregated_results = []
 
-        for collection in collections:
+        for vector in vectors:
             current_query_vector = query_vector
             if not current_query_vector and vector_search_term:
-                current_query_vector = model_vector_map.get(
-                    collection.embedding_model_id.id
-                )
+                current_query_vector = model_vector_map.get(vector.embedding_model_id.id)
 
-            if not current_query_vector or not collection.store_id:
+            if not current_query_vector or not vector.store_id:
                 continue
 
             try:
-                results = collection.search_vectors(
+                results = vector.search_vectors(
                     query_vector=current_query_vector,
                     limit=limit,
                     filter=search_args if search_args else None,
@@ -369,9 +414,11 @@ class LLMKnowledgeChunk(models.Model):
                 for result in results:
                     score = result.get("score", 0.0)
                     chunk_id = result.get("id")
-                    aggregated_results.append((score, chunk_id))
+                    payload = result.get("payload") or result.get("metadata") or {}
+                    text = payload.get("text", "")
+                    aggregated_results.append((score, chunk_id, text))
             except Exception as e:
-                _logger.error(f"Error searching collection {collection.name}: {e}")
+                _logger.error(f"Error searching vector configuration {vector.name}: {e}")
                 continue
 
         if not aggregated_results:
@@ -385,5 +432,9 @@ class LLMKnowledgeChunk(models.Model):
         final_results = aggregated_results[offset : offset + limit if limit else None]
         chunk_ids = [res[1] for res in final_results]
         similarities = [res[0] for res in final_results]
+        chunk_texts = [res[2] for res in final_results]
         similarity_scores = dict(zip(chunk_ids, similarities))  # noqa: B905
-        return self.browse(chunk_ids).with_context(similarity_scores=similarity_scores)
+        text_by_chunk = dict(zip(chunk_ids, chunk_texts))  # noqa: B905
+        return self.browse(chunk_ids).with_context(
+            similarity_scores=similarity_scores, chunk_texts=text_by_chunk
+        )

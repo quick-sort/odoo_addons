@@ -223,7 +223,7 @@ class LLMResourceParser(models.Model):
         content.append("```")
 
         # Update resource content
-        self.content = "\n".join(content)
+        self._write_content_to_backend("\n".join(content))
 
         return True
 
@@ -291,31 +291,33 @@ class LLMResourceParser(models.Model):
         final_content = "\n\n".join(text_content)
 
         # Update resource with extracted content
-        self.content = final_content
+        self._write_content_to_backend(final_content)
 
         return True
 
     def _parse_text(self, _, field):
-        self.content = field["rawcontent"]
+        self._write_content_to_backend(field["rawcontent"])
         return True
 
     def _parse_html(self, _, field):
-        self.content = md(field["rawcontent"])
+        self._write_content_to_backend(md(field["rawcontent"]))
         return True
 
     def _parse_image(self, record, _):
         image_url = f"/web/image/{record.id}"
-        self.content = f"![{record.name}]({image_url})"
+        self._write_content_to_backend(f"![{record.name}]({image_url})")
         return True
 
     def _parse_default(self, record, field):
         # Default to a generic description for unsupported types
         mimetype = field["mimetype"]
-        self.content = f"""
+        self._write_content_to_backend(
+            f"""
             # {record.name}
 
             **File Type**: {mimetype}
             **Description**: This file is of type {mimetype} which cannot be directly parsed into text content.
             **Access**: [Open file](/web/content/{record.id})
                             """
+        )
         return True

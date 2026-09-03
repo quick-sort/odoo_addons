@@ -2,6 +2,7 @@ import logging
 from datetime import timedelta
 
 from odoo import _, api, fields, models
+from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
 
@@ -25,10 +26,10 @@ class LLMResource(models.Model):
     model_id = fields.Many2one(
         "ir.model",
         string="Related Model",
-        required=True,
         tracking=True,
         ondelete="cascade",
-        help="The model of the referenced document",
+        help="The model of the referenced document. Only used for "
+        "source_type='record'.",
     )
     res_model = fields.Char(
         string="Model Name",
@@ -39,13 +40,46 @@ class LLMResource(models.Model):
     )
     res_id = fields.Integer(
         string="Record ID",
+        tracking=True,
+        help="The ID of the referenced record. Only used for "
+        "source_type='record'.",
+    )
+    source_type = fields.Selection(
+        selection=[
+            ("record", "Odoo Record"),
+            ("file", "File"),
+            ("url", "URL"),
+        ],
+        string="Source Type",
+        default="record",
         required=True,
         tracking=True,
-        help="The ID of the referenced record",
+        help="Where this resource's raw content comes from. 'Odoo Record' "
+        "keeps the existing polymorphic model_id/res_id behavior; 'File' "
+        "reads from a one.storage.entry; 'URL' fetches a remote page.",
+    )
+    entry_id = fields.Many2one(
+        "one.storage.entry",
+        string="Storage Entry",
+        ondelete="restrict",
+        index=True,
+        help="Source file for 'File' type resources.",
+    )
+    source_url = fields.Char(
+        string="Source URL",
+        help="Source URL for 'URL' type resources.",
+    )
+    content_path = fields.Char(
+        string="Markdown Path",
+        compute="_compute_content_path",
+        help="Path of the extracted markdown inside the collection's "
+        "markdown backend (collection_id.md_backend_id).",
     )
     content = fields.Text(
         string="Content",
-        help="Markdown representation of the resource content",
+        help="Markdown representation of the resource content. Cached "
+        "in-database copy; the managed artifact lives on the collection's "
+        "md_backend_id at content_path when one is configured.",
     )
     external_url = fields.Char(
         string="External URL",
@@ -99,6 +133,76 @@ class LLMResource(models.Model):
             resource.external_url = self._get_record_external_url(
                 resource.res_model, resource.res_id
             )
+
+    @api.depends("collection_ids.md_backend_id")
+    def _compute_content_path(self):
+        for resource in self:
+            resource.content_path = (
+                "%s/content.md" % resource.id if resource.id else False
+            )
+
+    @api.constrains("source_type", "model_id", "res_id", "entry_id", "source_url")
+    def _check_source_reference(self):
+        for resource in self:
+            if resource.source_type == "record" and (
+                not resource.model_id or not resource.res_id
+            ):
+                raise UserError(
+                    _(
+                        "Resource '%s': a record-type resource requires a "
+                        "related model and record ID.",
+                        resource.name,
+                    )
+                )
+            if resource.source_type == "file" and not resource.entry_id:
+                raise UserError(
+                    _(
+                        "Resource '%s': a file-type resource requires a "
+                        "storage entry.",
+                        resource.name,
+                    )
+                )
+            if resource.source_type == "url" and not resource.source_url:
+                raise UserError(
+                    _("Resource '%s': a URL-type resource requires a URL.", resource.name)
+                )
+
+    def _get_md_backend(self):
+        """Storage backend used for this resource's extracted markdown,
+        taken from the first collection that has one configured."""
+        self.ensure_one()
+        for collection in self.collection_ids:
+            if collection.md_backend_id:
+                return collection.md_backend_id
+        return None
+
+    def _read_source_bytes(self):
+        """Return the raw bytes of a file-type resource's source file."""
+        self.ensure_one()
+        if self.source_type != "file" or not self.entry_id:
+            return None
+        return self.entry_id.read_bytes()
+
+    def _write_content_to_backend(self, markdown_text):
+        """Persist extracted markdown to the collection's md_backend_id
+        (if configured) at content_path, and keep an inline cached copy."""
+        self.ensure_one()
+        self.content = markdown_text
+        backend = self._get_md_backend()
+        if backend and self.content_path:
+            data = (markdown_text or "").encode("utf-8")
+            with backend.open(self.content_path, "wb") as stream:
+                stream.write(data)
+
+    def _read_content_from_backend(self):
+        """Read extracted markdown back from the collection's md_backend_id
+        if configured, falling back to the cached inline content field."""
+        self.ensure_one()
+        backend = self._get_md_backend()
+        if backend and self.content_path and backend.file_exists(self.content_path):
+            with backend.open(self.content_path, "rb") as stream:
+                return stream.read().decode("utf-8")
+        return self.content or ""
 
     def _get_record_external_url(self, res_model, res_id):
         """
@@ -488,28 +592,6 @@ class LLMResource(models.Model):
             )
         # Return True only if resources were actually embedded
         return any_embedded
-
-    @api.model_create_multi
-    def create(self, vals_list):
-        """Override create to handle collection_ids and apply chunking settings"""
-        # Create the resources first
-        resources = super().create(vals_list)
-
-        # Process each resource that has collections
-        for resource in resources:
-            if resource.collection_ids and resource.state not in ["chunked", "ready"]:
-                # Get the first collection's settings
-                collection = resource.collection_ids[0]
-                # Update the resource with the collection's settings
-                update_vals = {
-                    "target_chunk_size": collection.default_chunk_size,
-                    "target_chunk_overlap": collection.default_chunk_overlap,
-                    "chunker": collection.default_chunker,
-                    "parser": collection.default_parser,
-                }
-                resource.write(update_vals)
-
-        return resources
 
     def _reset_state_if_needed(self):
         """Reset resource state to 'chunked' if it's in 'ready' state and not in any collection."""

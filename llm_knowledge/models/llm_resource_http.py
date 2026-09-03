@@ -312,7 +312,7 @@ class LLMResourceHTTPRetriever(models.Model):
 
             if processing_result["decoded_successfully"]:
                 markdown_content = processing_result["markdown_content"]
-                self.write({"content": markdown_content})
+                self._write_content_to_backend(markdown_content)
                 self._http_store_content(
                     content, content_type, filename, retrieval_details, record
                 )
@@ -323,7 +323,7 @@ class LLMResourceHTTPRetriever(models.Model):
                 return {"state": "parsed"}
             else:
                 # Decoding failed, store raw data
-                self.write({"content": ""})  # Clear content
+                self._write_content_to_backend("")  # Clear content
                 self._http_store_content(
                     content, content_type, filename, retrieval_details, record
                 )  # Store raw

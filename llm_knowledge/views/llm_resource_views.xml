@@ -223,12 +223,14 @@
                     </div>
                     <group>
                         <group name="group_left">
+                            <field name="source_type" />
                             <field
                 name="model_id"
                 options="{'no_create': True}"
+                invisible="source_type != 'record'"
               />
                             <field name="res_model" invisible="1" />
-                            <field name="res_id" />
+                            <field name="res_id" invisible="source_type != 'record'" />
                             <field name="lock_date" readonly="1" />
                             <field
                 name="external_url"
@@ -248,34 +250,33 @@
                             <field
                 name="parser"
                 readonly="state not in ('draft', 'retrieved')"
-              />
-                            <field
-                name="chunker"
-                readonly="state not in ('draft', 'retrieved', 'parsed')"
-              />
-                            <field
-                name="target_chunk_size"
-                readonly="state not in ('draft', 'retrieved', 'parsed')"
-              />
-                            <field
-                name="target_chunk_overlap"
-                readonly="state not in ('draft', 'retrieved', 'parsed')"
+                invisible="source_type != 'record'"
               />
                             <field
                 name="kanban_state"
                 widget="state_selection"
               />
-                            <label
-                for="action_reset_chunk_settings"
-                colspan="2"
+                        </group>
+                    </group>
+                    <group string="Source" invisible="source_type == 'record'">
+                        <group>
+                            <field
+                name="entry_id"
+                invisible="source_type != 'file'"
+                required="source_type == 'file'"
               />
-                            <button
-                name="action_reset_chunk_settings"
-                string="RESET CHUNK SETTINGS"
-                type="object"
-                class="btn-primary"
-                colspan="2"
-                invisible="state not in ('draft', 'retrieved', 'parsed')"
+                            <field
+                name="source_url"
+                invisible="source_type != 'url'"
+                required="source_type == 'url'"
+              />
+                        </group>
+                        <group>
+                            <field name="extractor_id" options="{'no_create': True}" />
+                            <field
+                name="content_path"
+                readonly="1"
+                invisible="not content_path"
               />
                         </group>
                     </group>
@@ -298,6 +299,7 @@
                 context="{'default_resource_id': id}"
               >
                                 <list>
+                                    <field name="chunkset_id" />
                                     <field name="sequence" widget="handle" />
                                     <field name="name" />
                                     <field

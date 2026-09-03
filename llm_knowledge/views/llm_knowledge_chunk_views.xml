@@ -8,6 +8,7 @@
             <list>
                 <field name="name" />
                 <field name="resource_id" />
+                <field name="chunkset_id" />
                 <field name="sequence" widget="handle" />
                 <field name="collection_ids" widget="many2many_tags" />
             </list>
@@ -23,8 +24,14 @@
                 <sheet>
                     <group>
                         <field name="resource_id" />
+                        <field name="chunkset_id" />
                         <field name="sequence" />
-                        <field name="content" />
+                        <field
+              name="content"
+              readonly="1"
+              invisible="not content"
+              placeholder="Chunk text is stored in the vector store, not here. It only appears when this chunk comes from a vector search result."
+            />
                         <field name="metadata" widget="json_widget" />
                         <field name="collection_ids" widget="many2many_tags" />
                     </group>
@@ -41,8 +48,8 @@
             <search>
                 <field name="embedding" />
                 <field name="name" />
-                <field name="content" />
                 <field name="resource_id" />
+                <field name="chunkset_id" />
                 <field name="collection_ids" />
 
                 <!-- Similarity threshold filters -->
@@ -93,6 +100,7 @@
                     <group>
                         <field name="name" readonly="1" />
                         <field name="resource_id" readonly="1" />
+                        <field name="chunkset_id" readonly="1" />
                         <field name="sequence" readonly="1" />
                     </group>
                     <group>
@@ -102,7 +110,7 @@
               readonly="1"
             />
                     </group>
-                    <group string="Content">
+                    <group string="Content" invisible="not content">
                         <field name="content" readonly="1" nolabel="1" />
                     </group>
                     <group string="Metadata" invisible="not metadata">
