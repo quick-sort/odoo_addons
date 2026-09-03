@@ -9,7 +9,7 @@ import { useService } from "@web/core/utils/hooks";
 
 /**
  * Thread Header Component
- * Displays thread name and provides dropdowns for provider/model/tool selection
+ * Displays thread name and provides a dropdown for assistant selection
  */
 export class LLMThreadHeader extends Component {
   static template = "llm.LLMThreadHeader";
@@ -25,7 +25,6 @@ export class LLMThreadHeader extends Component {
     this.state = useState({
       isEditingName: false,
       pendingName: "",
-      modelSearchQuery: "",
       isLoadingUpdate: false,
     });
 
@@ -70,97 +69,24 @@ export class LLMThreadHeader extends Component {
   }
 
   /**
-   * Get current provider
+   * Get current assistant
    */
-  get currentProvider() {
+  get currentAssistant() {
     if (!this.hasActiveThread) return null;
 
-    // Get provider_id from the thread data (now stored in mailStore)
-    const providerId =
-      this.activeThread.provider_id?.id || this.activeThread.provider_id;
-    if (!providerId) return null;
+    const assistantId =
+      this.activeThread.assistant_id?.id || this.activeThread.assistant_id;
+    if (!assistantId) return null;
 
-    // Return provider from our Map or directly from thread if available
-    return (
-      this.llmStore.llmProviders?.get(providerId) ||
-      this.activeThread.provider_id
-    );
+    return this.llmStore.llmAssistants?.get(assistantId) || this.activeThread.assistant_id;
   }
 
   /**
-   * Get current model
+   * Get available assistants
    */
-  get currentModel() {
-    if (!this.hasActiveThread) return null;
-
-    // Get model_id from the thread data (now stored in mailStore)
-    const modelId =
-      this.activeThread.model_id?.id || this.activeThread.model_id;
-    if (!modelId) return null;
-
-    // Return model from our Map or directly from thread if available
-    return this.llmStore.llmModels?.get(modelId) || this.activeThread.model_id;
-  }
-
-  /**
-   * Get available providers
-   */
-  get availableProviders() {
-    return Array.from(this.llmStore.llmProviders.values());
-  }
-
-  /**
-   * Get available models for current provider
-   */
-  get availableModels() {
-    if (!this.currentProvider) return [];
-
-    // Filter models by provider
-    const models = Array.from(this.llmStore.llmModels.values()).filter(
-      (model) => {
-        const modelProviderId = Array.isArray(model.provider_id)
-          ? model.provider_id[0]
-          : model.provider_id;
-        return modelProviderId === this.currentProvider.id;
-      }
-    );
-
-    // Apply search filter if any
-    if (this.state.modelSearchQuery) {
-      const query = this.state.modelSearchQuery.toLowerCase();
-      return models.filter((model) => model.name.toLowerCase().includes(query));
-    }
-
-    return models;
-  }
-
-  /**
-   * Get current tools
-   */
-  get currentTools() {
-    if (!this.hasActiveThread) return [];
-
-    // Get tool_ids from the thread data (now stored in mailStore)
-    const toolIds = this.activeThread.tool_ids || [];
-    if (!toolIds.length) return [];
-
-    // Handle different formats: array of objects or array of IDs
-    return toolIds
-      .map((tool) => {
-        if (typeof tool === "object" && tool.id) {
-          return this.llmStore.llmTools?.get(tool.id) || tool;
-        }
-        return this.llmStore.llmTools?.get(tool);
-      })
-      .filter(Boolean);
-  }
-
-  /**
-   * Get available tools
-   */
-  get availableTools() {
-    return this.llmStore.llmTools
-      ? Array.from(this.llmStore.llmTools.values())
+  get availableAssistants() {
+    return this.llmStore.llmAssistants
+      ? Array.from(this.llmStore.llmAssistants.values())
       : [];
   }
 
@@ -241,155 +167,30 @@ export class LLMThreadHeader extends Component {
     }
   }
 
-  // Provider Management
+  // Assistant Management
 
   /**
-   * Select a provider
-   * @param {Object} provider - Provider object to select
+   * Select an assistant
+   * @param {Object} assistant - Assistant object to select
    */
-  async selectProvider(provider) {
-    if (provider.id === this.currentProvider?.id) return;
+  async selectAssistant(assistant) {
+    const assistantId = assistant ? assistant.id : null;
+    if (assistantId === this.currentAssistant?.id) return;
 
     try {
       this.state.isLoadingUpdate = true;
-
-      // Get default model for this provider
-      const models = Array.from(this.llmStore.llmModels.values()).filter(
-        (m) => m.provider_id[0] === provider.id
-      );
-      const defaultModel = models.find((m) => m.is_default) || models[0];
-
-      const updateData = {
-        provider_id: provider.id,
-      };
-
-      if (defaultModel) {
-        updateData.model_id = defaultModel.id;
-      }
-
-      // Update via ORM
-      await this.orm.write("llm.thread", [this.activeThread.id], updateData);
-
-      // Reload thread data using proper fetchData pattern
-      await this._refreshThread(["provider_id", "model_id"]);
+      await this.llmStore.selectAssistant(assistantId);
     } catch (error) {
       this.notification.add(
-        _t("Could not change the AI provider. Please try again."),
+        _t("Could not change the assistant. Please try again."),
         {
           type: "danger",
         }
       );
-      console.error("Error updating provider:", error);
+      console.error("Error updating assistant:", error);
     } finally {
       this.state.isLoadingUpdate = false;
     }
-  }
-
-  // Model Management
-
-  /**
-   * Select a model
-   * @param {Object} model - Model object to select
-   */
-  async selectModel(model) {
-    if (model.id === this.currentModel?.id) return;
-
-    try {
-      this.state.isLoadingUpdate = true;
-
-      // Update via ORM
-      await this.orm.write("llm.thread", [this.activeThread.id], {
-        model_id: model.id,
-      });
-
-      // Reload thread data using proper fetchData pattern
-      await this._refreshThread(["model_id"]);
-
-      // Clear search
-      this.state.modelSearchQuery = "";
-    } catch (error) {
-      this.notification.add(
-        _t("Could not change the AI model. Please try again."),
-        {
-          type: "danger",
-        }
-      );
-      console.error("Error updating model:", error);
-    } finally {
-      this.state.isLoadingUpdate = false;
-    }
-  }
-
-  /**
-   * Handle model search input
-   * @param {Event} ev - Input event
-   */
-  onModelSearchInput(ev) {
-    this.state.modelSearchQuery = ev.target.value;
-  }
-
-  /**
-   * Clear model search
-   */
-  clearModelSearch() {
-    this.state.modelSearchQuery = "";
-  }
-
-  // Tool Management
-
-  /**
-   * Toggle tool selection
-   * @param {Object} tool - Tool object to toggle
-   */
-  async toggleTool(tool) {
-    try {
-      this.state.isLoadingUpdate = true;
-
-      // Get current tool IDs from the active thread
-      const currentToolIds = (this.activeThread.tool_ids || []).map((t) =>
-        typeof t === "object" ? t.id : t
-      );
-
-      const newToolIds = currentToolIds.includes(tool.id)
-        ? currentToolIds.filter((id) => id !== tool.id)
-        : [...currentToolIds, tool.id];
-
-      // Update via ORM
-      await this.orm.write("llm.thread", [this.activeThread.id], {
-        tool_ids: [[6, 0, newToolIds]],
-      });
-
-      // Immediately update local state to ensure UI reflects change
-      this.activeThread.tool_ids = newToolIds;
-
-      // Reload thread data using proper fetchData pattern
-      await this._refreshThread(["tool_ids"]);
-    } catch (error) {
-      this.notification.add(
-        _t("Could not update the enabled tools. Please try again."),
-        {
-          type: "danger",
-        }
-      );
-      console.error("Error updating tools:", error);
-    } finally {
-      this.state.isLoadingUpdate = false;
-    }
-  }
-
-  /**
-   * Check if a tool is selected
-   * @param {Object} tool - Tool object to check
-   * @returns {Boolean} True if tool is selected
-   */
-  isToolSelected(tool) {
-    if (!this.hasActiveThread) return false;
-
-    // Check if tool is in the current thread's tool_ids
-    const toolIds = (this.activeThread.tool_ids || []).map((t) =>
-      typeof t === "object" ? t.id : t
-    );
-    return toolIds.includes(tool.id);
   }
 }
 

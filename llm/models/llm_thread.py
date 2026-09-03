@@ -1080,15 +1080,14 @@ class LLMThread(models.Model):
     def get_prepend_messages(self):
         """Hook: return a list of formatted messages to prepend to the conversation.
 
-        If the thread has an assistant, renders its prompt template (via
-        ``llm.assistant.get_messages``) using the thread context, which
-        already carries the evaluated default values.
+        If the thread has an assistant, returns its prompt template (via
+        ``llm.assistant.get_messages``).
         """
         self.ensure_one()
 
         if self.assistant_id:
             try:
-                return self.assistant_id.get_messages(self.get_context())
+                return self.assistant_id.get_messages()
             except Exception as e:
                 _logger.error(
                     "Error rendering the prompt of assistant '%s': %s",
@@ -1135,16 +1134,6 @@ class LLMThread(models.Model):
                     self.res_id,
                     e,
                 )
-
-        # If we have an assistant with default values, add them to the context.
-        # Assistant defaults are added first, so the base context (built above)
-        # takes precedence.
-        if self.assistant_id:
-            assistant_defaults = self.assistant_id.get_evaluated_default_values(
-                context
-            )
-            if assistant_defaults:
-                context = {**assistant_defaults, **context}
 
         return context
 

@@ -1,6 +1,5 @@
 import json
 import logging
-import re
 import time
 from collections.abc import Iterable
 
@@ -9,8 +8,6 @@ import yaml
 from odoo import _, api, fields, models
 from odoo.exceptions import ValidationError
 from odoo.modules.registry import Registry
-
-from ..utils import render_template
 
 _logger = logging.getLogger(__name__)
 
@@ -80,20 +77,15 @@ class LLMAssistant(models.Model):
     #
     # Flattened out of a former ``llm.prompt`` model. That model existed to make
     # templates reusable across assistants, but nothing reused them: the three
-    # shipped prompts mapped 1:1 to the three shipped assistants, only one
-    # template ever declared variables, and its MCP-prompt export was never
-    # wired up. The template now belongs to the assistant that uses it.
-    #
-    # Jinja2 rendering and ``default_values`` are kept: they are what makes a
-    # prompt adapt per conversation (see ``llm.thread.get_context``).
+    # shipped prompts mapped 1:1 to the three shipped assistants. The template
+    # now belongs to the assistant that uses it, and is used verbatim -- no
+    # variable substitution.
     # ------------------------------------------------------------------
     template = fields.Text(
         string="Prompt Template",
         required=True,
         tracking=True,
-        help="Jinja2 template producing this assistant's prompt. Variables "
-        "written as {{ name }} are filled from Default Values, merged with the "
-        "thread context.",
+        help="This assistant's system prompt, used as-is.",
     )
 
     template_format = fields.Selection(
@@ -127,22 +119,6 @@ class LLMAssistant(models.Model):
         help="Classify and analyze your assistants",
     )
 
-    # Default values for prompt variables as JSON
-    default_values = fields.Text(
-        string="Default Values",
-        help="JSON object with default values for prompt variables. Can include template expressions that will be evaluated.",
-        default="{}",
-        tracking=True,
-    )
-
-    # Whether default values contain expressions to be evaluated
-    has_dynamic_defaults = fields.Boolean(
-        string="Has Dynamic Defaults",
-        default=False,
-        help="Enable if your default values contain template expressions that should be evaluated",
-        tracking=True,
-    )
-
     # Tools configuration
     tool_ids = fields.Many2many(
         "llm.tool",
@@ -174,13 +150,7 @@ class LLMAssistant(models.Model):
     system_prompt_preview = fields.Text(
         string="System Prompt Preview",
         compute="_compute_system_prompt_preview",
-        help="Preview of the rendered prompt, using the evaluated default values",
-    )
-
-    undefined_variables = fields.Char(
-        compute="_compute_undefined_variables",
-        string="Missing Default Values",
-        help="Template variables with no entry in Default Values",
+        help="Preview of the rendered prompt",
     )
 
     _unique_code = models.Constraint(
@@ -188,14 +158,12 @@ class LLMAssistant(models.Model):
         'Assistant code must be unique.',
     )
 
-    @api.depends("template", "template_format", "default_values")
+    @api.depends("template", "template_format")
     def _compute_system_prompt_preview(self):
-        """Render the template with the evaluated defaults, for the form view."""
+        """Render the template for the form view."""
         for assistant in self:
             try:
-                messages = assistant.get_messages(
-                    assistant.get_evaluated_default_values({})
-                )
+                messages = assistant.get_messages()
             except Exception as error:  # noqa: BLE001 - a preview must not raise
                 _logger.info(
                     "Could not render prompt preview for assistant %s: %s",
@@ -232,29 +200,24 @@ class LLMAssistant(models.Model):
     # Template rendering
     # ------------------------------------------------------------------
 
-    def get_messages(self, arguments=None):
-        """Render the template and return it as a list of message dicts.
-
-        Args:
-            arguments: values for the template variables. Usually the thread
-                context merged with the evaluated default values -- see
-                ``llm.thread.get_context``.
+    def get_messages(self):
+        """Return this assistant's template as a list of message dicts.
 
         Returns:
             list of ``{"role": str, "content": [{"type": "text", "text": str}]}``
         """
         self.ensure_one()
 
-        rendered = render_template(template=self.template, context=arguments or {})
-        self._validate_rendered_format(rendered)
+        content = self.template or ""
+        self._validate_rendered_format(content)
 
         try:
             if self.template_format == "text":
-                return self._parse_text_messages(rendered)
+                return self._parse_text_messages(content)
             if self.template_format == "yaml":
-                return list(self._parse_dict_messages(yaml.safe_load_all(rendered)))
+                return list(self._parse_dict_messages(yaml.safe_load_all(content)))
             if self.template_format == "json":
-                return list(self._parse_dict_messages(json.loads(rendered)))
+                return list(self._parse_dict_messages(json.loads(content)))
         except (json.JSONDecodeError, yaml.YAMLError) as error:
             _logger.error(
                 "Error parsing %s prompt for assistant %s: %s",
@@ -264,7 +227,7 @@ class LLMAssistant(models.Model):
             )
             raise ValidationError(
                 _(
-                    "Could not parse the rendered %(format)s prompt. The template "
+                    "Could not parse the %(format)s prompt. The template "
                     "may have syntax errors or produce invalid output.\n\n"
                     "Tips:\n"
                     "• For YAML: check indentation and special characters\n"
@@ -283,28 +246,27 @@ class LLMAssistant(models.Model):
             )
         )
 
-    def _validate_rendered_format(self, rendered_content):
-        """Fail on a template that does not produce its declared format.
+    def _validate_rendered_format(self, content):
+        """Fail on a template that does not match its declared format.
 
-        Checked at render time so a broken template surfaces in the form
+        Checked at read time so a broken template surfaces in the form
         preview rather than mid-conversation.
         """
-        if not rendered_content:
+        if not content:
             return
 
         try:
             if self.template_format == "json":
-                json.loads(rendered_content)
+                json.loads(content)
             elif self.template_format == "yaml":
                 # A YAML prompt may hold several documents, one per message.
-                list(yaml.safe_load_all(rendered_content))
+                list(yaml.safe_load_all(content))
             # 'text' needs no validation.
         except (json.JSONDecodeError, yaml.YAMLError) as error:
             raise ValidationError(
                 _(
-                    "The rendered template is not valid %(format)s.\n\n"
-                    "Check the template syntax and make sure it still produces "
-                    "valid %(format)s after variable substitution.\n\n"
+                    "The template is not valid %(format)s.\n\n"
+                    "Check the template syntax.\n\n"
                     "Error: %(error)s",
                     format=self.template_format.upper(),
                     error=error,
@@ -366,77 +328,6 @@ class LLMAssistant(models.Model):
         action["context"] = {"default_assistant_id": self.id}
         return action
 
-    TEMPLATE_VARIABLE_RE = re.compile(r"\{\{\s*([a-zA-Z0-9_]+)\s*\}\}")
-
-    def _template_variables(self):
-        """Return the ``{{ name }}`` variables used by this template.
-
-        Replaces the former ``llm.prompt.arguments_json`` schema: with one
-        template per assistant there is no point declaring the variables
-        separately from the template that uses them, and a hand-maintained
-        schema could drift from it.
-
-        Only plain variables are matched. Jinja2 expressions ({% if %}, filters,
-        attribute access) still render -- they are simply not offered as
-        placeholders by :meth:`action_reset_defaults`.
-        """
-        self.ensure_one()
-        return sorted(set(self.TEMPLATE_VARIABLE_RE.findall(self.template or "")))
-
-    @api.depends("template", "default_values")
-    def _compute_undefined_variables(self):
-        for assistant in self:
-            try:
-                defined = set(json.loads(assistant.default_values or "{}"))
-            except json.JSONDecodeError:
-                defined = set()
-
-            missing = [
-                name
-                for name in assistant._template_variables()
-                if name not in defined
-            ]
-            assistant.undefined_variables = ", ".join(missing) or False
-
-    def action_reset_defaults(self):
-        """Fill Default Values with an entry per template variable.
-
-        Existing values are kept; only missing variables are added, as an empty
-        string placeholder. Variables that disappeared from the template are
-        dropped.
-        """
-        self.ensure_one()
-
-        variables = self._template_variables()
-        if not variables:
-            return self._notify(
-                "No variables found",
-                "This template uses no {{ variable }} placeholders.",
-                "info",
-            )
-
-        try:
-            current = json.loads(self.default_values or "{}")
-        except json.JSONDecodeError:
-            current = {}
-
-        values = {name: current.get(name, "") for name in variables}
-        added = sum(1 for name in variables if name not in current)
-        removed = len(current) - (len(values) - added)
-
-        self.default_values = json.dumps(values, indent=2)
-
-        parts = []
-        if added:
-            parts.append(f"{added} added")
-        if removed:
-            parts.append(f"{removed} removed")
-        return self._notify(
-            "Default values synced",
-            ", ".join(parts) if parts else "Already in sync.",
-            "success",
-        )
-
     def _notify(self, title, message, kind):
         return {
             "type": "ir.actions.client",
@@ -448,71 +339,6 @@ class LLMAssistant(models.Model):
                 "sticky": False,
             },
         }
-
-    def get_evaluated_default_values(self, context):
-        """
-        Evaluate default values using the provided context.
-        This is used by llm.thread to get assistant's default values with thread context.
-
-        Args:
-            context (dict): Context for template rendering
-
-        Returns:
-            dict: Evaluated default values
-        """
-        self.ensure_one()
-
-        # Parse the default values JSON
-        try:
-            default_values = json.loads(self.default_values or "{}")
-        except json.JSONDecodeError:
-            _logger.warning(
-                "Invalid JSON in default_values for assistant %s", self.name
-            )
-            return {}
-
-        if not default_values:
-            return {}
-
-        # If we don't have dynamic defaults, return as-is
-        if not self.has_dynamic_defaults:
-            return default_values
-
-        # Render each default value as a template
-        evaluated_values = {}
-        for key, value in default_values.items():
-            if isinstance(value, str) and "{{" in value and "}}" in value:
-                try:
-                    evaluated_values[key] = render_template(
-                        template=value, context=context
-                    )
-                except Exception as e:
-                    _logger.warning(
-                        "Error evaluating default value '%s' for assistant %s: %s",
-                        key,
-                        self.name,
-                        str(e),
-                    )
-                    evaluated_values[key] = value  # Keep original on error
-            else:
-                evaluated_values[key] = value
-
-        return evaluated_values
-
-    @api.model_create_multi
-    def create(self, vals_list):
-        """Override create to ensure default_values is valid JSON"""
-        for vals in vals_list:
-            if "default_values" in vals and vals["default_values"]:
-                try:
-                    json.loads(vals["default_values"])
-                except json.JSONDecodeError:
-                    vals["default_values"] = "{}"
-        return super().create(vals_list)
-
-    def _get_json_fields(self):
-        """Return fields that should be serialized as JSON in the API"""
-        return ["default_values"]
 
     @api.model
     def get_assistant_by_id(self, assistant_id):
@@ -535,7 +361,7 @@ class LLMAssistant(models.Model):
         return assistant, None
 
     def get_assistant_values(self, thread, include_template=True):
-        """Get thread-specific evaluated default values for this assistant.
+        """Get assistant metadata for a thread.
 
         Served by ``/llm/thread/set_assistant`` and
         ``/llm/thread/get_assistant_values``.
@@ -545,22 +371,14 @@ class LLMAssistant(models.Model):
             include_template (bool): Whether to include the prompt template
 
         Returns:
-            dict: Result with evaluated default values and template info
+            dict: Result with assistant info and template info
         """
         self.ensure_one()
-
-        # Get thread context and use it to evaluate default values
-        thread_context = thread.get_context() if hasattr(thread, "get_context") else {}
-        evaluated_values = self.get_evaluated_default_values(thread_context)
 
         result = {
             "success": True,
             "thread_id": thread.id,
             "assistant_id": self.id,
-            "default_values": self.default_values,
-            "evaluated_default_values": json.dumps(evaluated_values, indent=2)
-            if evaluated_values
-            else "{}",
         }
 
         # Used to be the related llm.prompt record; the template lives on the
@@ -568,7 +386,6 @@ class LLMAssistant(models.Model):
         if include_template:
             result["template"] = {
                 "format": self.template_format,
-                "variables": self._template_variables(),
             }
 
         return result

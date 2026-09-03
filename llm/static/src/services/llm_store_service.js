@@ -4,6 +4,7 @@ import { _t } from "@web/core/l10n/translation";
 import { Deferred } from "@web/core/utils/concurrency";
 import { reactive } from "@odoo/owl";
 import { registry } from "@web/core/registry";
+import { rpc } from "@web/core/network/rpc";
 
 /**
  * LLM Store Service - Integrates with existing mail.store
@@ -21,6 +22,8 @@ export const llmStoreService = {
       llmProviders: new Map(),
       // Map<id, LLMTool>
       llmTools: new Map(),
+      // Map<id, LLMAssistant>
+      llmAssistants: new Map(),
       // Set<threadId> currently streaming
       streamingThreads: new Set(),
       // Map<threadId, EventSource>
@@ -40,6 +43,15 @@ export const llmStoreService = {
 
       get isLLMThread() {
         return this.activeLLMThread !== null;
+      },
+
+      get currentAssistant() {
+        const activeThread = this.activeLLMThread;
+        if (!activeThread?.assistant_id) return null;
+
+        const assistantId =
+          activeThread.assistant_id?.id || activeThread.assistant_id;
+        return this.llmAssistants.get(assistantId) || activeThread.assistant_id;
       },
 
       get llmThreadList() {
@@ -72,6 +84,7 @@ export const llmStoreService = {
           "model",
           "res_id",
           "tool_ids",
+          "assistant_id",
         ]);
 
         if (threadData && threadData.length > 0) {
@@ -282,6 +295,25 @@ export const llmStoreService = {
         }
       },
 
+      async loadLLMAssistants() {
+        try {
+          const assistants = await orm.silent.searchRead(
+            "llm.assistant",
+            [["active", "=", true]],
+            ["id", "name", "is_public", "is_default", "provider_id", "model_id", "tool_ids"]
+          );
+
+          assistants.forEach((assistant) => {
+            this.llmAssistants.set(assistant.id, assistant);
+          });
+        } catch (error) {
+          console.warn(
+            "LLM assistants not available - llm module may not be installed:",
+            error.message
+          );
+        }
+      },
+
       // Thread selection using standard Odoo patterns
       async selectThread(threadId) {
         try {
@@ -304,32 +336,33 @@ export const llmStoreService = {
         }
       },
 
-      // Create new thread with default provider and model
+      // Create new thread using the default (or first available) assistant
       async createNewThread({ recordModel, recordId } = {}) {
         // Refresh data (providers, models, assistants, etc.) so newly
         // configured ones are available without requiring a page reload.
         const loaders = this.getDataLoaders();
         await Promise.all(loaders.map((loader) => loader.call(this)));
 
-        // Get first available provider and model
-        const firstProvider = this.getFirstAvailableProvider();
-        const firstModel = this.getFirstAvailableModel();
+        const assistant = this.getDefaultAssistant();
 
-        // Check for null values and show notifications
-        if (!firstProvider) {
+        if (!assistant) {
           notification.add(
             _t(
-              "No AI providers are configured. Please contact your administrator to set up an AI provider."
+              "No AI assistants are configured. Please contact your administrator to set up an assistant."
             ),
             { type: "danger" }
           );
           return;
         }
 
-        if (!firstModel) {
+        const providerId = assistant.provider_id?.[0] || assistant.provider_id;
+        const modelId = assistant.model_id?.[0] || assistant.model_id;
+
+        if (!providerId || !modelId) {
           notification.add(
             _t(
-              "No AI models are available. Please contact your administrator to configure AI models."
+              "The assistant '%s' has no provider or model configured. Please contact your administrator.",
+              assistant.name
             ),
             { type: "danger" }
           );
@@ -341,8 +374,10 @@ export const llmStoreService = {
 
         const threadData = {
           name: threadName,
-          provider_id: firstProvider.id,
-          model_id: firstModel.id,
+          assistant_id: assistant.id,
+          provider_id: providerId,
+          model_id: modelId,
+          tool_ids: [[6, 0, (assistant.tool_ids || []).map((t) => (typeof t === "object" ? t.id : t))]],
         };
 
         // Auto-link to record if context provided (e.g., from chatter)
@@ -357,16 +392,50 @@ export const llmStoreService = {
         await this.refreshThreadsAndSelect(threadId);
       },
 
-      // Get first available provider
-      getFirstAvailableProvider() {
-        const providers = Array.from(this.llmProviders.values());
-        return providers.length > 0 ? providers[0] : null;
+      // Get the default assistant (falls back to the first available one)
+      getDefaultAssistant() {
+        const assistants = Array.from(this.llmAssistants.values());
+        if (assistants.length === 0) return null;
+        return assistants.find((a) => a.is_default) || assistants[0];
       },
 
-      // Get first available model
-      getFirstAvailableModel() {
-        const models = Array.from(this.llmModels.values());
-        return models.length > 0 ? models[0] : null;
+      // Select an assistant for the active thread
+      async selectAssistant(assistantId) {
+        const activeThread = this.activeLLMThread;
+        if (!activeThread) {
+          notification.add(_t("No active thread to update"), {
+            type: "warning",
+          });
+          return;
+        }
+
+        try {
+          await rpc("/llm/thread/set_assistant", {
+            thread_id: activeThread.id,
+            assistant_id: assistantId,
+          });
+
+          const fields = ["assistant_id", "provider_id", "model_id", "tool_ids"];
+          if (typeof activeThread.fetchData === "function") {
+            await activeThread.fetchData(fields);
+          } else {
+            const data = await orm.read("llm.thread", [activeThread.id], fields);
+            if (data && data.length) {
+              const raw = data[0];
+              for (const f of ["assistant_id", "provider_id", "model_id"]) {
+                if (Array.isArray(raw[f])) {
+                  raw[f] = { id: raw[f][0], name: raw[f][1] };
+                }
+              }
+              Object.assign(activeThread, raw);
+            }
+          }
+        } catch (error) {
+          console.error("Error selecting assistant:", error);
+          notification.add(_t("Failed to update assistant"), {
+            type: "danger",
+          });
+        }
       },
 
       // Refresh threads and select specific thread
@@ -380,6 +449,7 @@ export const llmStoreService = {
           "model",
           "res_id",
           "tool_ids",
+          "assistant_id",
         ]);
 
         if (threadData && threadData.length > 0) {
@@ -504,7 +574,12 @@ export const llmStoreService = {
 
       // Get list of data loaders - can be extended by patches
       getDataLoaders() {
-        return [this.loadLLMProviders, this.loadLLMModels, this.loadLLMTools];
+        return [
+          this.loadLLMProviders,
+          this.loadLLMModels,
+          this.loadLLMTools,
+          this.loadLLMAssistants,
+        ];
       },
 
       // Initialize LLM store - threads now loaded via standard init_messaging

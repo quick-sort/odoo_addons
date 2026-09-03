@@ -26,7 +26,6 @@
             "requests",
             "emoji",
             "markdown2",
-            "jinja2",
             "pyyaml",
             "jsonschema",
         ],
@@ -60,12 +59,11 @@
         "web.assets_backend": [
             # Services - LLM store service for integration with mail.store
             "llm/static/src/services/llm_store_service.js",
-            "llm/static/src/services/llm_store_service_assistant_patch.js",
             # Components - LLM Chat Container using existing mail components
             "llm/static/src/components/llm_chat_container/llm_chat_container.js",
             "llm/static/src/components/llm_chat_container/llm_chat_container.xml",
             "llm/static/src/components/llm_chat_container/llm_chat_container.scss",
-            # Thread Header component with provider/model/tool selections
+            # Thread Header component with assistant selection
             "llm/static/src/components/llm_thread_header/llm_thread_header.js",
             "llm/static/src/components/llm_thread_header/llm_thread_header.xml",
             "llm/static/src/components/llm_thread_header/llm_thread_header.scss",
@@ -87,9 +85,6 @@
             "llm/static/src/patches/chatter_patch.js",
             "llm/static/src/patches/message_patch.js",
             "llm/static/src/patches/message_patch.xml",
-            # Assistant selector patch on the thread header
-            "llm/static/src/patches/llm_thread_header_assistant_patch.js",
-            "llm/static/src/patches/llm_thread_header_assistant_patch.xml",
             # Templates - Extensions of existing mail templates
             "llm/static/src/templates/chatter_ai_button.xml",
             "llm/static/src/templates/llm_chat_client_action.xml",

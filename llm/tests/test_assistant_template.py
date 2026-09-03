@@ -1,11 +1,10 @@
 """Tests for the prompt template on ``llm.assistant``.
 
 The template used to live on a separate ``llm.prompt`` model. Flattening it onto
-the assistant removed the ``arguments_json`` schema: variables are read straight
-from the template, so the two can no longer drift apart.
+the assistant removed the ``arguments_json`` schema. The template is also no
+longer a Jinja2 template with variable substitution: it is used verbatim as
+the assistant's system prompt.
 """
-
-import json
 
 from odoo.exceptions import ValidationError
 from odoo.tests import TransactionCase, tagged
@@ -25,81 +24,13 @@ class TestAssistantTemplate(TransactionCase):
         )
 
     # ------------------------------------------------------------------
-    # Variable extraction: replaces the arguments_json schema
-    # ------------------------------------------------------------------
-
-    def test_variables_are_read_from_the_template(self):
-        assistant = self._assistant(
-            "Hello {{name}}, your age is {{ age }} and you live in {{city}}."
-        )
-
-        self.assertEqual(assistant._template_variables(), ["age", "city", "name"])
-
-    def test_no_variables_is_not_an_error(self):
-        self.assertEqual(self._assistant("A static prompt.")._template_variables(), [])
-
-    def test_undefined_variables_are_reported(self):
-        assistant = self._assistant(
-            "{{ role }} and {{ goal }}",
-            default_values='{"role": "helper"}',
-        )
-
-        self.assertEqual(assistant.undefined_variables, "goal")
-
-    def test_no_undefined_variables_when_all_have_defaults(self):
-        assistant = self._assistant(
-            "{{ role }}", default_values='{"role": "helper"}'
-        )
-
-        self.assertFalse(assistant.undefined_variables)
-
-    def test_undefined_variables_survives_broken_default_values(self):
-        assistant = self._assistant("{{ role }}", default_values="not json")
-
-        self.assertEqual(assistant.undefined_variables, "role")
-
-    # ------------------------------------------------------------------
-    # Syncing default values from the template
-    # ------------------------------------------------------------------
-
-    def test_sync_adds_an_entry_per_variable(self):
-        assistant = self._assistant("{{ role }} / {{ goal }}")
-
-        assistant.action_reset_defaults()
-
-        self.assertEqual(
-            json.loads(assistant.default_values), {"goal": "", "role": ""}
-        )
-
-    def test_sync_keeps_values_already_set(self):
-        assistant = self._assistant(
-            "{{ role }} / {{ goal }}", default_values='{"role": "helper"}'
-        )
-
-        assistant.action_reset_defaults()
-
-        self.assertEqual(
-            json.loads(assistant.default_values),
-            {"goal": "", "role": "helper"},
-        )
-
-    def test_sync_drops_variables_no_longer_used(self):
-        assistant = self._assistant(
-            "{{ role }}", default_values='{"role": "helper", "stale": "x"}'
-        )
-
-        assistant.action_reset_defaults()
-
-        self.assertEqual(json.loads(assistant.default_values), {"role": "helper"})
-
-    # ------------------------------------------------------------------
     # Rendering
     # ------------------------------------------------------------------
 
-    def test_text_template_renders_one_system_message(self):
-        assistant = self._assistant("You are a {{ role }}.")
+    def test_text_template_is_one_system_message(self):
+        assistant = self._assistant("You are a librarian.")
 
-        messages = assistant.get_messages({"role": "librarian"})
+        messages = assistant.get_messages()
 
         self.assertEqual(len(messages), 1)
         self.assertEqual(messages[0]["role"], "system")
@@ -119,7 +50,7 @@ class TestAssistantTemplate(TransactionCase):
             template_format="yaml",
         )
 
-        messages = assistant.get_messages({})
+        messages = assistant.get_messages()
 
         self.assertEqual(
             [m["role"] for m in messages], ["system", "user", "assistant"]
@@ -132,42 +63,41 @@ class TestAssistantTemplate(TransactionCase):
             template_format="json",
         )
 
-        messages = assistant.get_messages({})
+        messages = assistant.get_messages()
 
         self.assertEqual(messages[0]["role"], "system")
         self.assertEqual(messages[0]["content"][0]["text"], "Be brief.")
 
-    def test_broken_yaml_is_reported_at_render_time(self):
+    def test_broken_yaml_is_reported(self):
         assistant = self._assistant(
             "- type: system\n  content: [unclosed\n", template_format="yaml"
         )
 
         with self.assertRaises(ValidationError):
-            assistant.get_messages({})
+            assistant.get_messages()
 
-    def test_a_variable_can_break_the_declared_format(self):
-        """Substitution happens before parsing, so this must be caught."""
+    def test_broken_json_is_reported(self):
         assistant = self._assistant(
-            '{"type": "system", "content": "{{ text }}"}',
+            '{"type": "system", "content": invalid}',
             template_format="json",
         )
 
         with self.assertRaises(ValidationError):
-            assistant.get_messages({"text": 'quote " breaks json'})
+            assistant.get_messages()
 
     # ------------------------------------------------------------------
     # Preview and thread wiring
     # ------------------------------------------------------------------
 
-    def test_preview_renders_with_the_default_values(self):
-        assistant = self._assistant(
-            "You are a {{ role }}.", default_values='{"role": "guide"}'
-        )
+    def test_preview_shows_the_template_verbatim(self):
+        assistant = self._assistant("You are a guide.")
 
         self.assertEqual(assistant.system_prompt_preview, "You are a guide.")
 
     def test_preview_reports_an_error_instead_of_raising(self):
-        assistant = self._assistant("{{ bad", template_format="text")
+        assistant = self._assistant(
+            "not json", template_format="json"
+        )
 
         self.assertTrue(assistant.system_prompt_preview.startswith("Error:"))
 
@@ -199,9 +129,7 @@ class TestAssistantTemplate(TransactionCase):
         )
 
     def test_thread_prepends_the_assistant_template(self):
-        assistant = self._assistant(
-            "You are a {{ role }}.", default_values='{"role": "guide"}'
-        )
+        assistant = self._assistant("You are a guide.")
 
         messages = self._thread_for(assistant).get_prepend_messages()
 
@@ -230,6 +158,12 @@ class TestAssistantTemplate(TransactionCase):
     def test_assistant_has_no_prompt_field(self):
         self.assertNotIn("prompt_id", self.env["llm.assistant"]._fields)
 
+    def test_assistant_has_no_default_values_fields(self):
+        """Jinja2 rendering and the default-values mechanism were removed:
+        the template is used verbatim as the system prompt."""
+        for field_name in ("default_values", "has_dynamic_defaults", "undefined_variables"):
+            self.assertNotIn(field_name, self.env["llm.assistant"]._fields)
+
     def test_template_is_required(self):
         with self.assertRaises(Exception):
             self.env["llm.assistant"].create({"name": "no template"})
@@ -253,23 +187,3 @@ class TestAssistantTemplate(TransactionCase):
 
         self.assertIn("Assistant Creator Assistant", creator.template)
         self.assertIn("INSPECTION PHASE", creator.template)
-
-
-    def test_builtin_templates_declare_no_stray_variables(self):
-        """Prose about double braces must not become a Jinja2 variable.
-
-        The migrated ``assistant_creator`` template documents llm.assistant's
-        own fields; writing a literal ``{{ variable }}`` there made Jinja2
-        substitute it away.
-        """
-        for xmlid in (
-            "llm.llm_assistant_creator",
-            "llm.llm_assistant_website_builder",
-            "llm.llm_assistant_odoo_operator",
-        ):
-            assistant = self.env.ref(xmlid)
-            self.assertEqual(
-                assistant._template_variables(),
-                [],
-                f"{xmlid} has unintended template variables",
-            )

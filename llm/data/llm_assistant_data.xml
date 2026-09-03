@@ -80,9 +80,8 @@ Available fields for llm.assistant model:
 - name: Name of the assistant
 - provider_id: LLM provider to use, related to llm.provider model (e.g., OpenAI)
 - model_id: Specific model to use, related to llm.model model (must be compatible with the provider)
-- template: Jinja2 prompt template; double-brace placeholders are filled from default_values
+- template: the assistant's system prompt, used as-is (no variable substitution)
 - template_format: text (single system message), yaml or json (a sequence of messages with roles)
-- default_values: JSON with default values for the template variables
 - tool_ids: Tools that the assistant can use, related to llm.tool model
 
 IMPORTANT: Learn from your own mistakes during the assistant creation process. When errors occur or users provide feedback, document these issues and adjust your approach accordingly. Continuously improve your guidance by tracking what works well and what doesn't. Apply these lessons to future assistant creation tasks to provide increasingly effective assistance.]]></field>

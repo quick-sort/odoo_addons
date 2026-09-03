@@ -21,17 +21,19 @@
       transition: background-color 0.2s ease;
 
       &.o-llm-thread-active {
-        background-color: var(--bs-primary);
-        color: white;
+        background-color: var(--bs-primary-bg-subtle, #cfe2ff);
+        color: var(--bs-emphasis-color, #000);
+        border-left: 3px solid var(--bs-primary);
 
         .text-muted {
-          color: rgba(255, 255, 255, 0.7) !important;
+          color: inherit !important;
+          opacity: 0.7;
         }
 
         .btn.text-danger {
-          color: rgba(255, 255, 255, 0.7) !important;
+          color: var(--bs-danger) !important;
           &:hover {
-            color: white !important;
+            color: var(--bs-danger-text-emphasis, #58151c) !important;
           }
         }
       }

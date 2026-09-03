@@ -89,53 +89,6 @@
                         </group>
                     </group>
                     <notebook>
-                        <page string="Configuration" name="configuration">
-                            <group>
-                                <field
-                  name="default_values"
-                  widget="json_editor"
-                />
-                                <field
-                  name="has_dynamic_defaults"
-                  help="Enable if your default values contain template expressions that should be evaluated"
-                />
-                            </group>
-
-                            <!-- Reset Defaults Button -->
-                            <div class="mt-2">
-                                <button
-                  name="action_reset_defaults"
-                  string="Sync From Template"
-                  type="object"
-                  class="btn-secondary"
-                  help="Add an entry for every {{ variable }} used by the template, and drop the ones no longer used"
-                />
-                            </div>
-
-                            <!-- Help Text -->
-                            <div
-                class="alert alert-info w-100 mt-3 mb-3"
-                role="alert"
-              >
-                                <p class="mb-2">
-                                    <strong
-                  >Default Values:</strong> Define default values for prompt variables in JSON format.
-                                    These will be used as inputs to the prompt template.
-                                </p>
-                                <p class="mb-2">
-                                    <strong
-                  >Dynamic Defaults:</strong> When enabled, you can use template syntax like
-                                    <code>{{ user.name }}</code> or <code
-                  >{{ related_record.get_field('name') }}</code> in your default values.
-                                </p>
-                                <p class="mb-0">
-                                    <strong
-                  >Sync From Template:</strong> scans the template for
-                                    <code>{{ variable }}</code> placeholders and adds an entry for
-                                    each one, keeping the values you already set.
-                                </p>
-                            </div>
-                        </page>
                         <page string="Tools" name="tools">
                             <group>
                                 <field
@@ -159,24 +112,18 @@
                         <page string="Template" name="template">
                             <group>
                                 <field name="template_format" />
-                                <field
-                  name="undefined_variables"
-                  readonly="1"
-                  invisible="not undefined_variables"
-                />
                             </group>
                             <field
                 name="template"
                 widget="ace"
                 options="{'mode': 'text'}"
-                placeholder="You are a {{ role }}..."
+                placeholder="You are a helpful assistant..."
               />
                             <div class="text-muted mt-2">
                                 <i class="fa fa-info-circle" />
-                                Jinja2 template. Variables written as
-                                <code>{{ name }}</code> are filled from Default Values,
-                                merged with the thread context. Choose YAML or JSON as the
-                                format to emit several messages with explicit roles.
+                                This is the assistant's system prompt, used as-is.
+                                Choose YAML or JSON as the format to emit several
+                                messages with explicit roles.
                             </div>
                         </page>
                         <page string="Preview" name="preview">
