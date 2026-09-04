@@ -1,7 +1,0 @@
-id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_knowledge_base_user,knowledge.base.user,model_knowledge_base,group_knowledge_user,1,0,0,0
-access_knowledge_base_manager,knowledge.base.manager,model_knowledge_base,group_knowledge_manager,1,1,1,1
-access_knowledge_source_user,knowledge.source.user,model_knowledge_source,group_knowledge_user,1,0,0,0
-access_knowledge_source_manager,knowledge.source.manager,model_knowledge_source,group_knowledge_manager,1,1,1,1
-access_knowledge_extractor_user,knowledge.extractor.user,model_knowledge_extractor,group_knowledge_user,1,0,0,0
-access_knowledge_extractor_manager,knowledge.extractor.manager,model_knowledge_extractor,group_knowledge_manager,1,1,1,1
