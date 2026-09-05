@@ -110,7 +110,7 @@ class PgvectorLocalStoreAdapter(Component):
 
         self._drop_vector_index(store, embedding_model_id)
 
-        chunks = store.env["llm.knowledge.chunk"].search(
+        chunks = store.env["llm.store.chunk"].search(
             [("collection_ids", "in", [collection_id])],
         )
         chunk_ids = self._chunks_exclusive_to(chunks, collection, embedding_model_id)
@@ -169,7 +169,7 @@ class PgvectorLocalStoreAdapter(Component):
             return False
 
         embedding_model_id = collection.embedding_model_id.id
-        chunks = store.env["llm.knowledge.chunk"].browse(ids)
+        chunks = store.env["llm.store.chunk"].browse(ids)
         chunk_ids = self._chunks_exclusive_to(chunks, collection, embedding_model_id)
         self._unlink_embeddings(store, chunk_ids, embedding_model_id)
 
@@ -257,7 +257,7 @@ class PgvectorLocalStoreAdapter(Component):
             SELECT {index_hint} e.chunk_id,
                    1 - (e.embedding {query_operator} query_vector.vec) as score
             FROM {EMBEDDING_TABLE} e
-            JOIN llm_knowledge_chunk c ON e.chunk_id = c.id
+            JOIN llm_store_chunk c ON e.chunk_id = c.id
             JOIN llm_knowledge_resource_collection_rel rel
                  ON c.resource_id = rel.resource_id
             CROSS JOIN query_vector

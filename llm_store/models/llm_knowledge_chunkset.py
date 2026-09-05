@@ -9,11 +9,11 @@ stores with different chunk sizes and embedding methods per knowledge base"
 possible.
 
 Chunking and vectorization for a chunkset are fused into a single step
-(``action_build`` / ``_build_vector``) per (resource, chunkset, vector):
+(``action_build`` / ``_build_resource``) per (resource, chunkset, vector):
 chunk text is produced in memory by the splitter and handed straight to the
 embedding call, then persisted as payload alongside its vector in the
 vector store -- it is never written to the Odoo database or to a storage
-backend (see llm.knowledge.chunk, which is a pointer-only row).
+backend (see llm.store.chunk, which is a pointer-only row).
 """
 
 import logging
@@ -63,7 +63,7 @@ class LLMKnowledgeChunkset(models.Model):
         tracking=True,
     )
     chunk_ids = fields.One2many(
-        "llm.knowledge.chunk",
+        "llm.store.chunk",
         "chunkset_id",
         string="Chunks",
     )
@@ -124,7 +124,7 @@ class LLMKnowledgeChunkset(models.Model):
         ``(chunkset, resource)``, in sequence order. Returns the chunk
         recordset in the same order as ``chunk_texts``."""
         self.ensure_one()
-        existing = self.env["llm.knowledge.chunk"].search(
+        existing = self.env["llm.store.chunk"].search(
             [("chunkset_id", "=", self.id), ("resource_id", "=", resource.id)],
             order="sequence",
         )
@@ -135,7 +135,7 @@ class LLMKnowledgeChunkset(models.Model):
         chunks = list(existing)
         for seq in range(len(chunks) + 1, target_count + 1):
             chunks.append(
-                self.env["llm.knowledge.chunk"].create(
+                self.env["llm.store.chunk"].create(
                     {
                         "chunkset_id": self.id,
                         "resource_id": resource.id,
@@ -143,7 +143,7 @@ class LLMKnowledgeChunkset(models.Model):
                     }
                 )
             )
-        return self.env["llm.knowledge.chunk"].browse([c.id for c in chunks])
+        return self.env["llm.store.chunk"].browse([c.id for c in chunks])
 
     def action_chunk(self):
         """Recompute chunk pointers for every resource in the collection.
@@ -159,7 +159,7 @@ class LLMKnowledgeChunkset(models.Model):
             chunkset.write({"state": "chunking"})
             try:
                 for resource in chunkset.collection_id.resource_ids:
-                    if resource.state not in ("chunked", "ready"):
+                    if resource.state not in ("parsed", "chunked", "ready"):
                         continue
                     chunk_texts = chunkset._split_resource(resource)
                     chunkset._sync_chunk_pointers(resource, chunk_texts)
@@ -174,7 +174,7 @@ class LLMKnowledgeChunkset(models.Model):
         return {
             "name": _("Chunks"),
             "view_mode": "list,form",
-            "res_model": "llm.knowledge.chunk",
+            "res_model": "llm.store.chunk",
             "domain": [("chunkset_id", "=", self.id)],
             "type": "ir.actions.act_window",
         }

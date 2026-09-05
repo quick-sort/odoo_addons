@@ -29,7 +29,7 @@ It registers on ``llm.store`` as the ``pgvector_local`` service. Managing a
     "version": "19.0.1.0.0",
     "author": "quick-sort@outlook.com",
     "website": "quick-sort@outlook.com",
-    "depends": ["base_pgvector", "llm", "llm_knowledge", "llm_store"],
+    "depends": ["base_pgvector", "llm_store"],
     "data": [
         "security/ir.model.access.csv",
         "views/llm_knowledge_chunk_embedding_views.xml",

@@ -13,7 +13,7 @@ class LLMKnowledgeChunkEmbedding(models.Model):
     _rec_name = "chunk_id"  # Use chunk name as display name
 
     chunk_id = fields.Many2one(
-        "llm.knowledge.chunk",
+        "llm.store.chunk",
         string="Chunk",
         required=True,
         ondelete="cascade",
@@ -68,7 +68,7 @@ class LLMKnowledgeChunkEmbedding(models.Model):
         for vals in vals_list:
             # If embedding_model_id not provided, try to get from collection
             if not vals.get("embedding_model_id") and vals.get("chunk_id"):
-                chunk = self.env["llm.knowledge.chunk"].browse(vals["chunk_id"])
+                chunk = self.env["llm.store.chunk"].browse(vals["chunk_id"])
                 # Get first collection's embedding model
                 if chunk.collection_ids and chunk.collection_ids[0].embedding_model_id:
                     vals["embedding_model_id"] = chunk.collection_ids[

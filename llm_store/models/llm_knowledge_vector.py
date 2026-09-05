@@ -3,14 +3,11 @@ store. A chunkset can hold several of these (different models, different
 dimensions, different stores) so retrieval quality can be compared across
 configurations without duplicating chunk text in Odoo -- chunk text lives
 only inside the vector store, as payload alongside its embedding (see
-module docstring on llm.knowledge.chunk for the rationale).
+module docstring on llm.store.chunk for the rationale).
 
 Inherits ``llm.store.collection`` (store_id, dimension, insert_vectors,
-search_vectors, delete_vectors) so it can reuse the existing llm_store
-adapters (pgvector, pgvector_local, qdrant) unchanged -- this model is what
-``llm.knowledge.collection`` used to be with respect to the store, just
-relocated to the (chunkset) granularity so several can coexist per
-collection.
+search_vectors, delete_vectors) to reuse the store adapters (pgvector,
+pgvector_local, qdrant) unchanged.
 """
 
 import logging
@@ -144,7 +141,7 @@ class LLMKnowledgeVector(models.Model):
                         lambda r: r.id in specific_resource_ids
                     )
                 resources = resources.filtered(
-                    lambda r: r.state in ("chunked", "ready")
+                    lambda r: r.state in ("parsed", "chunked", "ready")
                 )
                 total_chunks = 0
                 for resource in resources:

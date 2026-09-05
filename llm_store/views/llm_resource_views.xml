@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <!-- Extends llm.resource's base form (llm_knowledge) with chunking/
+         embedding actions and the chunks page. -->
+    <record id="view_llm_resource_form_store" model="ir.ui.view">
+        <field name="name">llm.resource.form.store</field>
+        <field name="model">llm.resource</field>
+        <field name="inherit_id" ref="llm_knowledge.view_llm_resource_form" />
+        <field name="arch" type="xml">
+            <button name="process_resource" position="before">
+                <button
+          name="chunk"
+          string="Chunk"
+          type="object"
+          class="oe_highlight"
+          invisible="state != 'parsed'"
+        />
+                <button
+          name="action_embed"
+          string="Embed"
+          type="object"
+          class="oe_highlight"
+          invisible="state != 'chunked'"
+        />
+            </button>
+            <button name="process_resource" position="after">
+                <button
+          name="action_reindex"
+          string="Re-index"
+          type="object"
+          class="btn-secondary"
+          invisible="state != 'ready'"
+        />
+            </button>
+            <field name="state" widget="statusbar" position="attributes">
+                <attribute
+          name="statusbar_visible"
+        >draft,retrieved,parsed,chunked,ready</attribute>
+            </field>
+            <div class="oe_title" position="before">
+                <div class="oe_button_box" name="button_box">
+                    <field name="chunk_count" invisible="1" />
+                    <button
+            name="action_view_chunks"
+            type="object"
+            class="oe_stat_button"
+            icon="fa-puzzle-piece"
+            invisible="chunk_count == 0"
+          >
+                        <field name="chunk_count" widget="statinfo" string="Chunks" />
+                    </button>
+                </div>
+            </div>
+            <notebook position="inside">
+                <page string="Chunks" name="chunks" invisible="chunk_count == 0">
+                    <field name="chunk_ids" context="{'default_resource_id': id}">
+                        <list>
+                            <field name="chunkset_id" />
+                            <field name="sequence" widget="handle" />
+                            <field name="name" />
+                            <field
+                name="metadata"
+                widget="json_preview"
+                optional="show"
+              />
+                        </list>
+                    </field>
+                </page>
+            </notebook>
+        </field>
+    </record>
+
+    <record id="view_llm_resource_kanban_store" model="ir.ui.view">
+        <field name="name">llm.resource.kanban.store</field>
+        <field name="model">llm.resource</field>
+        <field name="inherit_id" ref="llm_knowledge.view_llm_resource_kanban" />
+        <field name="arch" type="xml">
+            <field name="collection_ids" position="before">
+                <field name="chunk_count" />
+            </field>
+            <a name="process_resource" position="before">
+                <a
+          name="chunk"
+          type="object"
+          class="dropdown-item"
+          t-if="record.state.raw_value == 'parsed'"
+        >Chunk</a>
+                <a
+          name="action_embed"
+          type="object"
+          class="dropdown-item"
+          t-if="record.state.raw_value == 'chunked'"
+        >Embed</a>
+            </a>
+            <a name="process_resource" position="after">
+                <a
+          name="action_reindex"
+          type="object"
+          class="dropdown-item"
+          t-if="record.state.raw_value == 'ready'"
+        >Re-index</a>
+            </a>
+            <div t-if="record.collection_ids.raw_value.length &gt; 0" position="before">
+                <div class="text-muted" t-if="record.chunk_count.raw_value &gt; 0">
+                    <i class="fa fa-puzzle-piece" title="Chunks" /> <field
+            name="chunk_count"
+          /> chunks
+                </div>
+            </div>
+            <field name="state" widget="label_selection" position="attributes">
+                <attribute
+          name="options"
+        >{'classes': {'draft': 'default', 'retrieved': 'primary', 'parsed': 'info', 'chunked': 'warning', 'ready': 'success'}}</attribute>
+            </field>
+        </field>
+    </record>
+
+    <record id="view_llm_resource_tree_store" model="ir.ui.view">
+        <field name="name">llm.resource.tree.store</field>
+        <field name="model">llm.resource</field>
+        <field name="inherit_id" ref="llm_knowledge.view_llm_resource_tree" />
+        <field name="arch" type="xml">
+            <field name="state" position="after">
+                <field name="chunk_count" />
+            </field>
+        </field>
+    </record>
+
+    <record id="view_llm_resource_document_tree_store" model="ir.ui.view">
+        <field name="name">llm.resource.document.tree.store</field>
+        <field name="model">llm.resource</field>
+        <field name="inherit_id" ref="llm_knowledge.view_llm_resource_document_tree" />
+        <field name="arch" type="xml">
+            <field name="state" position="after">
+                <field name="chunk_count" />
+            </field>
+        </field>
+    </record>
+
+    <record id="view_llm_resource_search_store" model="ir.ui.view">
+        <field name="name">llm.resource.search.store</field>
+        <field name="model">llm.resource</field>
+        <field name="inherit_id" ref="llm_knowledge.view_llm_resource_search" />
+        <field name="arch" type="xml">
+            <filter name="state_parsed" position="after">
+                <filter
+          string="Chunked"
+          name="state_chunked"
+          domain="[('state', '=', 'chunked')]"
+        />
+                <filter
+          string="Ready"
+          name="state_ready"
+          domain="[('state', '=', 'ready')]"
+        />
+            </filter>
+        </field>
+    </record>
+</odoo>

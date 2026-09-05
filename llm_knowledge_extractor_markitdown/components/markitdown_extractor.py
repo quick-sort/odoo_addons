@@ -1,19 +1,11 @@
-"""MarkItDown extractor: converts office/pdf/html files to markdown locally.
+"""MarkItDown file extractor."""
 
-The 'markitdown' package is imported lazily so the addon installs even when
-it is not present; a clear error is raised at extraction time instead.
-"""
-
-import logging
 import os
 import tempfile
 
-from odoo import _
-from odoo.exceptions import UserError
+from markitdown import MarkItDown
 
 from odoo.addons.component.core import Component
-
-_logger = logging.getLogger(__name__)
 
 
 class MarkitdownExtractor(Component):
@@ -24,15 +16,6 @@ class MarkitdownExtractor(Component):
     _output_format = "md"
 
     def extract(self, resource):
-        try:
-            from markitdown import MarkItDown
-        except ImportError as err:
-            raise UserError(
-                _(
-                    "The 'markitdown' python package is required for the "
-                    "MarkItDown extractor. Install it with: pip install markitdown"
-                )
-            ) from err
         content = resource._read_source_bytes()
         suffix = os.path.splitext(resource.entry_id.name or "")[1] or ".bin"
         with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:

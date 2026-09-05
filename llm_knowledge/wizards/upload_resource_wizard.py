@@ -1,3 +1,4 @@
+import base64
 import logging
 import os
 import re
@@ -82,85 +83,65 @@ class UploadResourceWizard(models.TransientModel):
     # ----------------------------------------------------
     # Private Helper Methods for Processing
     # ----------------------------------------------------
-    def _process_file_uploads(self, collection, attachment_model_id):
-        """Process uploaded files (file_ids)."""
+    def _process_file_uploads(self, collection):
+        """Create native file resources for processing by a file extractor."""
         self.ensure_one()
         created_resources = self.env["llm.resource"]
         if not self.file_ids:
             return created_resources
 
+        storage_root = self.env["one.storage.entry"]._get_or_create_root()
+        upload_root = storage_root.mkdir("llm_knowledge_uploads", parents=True)
         for index, attachment in enumerate(self.file_ids):
-            resource_name = self.resource_name_template.format(
-                filename=attachment.name or f"file_{index + 1}",
-                collection=collection.name,
-                index=index + 1,
+            filename = self._extract_filename_from_url(
+                attachment.name or f"file_{index + 1}"
             )
-
-            # Create RAG resource linking to the attachment
-            resource = self.env["llm.resource"].create(
-                {
-                    "name": resource_name,
-                    "model_id": attachment_model_id,
-                    "res_id": attachment.id,
-                    "collection_ids": [(4, collection.id)],
-                    # Implicitly uses default retriever for ir.attachment
-                }
-            )
-            created_resources |= resource
-        return created_resources
-
-    def _process_external_urls(self, collection, attachment_model_id, file_count):
-        """Process external URLs."""
-        self.ensure_one()
-        created_resources = self.env["llm.resource"]
-        if not self.external_urls:
-            return created_resources
-
-        urls = [url.strip() for url in self.external_urls.split("\n") if url.strip()]
-        for index, url in enumerate(urls):
-            # Extract filename from URL for naming
-            filename = self._extract_filename_from_url(url)
-
             resource_name = self.resource_name_template.format(
                 filename=filename,
                 collection=collection.name,
-                index=file_count + index + 1,  # Continue index from files
+                index=index + 1,
             )
+            entry = upload_root.create_file(
+                f"{attachment.id}_{filename}",
+                base64.b64decode(attachment.datas or b""),
+            )
+            created_resources |= self.env["llm.resource"].create(
+                {
+                    "name": resource_name,
+                    "source_type": "file",
+                    "entry_id": entry.id,
+                    "collection_ids": [(4, collection.id)],
+                }
+            )
+        return created_resources
 
-            # Create attachment for URL
+    def _process_external_urls(self, collection, file_count):
+        """Create URL resources for processing by an installed URL extractor."""
+        self.ensure_one()
+        created_resources = self.env["llm.resource"]
+        urls = [
+            url.strip()
+            for url in (self.external_urls or "").splitlines()
+            if url.strip()
+        ]
+        for index, url in enumerate(urls):
+            filename = self._extract_filename_from_url(url)
+            resource_name = self.resource_name_template.format(
+                filename=filename,
+                collection=collection.name,
+                index=file_count + index + 1,
+            )
             try:
-                attachment = self.env["ir.attachment"].create(
-                    {
-                        "name": filename,
-                        "type": "url",
-                        "url": url,
-                    }
-                )
-            except Exception as e:
-                _logger.error(
-                    f"Failed to create attachment for URL {url}: {e}", exc_info=True
-                )
-                continue  # Skip this URL
-
-            # Create RAG resource using model_id
-            try:
-                resource = self.env["llm.resource"].create(
+                created_resources |= self.env["llm.resource"].create(
                     {
                         "name": resource_name,
-                        "model_id": attachment_model_id,
-                        "res_id": attachment.id,
+                        "source_type": "url",
+                        "source_url": url,
                         "collection_ids": [(4, collection.id)],
-                        "retriever": "http",
                     }
                 )
-                created_resources |= resource
-            except Exception as e:
-                _logger.error(
-                    f"Failed to create llm.resource for URL {url} (attachment: {attachment.id}): {e}",
-                    exc_info=True,
-                )
-                # Optionally delete the created attachment if resource fails
-                # attachment.exists().unlink()
+            except Exception:  # noqa: BLE001
+                _logger.exception("Failed to create llm.resource for URL %s", url)
 
         return created_resources
 
@@ -168,36 +149,16 @@ class UploadResourceWizard(models.TransientModel):
     # Main Action
     # ----------------------------------------------------
     def action_upload_resources(self):
-        """Create RAG resources from files or URLs and process them.
-
-        This method handles both direct file uploads and external URLs,
-        creating corresponding llm.resource records linked to ir.attachment.
-        It then optionally triggers the processing pipeline immediately.
-        """
+        """Create native file/URL resources and optionally process them."""
         self.ensure_one()
         collection = self.collection_id
-        IrModel = self.env["ir.model"]
 
         if not self.file_ids and not self.external_urls:
             raise UserError(_("Please provide at least one file or URL"))
 
-        # Get ir.attachment model ID (needed for both files and default URL handling)
-        attachment_model_id_rec = IrModel.search(
-            [("model", "=", "ir.attachment")], limit=1
-        )
-        if not attachment_model_id_rec:
-            raise UserError(_("Could not find ir.attachment model"))
-        attachment_model_id = attachment_model_id_rec.id
+        file_resources = self._process_file_uploads(collection)
+        url_resources = self._process_external_urls(collection, len(self.file_ids))
 
-        # Process Files
-        file_resources = self._process_file_uploads(collection, attachment_model_id)
-
-        # Process URLs
-        url_resources = self._process_external_urls(
-            collection, attachment_model_id, len(self.file_ids)
-        )
-
-        # Combine results
         created_resources = file_resources | url_resources
 
         # Process resources if requested (full RAG pipeline)

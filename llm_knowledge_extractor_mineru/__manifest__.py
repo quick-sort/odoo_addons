@@ -1,0 +1,15 @@
+{
+    "name": "LLM Knowledge Extractor - MinerU",
+    "summary": "Extract files through an external MinerU service",
+    "category": "Technical",
+    "version": "19.0.1.0.0",
+    "depends": ["llm_knowledge"],
+    "external_dependencies": {"python": ["requests"]},
+    "author": "quick-sort@outlook.com",
+    "website": "quick-sort@outlook.com",
+    "data": ["views/llm_resource_extractor_views.xml"],
+    "license": "LGPL-3",
+    "installable": True,
+    "application": False,
+    "auto_install": False,
+}

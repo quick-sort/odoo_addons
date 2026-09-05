@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <!-- Extends llm.knowledge.collection's base form (llm_knowledge) with
+         chunking/vector-store configuration. -->
+    <record id="view_llm_knowledge_collection_form_store" model="ir.ui.view">
+        <field name="name">llm.knowledge.collection.form.store</field>
+        <field name="model">llm.knowledge.collection</field>
+        <field name="inherit_id" ref="llm_knowledge.view_llm_knowledge_collection_form" />
+        <field name="arch" type="xml">
+            <header position="inside">
+                <button
+          name="action_embed_resources"
+          string="Embed Resources"
+          type="object"
+          class="btn-primary"
+          confirm="This will embed all resource chunks with the configured vector configurations. Continue?"
+        />
+                <button
+          name="reindex_collection"
+          string="Reindex Collection"
+          type="object"
+          class="btn-secondary"
+          confirm="This will recreate vector indexes for resources. Continue?"
+        />
+            </header>
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button
+          name="action_view_chunksets"
+          type="object"
+          class="oe_stat_button"
+          icon="fa-scissors"
+        >
+                    <field name="chunkset_count" widget="statinfo" string="Chunksets" />
+                </button>
+                <button
+          name="action_view_chunks"
+          type="object"
+          class="oe_stat_button"
+          icon="fa-puzzle-piece"
+        >
+                    <field name="chunk_count" widget="statinfo" string="Chunks" />
+                </button>
+            </xpath>
+            <group name="group_left" position="inside">
+                <field name="embedding_model_id" options="{'no_create': True}" />
+                <field name="store_id" />
+            </group>
+            <group name="group_right" position="inside">
+                <field name="default_splitter_type" />
+                <field name="default_chunk_size" />
+                <field name="default_chunk_overlap" />
+            </group>
+            <notebook position="inside">
+                <page string="Chunking Configurations" name="chunksets">
+                    <field name="chunkset_ids" nolabel="1">
+                        <list editable="bottom">
+                            <field name="sequence" widget="handle" />
+                            <field name="name" />
+                            <field name="splitter_id" />
+                            <field name="is_default" widget="boolean_toggle" />
+                            <field name="state" readonly="1" />
+                            <field name="chunk_count" readonly="1" />
+                            <field name="vector_count" readonly="1" />
+                        </list>
+                    </field>
+                </page>
+                <page string="Vector Configurations" name="vectors">
+                    <field name="vector_ids" nolabel="1" readonly="1">
+                        <list>
+                            <field name="name" />
+                            <field name="chunkset_id" />
+                            <field name="embedding_model_id" />
+                            <field name="store_id" />
+                            <field name="dimension" />
+                            <field name="is_default" widget="boolean_toggle" />
+                            <field name="state" />
+                        </list>
+                    </field>
+                </page>
+                <page string="Chunks" name="chunks">
+                    <field name="chunk_ids" nolabel="1">
+                        <list>
+                            <field name="name" />
+                            <field name="resource_id" />
+                            <field name="chunkset_id" />
+                            <field name="sequence" />
+                        </list>
+                    </field>
+                </page>
+            </notebook>
+        </field>
+    </record>
+
+    <record id="view_llm_knowledge_collection_tree_store" model="ir.ui.view">
+        <field name="name">llm.knowledge.collection.tree.store</field>
+        <field name="model">llm.knowledge.collection</field>
+        <field name="inherit_id" ref="llm_knowledge.view_llm_knowledge_collection_tree" />
+        <field name="arch" type="xml">
+            <field name="resource_count" position="after">
+                <field name="chunk_count" />
+                <field name="embedding_model_id" />
+            </field>
+        </field>
+    </record>
+
+    <record id="view_llm_knowledge_collection_kanban_store" model="ir.ui.view">
+        <field name="name">llm.knowledge.collection.kanban.store</field>
+        <field name="model">llm.knowledge.collection</field>
+        <field name="inherit_id" ref="llm_knowledge.view_llm_knowledge_collection_kanban" />
+        <field name="arch" type="xml">
+            <field name="resource_count" position="after">
+                <field name="chunk_count" />
+                <field name="embedding_model_id" />
+            </field>
+            <div class="row" position="inside">
+                <div class="col-6"><strong>Chunks:</strong> <field name="chunk_count" /></div>
+            </div>
+            <div class="o_kanban_record_body" position="inside">
+                <div><strong>Model:</strong> <field name="embedding_model_id" /></div>
+            </div>
+        </field>
+    </record>
+
+    <record id="view_llm_knowledge_collection_search_store" model="ir.ui.view">
+        <field name="name">llm.knowledge.collection.search.store</field>
+        <field name="model">llm.knowledge.collection</field>
+        <field name="inherit_id" ref="llm_knowledge.view_llm_knowledge_collection_search" />
+        <field name="arch" type="xml">
+            <field name="name" position="after">
+                <field name="embedding_model_id" />
+            </field>
+            <filter name="inactive" position="after">
+                <filter
+          string="Embedding Model"
+          name="group_by_model"
+          domain="[]"
+          context="{'group_by':'embedding_model_id'}"
+        />
+            </filter>
+        </field>
+    </record>
+</odoo>

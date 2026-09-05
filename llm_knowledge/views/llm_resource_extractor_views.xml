@@ -7,25 +7,19 @@
             <form>
                 <header>
                     <button
-            name="action_test_config"
-            string="Test Connection"
-            type="object"
-            class="oe_highlight"
-          />
+                        name="action_test_config"
+                        string="Test Configuration"
+                        type="object"
+                        class="oe_highlight"
+                    />
                 </header>
                 <sheet>
                     <div class="oe_title">
                         <h1><field name="name" placeholder="Extractor Name" /></h1>
                     </div>
                     <group>
-                        <group>
-                            <field name="extractor_type" />
-                            <field name="active" widget="boolean_toggle" />
-                        </group>
-                        <group>
-                            <field name="api_url" />
-                            <field name="api_key" password="True" />
-                        </group>
+                        <field name="extractor_type" />
+                        <field name="active" widget="boolean_toggle" />
                     </group>
                 </sheet>
             </form>

@@ -6,7 +6,7 @@ from odoo.exceptions import UserError
 _logger = logging.getLogger(__name__)
 
 
-class LLMKnowledgeChunk(models.Model):
+class LLMStoreChunk(models.Model):
     """A chunk is a pointer/metadata row only: (resource, chunkset,
     sequence). The chunk's text is never stored in Odoo's database, and
     never written to a storage backend either -- it is produced transiently
@@ -22,7 +22,7 @@ class LLMKnowledgeChunk(models.Model):
     from.
     """
 
-    _name = "llm.knowledge.chunk"
+    _name = "llm.store.chunk"
     _description = "Document Chunk for RAG"
     _order = "sequence, id"
 
@@ -63,7 +63,7 @@ class LLMKnowledgeChunk(models.Model):
         "store as payload alongside its embedding (see "
         "llm.knowledge.vector._build_resource). This field is only "
         "populated transiently on records returned by a vector search "
-        "(llm.knowledge.chunk.search() with an 'embedding' domain term), "
+        "(llm.store.chunk.search() with an 'embedding' domain term), "
         "which carries the text back from the search hit's payload via "
         "context; it is otherwise empty for chunks fetched by plain "
         "browse()/search().",
@@ -134,7 +134,7 @@ class LLMKnowledgeChunk(models.Model):
         self.ensure_one()
         return {
             "type": "ir.actions.act_window",
-            "res_model": "llm.knowledge.chunk",
+            "res_model": "llm.store.chunk",
             "res_id": self.id,
             "view_mode": "form",
             "target": "new",
@@ -152,7 +152,7 @@ class LLMKnowledgeChunk(models.Model):
         chunks_by_chunkset = {}
         for chunk in self:
             chunks_by_chunkset.setdefault(
-                chunk.chunkset_id.id, self.env["llm.knowledge.chunk"]
+                chunk.chunkset_id.id, self.env["llm.store.chunk"]
             )
             chunks_by_chunkset[chunk.chunkset_id.id] |= chunk
 

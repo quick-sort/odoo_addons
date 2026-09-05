@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="view_llm_resource_extractor_form_mineru" model="ir.ui.view">
+        <field name="name">llm.resource.extractor.form.mineru</field>
+        <field name="model">llm.resource.extractor</field>
+        <field name="inherit_id" ref="llm_knowledge.view_llm_resource_extractor_form" />
+        <field name="arch" type="xml">
+            <field name="extractor_type" position="after">
+                <field name="api_url" invisible="extractor_type != 'mineru'" />
+                <field
+                    name="api_key"
+                    password="True"
+                    invisible="extractor_type != 'mineru'"
+                />
+            </field>
+        </field>
+    </record>
+</odoo>

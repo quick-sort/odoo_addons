@@ -23,29 +23,4 @@
     action="action_llm_knowledge_document"
     sequence="15"
   />
-
-   <!-- Chunks Menu -->
-   <menuitem
-    id="menu_llm_knowledge_chunk"
-    name="Knowledge Chunks"
-    parent="menu_llm_knowledge_root"
-    action="action_llm_knowledge_chunk"
-    sequence="30"
-  />
-
-    <!-- Chunking/Vector Configuration Menus -->
-    <menuitem
-    id="menu_llm_knowledge_chunkset"
-    name="Chunking Configurations"
-    parent="menu_llm_knowledge_root"
-    action="action_llm_knowledge_chunkset"
-    sequence="20"
-  />
-    <menuitem
-    id="menu_llm_knowledge_vector"
-    name="Vector Configurations"
-    parent="menu_llm_knowledge_root"
-    action="action_llm_knowledge_vector"
-    sequence="25"
-  />
 </odoo>

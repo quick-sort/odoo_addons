@@ -12,7 +12,7 @@ of strings that will actually be embedded, and wrapping each piece with
 surrounding context before embedding is squarely a chunking concern.
 """
 
-from odoo import api, fields, models
+from odoo import fields, models
 
 
 class LLMKnowledgeSplitter(models.Model):
@@ -23,7 +23,11 @@ class LLMKnowledgeSplitter(models.Model):
 
     name = fields.Char(required=True)
     splitter_type = fields.Selection(
-        selection=lambda self: self._selection_splitter_type(),
+        selection=[
+            ("recursive", "Recursive"),
+            ("token", "Token"),
+            ("contextual", "Contextual"),
+        ],
         required=True,
         default="recursive",
     )
@@ -47,18 +51,6 @@ class LLMKnowledgeSplitter(models.Model):
         "generate a short situating blurb prefixed to each chunk before "
         "embedding (contextual retrieval). Unused by other splitter types.",
     )
-
-    @api.model
-    def _selection_splitter_type(self):
-        return [
-            (usage, usage.replace("_", " ").title())
-            for usage in self._get_available_splitters()
-        ]
-
-    @api.model
-    def _get_available_splitters(self):
-        """Usages of the splitters shipped with this addon."""
-        return ["recursive", "token", "contextual"]
 
     def _get_adapter(self):
         self.ensure_one()

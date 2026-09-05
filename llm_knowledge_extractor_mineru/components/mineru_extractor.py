@@ -1,17 +1,13 @@
-"""Mineru extractor: sends a file to an external MinerU service and returns
-the structured JSON it produces. The service base URL and key are taken from
-the extractor record's api_url/api_key fields.
-"""
+"""MinerU external-service file extractor."""
 
-import logging
 import posixpath
+
+import requests
 
 from odoo import _
 from odoo.exceptions import UserError
 
 from odoo.addons.component.core import Component
-
-_logger = logging.getLogger(__name__)
 
 
 class MineruExtractor(Component):
@@ -34,27 +30,25 @@ class MineruExtractor(Component):
         return posixpath.join(base, "parse")
 
     def extract(self, resource):
-        import requests  # lazy import; part of the odoo runtime deps
-
         content = resource._read_source_bytes()
         headers = {}
         if self.collection.api_key:
             headers["Authorization"] = "Bearer %s" % self.collection.api_key
-        resp = requests.post(
+        response = requests.post(
             self._parse_endpoint(),
             files={"file": (resource.name or "content", content)},
             headers=headers,
             timeout=300,
         )
-        if not resp.ok:
+        if not response.ok:
             raise UserError(
                 _(
-                    "Mineru service returned HTTP %s: %s",
-                    resp.status_code,
-                    resp.text[:500],
+                    "MinerU service returned HTTP %s: %s",
+                    response.status_code,
+                    response.text[:500],
                 )
             )
-        return resp.json()
+        return response.json()
 
     def validate_config(self):
         base = (self.collection.api_url or "").rstrip("/")
@@ -62,14 +56,12 @@ class MineruExtractor(Component):
             raise UserError(
                 _("No API URL configured for the '%s' extractor.", self.collection.name)
             )
-        import requests  # noqa: PLC0415
-
-        resp = requests.get(base, timeout=15)
-        if not resp.ok:
+        response = requests.get(base, timeout=15)
+        if not response.ok:
             raise UserError(
                 _(
-                    "Mineru service at '%s' is not reachable (HTTP %s).",
+                    "MinerU service at '%s' is not reachable (HTTP %s).",
                     base,
-                    resp.status_code,
+                    response.status_code,
                 )
             )

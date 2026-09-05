@@ -25,21 +25,7 @@
             string="Process Resources"
             type="object"
             class="btn-primary"
-            confirm="This will process resources through the RAG pipeline until chunked state. Continue?"
-          />
-                    <button
-            name="action_embed_resources"
-            string="Embed Resources"
-            type="object"
-            class="btn-primary"
-            confirm="This will embed all resource chunks with the selected embedding model. Continue?"
-          />
-                    <button
-            name="reindex_collection"
-            string="Reindex Collection"
-            type="object"
-            class="btn-secondary"
-            confirm="This will recreate vector indexes for resources. Continue?"
+            confirm="This will process resources through retrieval and parsing. Continue?"
           />
                 </header>
                 <sheet>
@@ -56,30 +42,6 @@
                 string="Resources"
               />
                         </button>
-                        <button
-              name="action_view_chunksets"
-              type="object"
-              class="oe_stat_button"
-              icon="fa-scissors"
-            >
-                            <field
-                name="chunkset_count"
-                widget="statinfo"
-                string="Chunksets"
-              />
-                        </button>
-                        <button
-              name="action_view_chunks"
-              type="object"
-              class="oe_stat_button"
-              icon="fa-puzzle-piece"
-            >
-                            <field
-                name="chunk_count"
-                widget="statinfo"
-                string="Chunks"
-              />
-                        </button>
                     </div>
                     <div class="oe_title">
                         <h1><field
@@ -88,20 +50,12 @@
               /></h1>
                     </div>
                     <group>
-                        <group>
+                        <group name="group_left">
                             <field name="active" widget="boolean_toggle" />
-                            <field
-                name="embedding_model_id"
-                options="{'no_create': True}"
-              />
-                            <field name="store_id" />
                             <field name="md_backend_id" options="{'no_create': True}" />
                         </group>
-                        <group>
+                        <group name="group_right">
                             <field name="default_parser" />
-                            <field name="default_splitter_type" />
-                            <field name="default_chunk_size" />
-                            <field name="default_chunk_overlap" />
                         </group>
                     </group>
                     <notebook>
@@ -136,11 +90,6 @@
                     optional="hide"
                   />
                                     <field name="state" readonly="1" />
-                                    <field
-                    name="chunk_count"
-                    readonly="1"
-                    sum="Total Chunks"
-                  />
                                     <button
                     name="process_resource"
                     string="Process"
@@ -153,42 +102,6 @@
                     name="action_open_resource"
                     icon="fa-external-link"
                   />
-                                </list>
-                            </field>
-                        </page>
-                        <page string="Chunking Configurations" name="chunksets">
-                            <field name="chunkset_ids" nolabel="1">
-                                <list editable="bottom">
-                                    <field name="sequence" widget="handle" />
-                                    <field name="name" />
-                                    <field name="splitter_id" />
-                                    <field name="is_default" widget="boolean_toggle" />
-                                    <field name="state" readonly="1" />
-                                    <field name="chunk_count" readonly="1" />
-                                    <field name="vector_count" readonly="1" />
-                                </list>
-                            </field>
-                        </page>
-                        <page string="Vector Configurations" name="vectors">
-                            <field name="vector_ids" nolabel="1" readonly="1">
-                                <list>
-                                    <field name="name" />
-                                    <field name="chunkset_id" />
-                                    <field name="embedding_model_id" />
-                                    <field name="store_id" />
-                                    <field name="dimension" />
-                                    <field name="is_default" widget="boolean_toggle" />
-                                    <field name="state" />
-                                </list>
-                            </field>
-                        </page>
-                         <page string="Chunks"> <!-- Added page for chunks -->
-                            <field name="chunk_ids" nolabel="1">
-                                <list>
-                                    <field name="name" />
-                                    <field name="resource_id" />
-                                    <field name="chunkset_id" />
-                                    <field name="sequence" />
                                 </list>
                             </field>
                         </page>
@@ -237,8 +150,6 @@
             <list>
                 <field name="name" />
                 <field name="resource_count" />
-                <field name="chunk_count" />
-                <field name="embedding_model_id" />
                 <field name="active" widget="boolean_toggle" />
             </list>
         </field>
@@ -251,17 +162,10 @@
         <field name="arch" type="xml">
             <search>
                 <field name="name" />
-                <field name="embedding_model_id" />
                 <filter
           string="Archived"
           name="inactive"
           domain="[('active', '=', False)]"
-        />
-                <filter
-          string="Embedding Model"
-          name="group_by_model"
-          domain="[]"
-          context="{'group_by':'embedding_model_id'}"
         />
             </search>
         </field>
@@ -276,8 +180,6 @@
                 <field name="id" />
                 <field name="name" />
                 <field name="resource_count" />
-                <field name="chunk_count" />
-                <field name="embedding_model_id" />
                 <templates>
                     <t t-name="card">
                         <div t-attf-class="oe_kanban_global_click">
@@ -292,12 +194,7 @@
                                 <div class="row">
                                     <div class="col-6"><strong
                     >Resources:</strong> <field name="resource_count" /></div>
-                                    <div class="col-6"><strong
-                    >Chunks:</strong> <field name="chunk_count" /></div>
                                 </div>
-                                <div><strong>Model:</strong> <field
-                    name="embedding_model_id"
-                  /></div>
                             </div>
                         </div>
                     </t>
@@ -314,9 +211,9 @@
         <field name="help" type="html">
             <p
         class="o_view_nocontent_smiling_face"
-      >Create your first RAG collection</p>
+      >Create your first knowledge collection</p>
             <p
-      >Collections group resources that share the same embedding model for RAG processing.</p>
+      >Collections group resources and their extracted plain text/markdown.</p>
         </field>
     </record>
 </odoo>

@@ -9,7 +9,7 @@ class LLMResourceExtractorComponent(AbstractComponent):
 
     # Kind of source this extractor consumes: "file" or "url".
     _input = "file"
-    # Output format: "md" (markitdown, trafilatura) or "json" (mineru).
+    # Output format produced by the implementation: "md" or "json".
     _output_format = "md"
 
     def extract(self, resource):

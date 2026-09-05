@@ -1,15 +1,11 @@
-"""Trafilatura extractor: fetches a URL and extracts the main article to
-markdown. The 'trafilatura' package is imported lazily.
-"""
+"""Trafilatura URL extractor."""
 
-import logging
+import trafilatura
 
 from odoo import _
 from odoo.exceptions import UserError
 
 from odoo.addons.component.core import Component
-
-_logger = logging.getLogger(__name__)
 
 
 class TrafilaturaExtractor(Component):
@@ -20,15 +16,6 @@ class TrafilaturaExtractor(Component):
     _output_format = "md"
 
     def extract(self, resource):
-        try:
-            import trafilatura
-        except ImportError as err:
-            raise UserError(
-                _(
-                    "The 'trafilatura' python package is required for the "
-                    "Trafilatura extractor. Install it with: pip install trafilatura"
-                )
-            ) from err
         downloaded = trafilatura.fetch_url(resource.source_url)
         text = trafilatura.extract(
             downloaded,

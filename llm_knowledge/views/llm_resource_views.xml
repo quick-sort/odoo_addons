@@ -17,7 +17,6 @@
                 <field name="lock_date" />
                 <field name="model_id" />
                 <field name="res_id" />
-                <field name="chunk_count" />
                 <field name="collection_ids" />
                 <templates>
                     <t t-name="card">
@@ -73,28 +72,10 @@
                         t-if="record.state.raw_value == 'retrieved'"
                       >Parse</a>
                                             <a
-                        name="chunk"
-                        type="object"
-                        class="dropdown-item"
-                        t-if="record.state.raw_value == 'parsed'"
-                      >Chunk</a>
-                                            <a
-                        name="action_embed"
-                        type="object"
-                        class="dropdown-item"
-                        t-if="record.state.raw_value == 'chunked'"
-                      >Embed</a>
-                                            <a
                         name="process_resource"
                         type="object"
                         class="dropdown-item"
                       >Process All</a>
-                                            <a
-                        name="action_reindex"
-                        type="object"
-                        class="dropdown-item"
-                        t-if="record.state.raw_value == 'ready'"
-                      >Re-index</a>
                                         </div>
                                     </div>
                                 </div>
@@ -102,15 +83,6 @@
                                     <div><span class="o_kanban_tag"><field
                         name="model_id"
                       />: <field name="res_id" /></span></div>
-                                    <div
-                    class="text-muted"
-                    t-if="record.chunk_count.raw_value > 0"
-                  >
-                                        <i
-                      class="fa fa-puzzle-piece"
-                      title="Chunks"
-                    /> <field name="chunk_count" /> chunks
-                                    </div>
                                     <div
                     t-if="record.collection_ids.raw_value.length > 0"
                     class="mt-2"
@@ -130,7 +102,7 @@
                                         <field
                       name="state"
                       widget="label_selection"
-                      options="{'classes': {'draft': 'default', 'retrieved': 'primary', 'parsed': 'info', 'chunked': 'warning', 'ready': 'success'}}"
+                      options="{'classes': {'draft': 'default', 'retrieved': 'primary', 'parsed': 'info'}}"
                     />
                                     </div>
                                 </div>
@@ -165,56 +137,19 @@
             invisible="state != 'retrieved'"
           />
                     <button
-            name="chunk"
-            string="Chunk"
-            type="object"
-            class="oe_highlight"
-            invisible="state != 'parsed'"
-          />
-                    <button
-            name="action_embed"
-            string="Embed"
-            type="object"
-            class="oe_highlight"
-            invisible="state != 'chunked'"
-          />
-                    <button
             name="process_resource"
             string="Process All"
             type="object"
             class="btn-secondary"
           />
-                    <button
-            name="action_reindex"
-            string="Re-index"
-            type="object"
-            class="btn-secondary"
-            invisible="state != 'ready'"
-          />
                     <field
             name="state"
             widget="statusbar"
-            statusbar_visible="draft,retrieved,parsed,chunked,ready"
+            statusbar_visible="draft,retrieved,parsed"
             options="{'clickable':1}"
           />
                 </header>
                 <sheet>
-                    <div class="oe_button_box" name="button_box">
-                        <field name="chunk_count" invisible="1" />
-                        <button
-              name="action_view_chunks"
-              type="object"
-              class="oe_stat_button"
-              icon="fa-puzzle-piece"
-              invisible="chunk_count == 0"
-            >
-                            <field
-                name="chunk_count"
-                widget="statinfo"
-                string="Chunks"
-              />
-                        </button>
-                    </div>
                     <div class="oe_title">
                         <h1><field
                 name="name"
@@ -289,27 +224,6 @@
                 widget="text"
               />
                         </page>
-                        <page
-              string="Chunks"
-              name="chunks"
-              invisible="chunk_count == 0"
-            >
-                            <field
-                name="chunk_ids"
-                context="{'default_resource_id': id}"
-              >
-                                <list>
-                                    <field name="chunkset_id" />
-                                    <field name="sequence" widget="handle" />
-                                    <field name="name" />
-                                    <field
-                    name="metadata"
-                    widget="json_preview"
-                    optional="show"
-                  />
-                                </list>
-                            </field>
-                        </page>
                     </notebook>
                 </sheet>
                 <chatter />
@@ -328,7 +242,6 @@
                 <field name="res_id" />
                 <field name="external_url" widget="url" optional="show" />
                 <field name="state" />
-                <field name="chunk_count" />
                 <field name="lock_date" />
             </list>
         </field>
@@ -358,16 +271,6 @@
           string="Parsed"
           name="state_parsed"
           domain="[('state', '=', 'parsed')]"
-        />
-                <filter
-          string="Chunked"
-          name="state_chunked"
-          domain="[('state', '=', 'chunked')]"
-        />
-                <filter
-          string="Ready"
-          name="state_ready"
-          domain="[('state', '=', 'ready')]"
         />
                 <filter
           string="Locked"
@@ -431,7 +334,6 @@
           optional="show"
         />
                 <field name="state" />
-                <field name="chunk_count" />
             </list>
         </field>
     </record>

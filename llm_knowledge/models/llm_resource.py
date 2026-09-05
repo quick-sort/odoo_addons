@@ -8,6 +8,17 @@ _logger = logging.getLogger(__name__)
 
 
 class LLMResource(models.Model):
+    """A document/record wrapper managed by a knowledge collection.
+
+    llm_knowledge owns retrieval and parsing only: a resource's own
+    lifecycle here ends at 'parsed' (plain text/markdown available, either
+    cached inline in `content` or as a managed artifact on the owning
+    collection's md_backend_id). Chunking, embedding and vector search are
+    separate concerns owned by the llm_store addon, which extends this
+    model with `chunk_ids`/`state` selection_add ('chunked', 'ready') and
+    the corresponding actions when installed.
+    """
+
     _name = "llm.resource"
     _description = "LLM Resource for Document Management"
     _inherit = ["mail.thread", "mail.activity.mixin"]
@@ -92,8 +103,6 @@ class LLMResource(models.Model):
             ("draft", "Draft"),
             ("retrieved", "Retrieved"),
             ("parsed", "Parsed"),
-            ("chunked", "Chunked"),
-            ("ready", "Ready"),
         ],
         string="State",
         default="draft",
@@ -273,9 +282,12 @@ class LLMResource(models.Model):
 
     def process_resource(self):
         """
-        Process resources through retrieval, parsing, chunking and embedding.
+        Process resources through retrieval and parsing.
         Can handle multiple resources at once, processing them through
         as many pipeline stages as possible based on their current states.
+
+        llm_store extends this (via _inherit) to continue the pipeline into
+        chunking/embedding once a resource reaches 'parsed'.
         """
         # Stage 1: Retrieve content for draft resources
         draft_docs = self.filtered(lambda d: d.state == "draft")
@@ -286,24 +298,6 @@ class LLMResource(models.Model):
         retrieved_docs = self.filtered(lambda d: d.state == "retrieved")
         if retrieved_docs:
             retrieved_docs.parse()
-
-        # Process chunking and embedding
-        inconsistent_docs = self.filtered(
-            lambda d: d.state in ["chunked", "ready"] and not d.chunk_ids
-        )
-
-        if inconsistent_docs:
-            inconsistent_docs.write({"state": "parsed"})
-
-        # Process chunks for parsed documents
-        parsed_docs = self.filtered(lambda d: d.state == "parsed")
-        if parsed_docs:
-            parsed_docs.chunk()
-
-        # Embed chunked documents
-        chunked_docs = self.filtered(lambda d: d.state == "chunked")
-        if chunked_docs:
-            chunked_docs.embed()
 
         return True
 
@@ -430,181 +424,11 @@ class LLMResource(models.Model):
             },
         }
 
-    def action_embed(self):
-        """Action handler for embedding document chunks"""
-        result = self.embed()
-        # Return appropriate notification
-        if result:
-            self._post_styled_message(
-                _("Document embedding process completed successfully."),
-                "success",
-            )
-            return True
-        else:
-            message = (
-                _(
-                    "Document embedding process did not complete properly, check logs on resources."
-                ),
-            )
-
-            return {
-                "type": "ir.actions.client",
-                "tag": "display_notification",
-                "params": {
-                    "title": _("Embedding"),
-                    "message": message,
-                    "type": "warning",
-                    "sticky": False,
-                },
-            }
-
-    def action_reindex(self):
-        """Reindex a single resource's chunks"""
-        self.ensure_one()
-
-        # Get all collections this resource belongs to
-        collections = self.collection_ids
-        if not collections:
-            return {
-                "type": "ir.actions.client",
-                "tag": "display_notification",
-                "params": {
-                    "title": _("Reindexing"),
-                    "message": _("Resource does not belong to any collections."),
-                    "type": "warning",
-                },
-            }
-
-        # Get all chunks for this resource
-        chunks = self.chunk_ids
-        if not chunks:
-            return {
-                "type": "ir.actions.client",
-                "tag": "display_notification",
-                "params": {
-                    "title": _("Reindexing"),
-                    "message": _("No chunks found for this resource."),
-                    "type": "warning",
-                },
-            }
-
-        # Set resource back to chunked state to trigger re-embedding
-        self.write({"state": "chunked"})
-
-        # Delete chunks from each collection's store
-        for collection in collections:
-            if collection.store_id:
-                # Remove chunks from this resource from the store
-                try:
-                    collection.delete_vectors(ids=chunks.ids)
-                except Exception as e:
-                    _logger.warning(
-                        f"Error removing vectors for chunks from collection {collection.id}: {str(e)}"
-                    )
-
-        return {
-            "type": "ir.actions.client",
-            "tag": "display_notification",
-            "params": {
-                "title": _("Reindexing"),
-                "message": _(
-                    f"Reset resource for re-embedding in {len(collections)} collections."
-                ),
-                "type": "success",
-            },
-        }
-
-    def action_mass_reindex(self):
-        """Reindex multiple resources at once"""
-        collections = self.env["llm.knowledge.collection"]
-        for resource in self:
-            # Add to collections set
-            collections |= resource.collection_ids
-
-        # Reindex each affected collection
-        for collection in collections:
-            collection.reindex_collection()
-
-        return {
-            "type": "ir.actions.client",
-            "tag": "display_notification",
-            "params": {
-                "title": _("Reindexing"),
-                "message": _(
-                    f"Reindexing request submitted for {len(collections)} collections."
-                ),
-                "type": "success",
-                "sticky": False,
-            },
-        }
-
-    def embed(self):
-        """
-        Embed resource chunks in collections by calling the collection's embed_resources method.
-        Called after chunking to create vector representations.
-
-        Returns:
-            bool: True if any resources were successfully embedded, False otherwise
-        """
-        # Filter to only get resources in chunked state
-        chunked_docs = self.filtered(lambda d: d.state == "chunked")
-
-        if not chunked_docs:
-            self._post_styled_message(
-                _("No resources in 'chunked' state to embed."),
-                "warning",
-            )
-            return False
-
-        # Get all collections for these resources
-        collections = self.env["llm.knowledge.collection"]
-        for doc in chunked_docs:
-            collections |= doc.collection_ids
-
-        # If no collections, resources can't be embedded
-        if not collections:
-            self._post_styled_message(
-                _("No collections found for the selected resources."),
-                "warning",
-            )
-            return False
-
-        # Track if any resources were embedded
-        any_embedded = False
-
-        # Let each collection handle the embedding
-        for collection in collections:
-            result = collection.embed_resources(specific_resource_ids=chunked_docs.ids)
-            # Check if result is not None before trying to access .get()
-            if (
-                result
-                and result.get("success")
-                and result.get("processed_resources", 0) > 0
-            ):
-                any_embedded = True
-
-        if not any_embedded:
-            self._post_styled_message(
-                _(
-                    "No resources could be embedded. Check that resources have correct collections and collections have valid embedding models and stores."
-                ),
-                "warning",
-            )
-        # Return True only if resources were actually embedded
-        return any_embedded
-
     def _reset_state_if_needed(self):
-        """Reset resource state to 'chunked' if it's in 'ready' state and not in any collection."""
+        """Hook called when a resource is removed from all collections.
+        Base implementation is a no-op; llm_store extends this to reset
+        'ready' resources back to 'chunked' for re-embedding."""
         self.ensure_one()
-        if self.state == "ready" and not self.collection_ids:
-            self.write({"state": "chunked"})
-            _logger.info(
-                f"Reset resource {self.id} to 'chunked' state after removal from all collections"
-            )
-            self._post_styled_message(
-                _("Reset to 'chunked' state after removal from all collections"),
-                "info",
-            )
         return True
 
     def _handle_collection_ids_change(self, old_collections_by_resource):
@@ -622,19 +446,18 @@ class LLMResource(models.Model):
                 cid for cid in old_collection_ids if cid not in current_collection_ids
             ]
 
-            # Clean up vectors in those collections' stores
+            # Notify collections so they (or extending addons) can clean up
             if removed_collection_ids:
                 collections = self.env["llm.knowledge.collection"].browse(
                     removed_collection_ids
                 )
                 for collection in collections:
-                    # Use the collection's method to handle resource removal
                     collection._handle_removed_resources([resource.id])
 
         return True
 
     def write(self, vals):
-        """Override write to handle collection_ids changes and cleanup vectors if needed"""
+        """Override write to notify collections of collection_ids changes"""
         # Track collections before the write
         resources_collections = {}
         if "collection_ids" in vals:

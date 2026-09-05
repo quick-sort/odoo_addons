@@ -1,3 +1,12 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_llm_store_user,llm.store.user,model_llm_store,base.group_user,1,0,0,0
 access_llm_store_manager,llm.store.manager,model_llm_store,llm.group_llm_manager,1,1,1,1
+
+access_llm_knowledge_splitter_user,llm.knowledge.splitter.user,model_llm_knowledge_splitter,base.group_user,1,0,0,0
+access_llm_knowledge_splitter_manager,llm.knowledge.splitter.manager,model_llm_knowledge_splitter,llm.group_llm_manager,1,1,1,1
+access_llm_knowledge_chunkset_user,llm.knowledge.chunkset.user,model_llm_knowledge_chunkset,base.group_user,1,0,0,0
+access_llm_knowledge_chunkset_manager,llm.knowledge.chunkset.manager,model_llm_knowledge_chunkset,llm.group_llm_manager,1,1,1,1
+access_llm_knowledge_vector_user,llm.knowledge.vector.user,model_llm_knowledge_vector,base.group_user,1,0,0,0
+access_llm_knowledge_vector_manager,llm.knowledge.vector.manager,model_llm_knowledge_vector,llm.group_llm_manager,1,1,1,1
+access_llm_store_chunk_user,llm.store.chunk.user,model_llm_store_chunk,base.group_user,1,0,0,0
+access_llm_store_chunk_manager,llm.store.chunk.manager,model_llm_store_chunk,llm.group_llm_manager,1,1,1,1

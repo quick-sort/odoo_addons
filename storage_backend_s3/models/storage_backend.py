@@ -8,6 +8,12 @@ from odoo import fields, models
 
 from ..regions import AWS_REGIONS
 
+AWS_REGION_SELECTION = [
+    ("", "None"),
+    *AWS_REGIONS,
+    ("other", "Empty or Other (Manually specify below)"),
+]
+
 
 class StorageBackend(models.Model):
     _inherit = "storage.backend"
@@ -24,7 +30,7 @@ class StorageBackend(models.Model):
     aws_bucket = fields.Char(string="Bucket")
     aws_access_key_id = fields.Char(string="Access Key ID")
     aws_secret_access_key = fields.Char(string="Secret Access Key")
-    aws_region = fields.Selection(selection="_selection_aws_region", string="Region")
+    aws_region = fields.Selection(selection=AWS_REGION_SELECTION, string="Region")
     aws_cache_control = fields.Char(default="max-age=31536000, public")
     aws_other_region = fields.Char(string="Other region")
     aws_file_acl = fields.Selection(
@@ -56,10 +62,3 @@ class StorageBackend(models.Model):
             }
         )
         return env_fields
-
-    def _selection_aws_region(self):
-        return (
-            [("", "None")]
-            + AWS_REGIONS
-            + [("other", "Empty or Other (Manually specify below)")]
-        )

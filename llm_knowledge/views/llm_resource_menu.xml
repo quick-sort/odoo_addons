@@ -15,11 +15,4 @@
     action="action_llm_resource_extractor"
     sequence="46"
   />
-    <menuitem
-    id="menu_llm_knowledge_splitter"
-    name="Splitters"
-    parent="llm.menu_llm_config"
-    action="action_llm_knowledge_splitter"
-    sequence="47"
-  />
 </odoo>

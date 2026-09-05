@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <!-- Chunks Menu -->
+    <menuitem
+    id="menu_llm_store_chunk"
+    name="Chunks"
+    parent="llm_knowledge.menu_llm_knowledge_root"
+    action="action_llm_store_chunk"
+    sequence="30"
+  />
+
+    <!-- Chunking/Vector Configuration Menus -->
+    <menuitem
+    id="menu_llm_knowledge_chunkset"
+    name="Chunking Configurations"
+    parent="llm_knowledge.menu_llm_knowledge_root"
+    action="action_llm_knowledge_chunkset"
+    sequence="20"
+  />
+    <menuitem
+    id="menu_llm_knowledge_vector"
+    name="Vector Configurations"
+    parent="llm_knowledge.menu_llm_knowledge_root"
+    action="action_llm_knowledge_vector"
+    sequence="25"
+  />
+
+    <!-- Splitters Menu -->
+    <menuitem
+    id="menu_llm_knowledge_splitter"
+    name="Splitters"
+    parent="llm.menu_llm_config"
+    action="action_llm_knowledge_splitter"
+    sequence="47"
+  />
+</odoo>
