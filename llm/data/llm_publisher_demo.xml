@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo noupdate="1">
+
+    <!-- Demo publishers that no service addon ships. OpenAI and Anthropic
+         publishers come with llm_openai / llm_anthropic (data/llm_publisher.xml,
+         including logos); providers themselves are demoed there too because
+         the `service` selection value only exists when the adapter addon is
+         installed. -->
+
+    <record id="llm_publisher_meta" model="llm.publisher">
+        <field name="name">Meta</field>
+        <field name="official">True</field>
+        <field name="description">Meta publishes the open-weight Llama family of models.</field>
+    </record>
+
+</odoo>

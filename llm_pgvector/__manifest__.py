@@ -27,10 +27,11 @@ vectors. Payloads carry the Odoo-side ids so a reconciliation pass can clean
 them up.
     """,
     "category": "Technical",
-    "version": "19.0.2.0.0",
+    "version": "19.0.2.0.1",
     "author": "quick-sort@outlook.com",
     "website": "quick-sort@outlook.com",
     "depends": ["llm", "llm_store"],
+    "demo": ["data/llm_store_demo.xml"],
     "external_dependencies": {
         "python": ["psycopg2", "pgvector"],
     },

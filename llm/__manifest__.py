@@ -55,6 +55,9 @@
         "data/llm_tool_invoke_assistant_data.xml",
         "data/llm_assistant_data.xml",
     ],
+    "demo": [
+        "data/llm_publisher_demo.xml",
+    ],
     "assets": {
         "web.assets_backend": [
             # Services - LLM store service for integration with mail.store

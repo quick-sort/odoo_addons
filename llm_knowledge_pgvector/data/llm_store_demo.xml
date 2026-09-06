@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo noupdate="1">
+
+    <!-- Embeddings stored inside Odoo's own database: no external service
+         to configure, so this store is usable out of the box once an
+         embedding model exists. -->
+
+    <record id="llm_store_pgvector_local_demo" model="llm.store">
+        <field name="name">Odoo PGVector (Demo)</field>
+        <field name="service">pgvector_local</field>
+        <field name="pgvector_index_method">hnsw</field>
+    </record>
+
+</odoo>

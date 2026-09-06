@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo noupdate="1">
+
+    <record id="llm_splitter_recursive_demo" model="llm.knowledge.splitter">
+        <field name="name">Recursive (Demo)</field>
+        <field name="splitter_type">recursive</field>
+        <field name="chunk_size">1000</field>
+        <field name="chunk_overlap">100</field>
+    </record>
+
+    <record id="llm_splitter_token_demo" model="llm.knowledge.splitter">
+        <field name="name">Token (Demo)</field>
+        <field name="splitter_type">token</field>
+        <field name="chunk_size">512</field>
+        <field name="chunk_overlap">50</field>
+    </record>
+
+    <!-- The contextual splitter additionally needs a chat model; wire it to
+         the demo chat model when llm_openai's demo data is installed,
+         otherwise leave it unset (the field is optional). -->
+
+    <record id="llm_splitter_contextual_demo" model="llm.knowledge.splitter">
+        <field name="name">Contextual (Demo)</field>
+        <field name="splitter_type">contextual</field>
+        <field name="chunk_size">1000</field>
+        <field name="chunk_overlap">100</field>
+    </record>
+
+</odoo>

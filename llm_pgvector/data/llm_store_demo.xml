@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo noupdate="1">
+
+    <!-- External PGVector server; connection_uri is intentionally empty —
+         point it at your own instance before use. -->
+
+    <record id="llm_store_pgvector_demo" model="llm.store">
+        <field name="name">External PGVector (Demo)</field>
+        <field name="service">pgvector</field>
+    </record>
+
+</odoo>

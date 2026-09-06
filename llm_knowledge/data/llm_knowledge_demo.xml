@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo noupdate="1">
+
+    <!-- A filesystem backend stands in for the collection's original file
+         storage; markdown artifacts stay inline (no md_backend_id) to keep
+         the demo dependency-free. -->
+
+    <record id="storage_backend_source_demo" model="storage.backend">
+        <field name="name">Knowledge Demo Files (Demo)</field>
+        <field name="backend_type">filesystem</field>
+        <field name="directory_path">llm_knowledge_demo</field>
+    </record>
+
+    <record id="llm_knowledge_collection_demo" model="llm.knowledge.collection">
+        <field name="name">Product Documentation (Demo)</field>
+        <field name="description">Demo knowledge collection seeded with a URL resource and a scanned source backend. Run "Scan Storage" to pull files from the demo backend into resources.</field>
+        <field name="source_backend_id" ref="storage_backend_source_demo" />
+    </record>
+
+    <record id="llm_resource_url_demo" model="llm.resource">
+        <field name="name">Odoo 19 Documentation Portal</field>
+        <field name="source_type">url</field>
+        <field name="source_url">https://www.odoo.com/documentation/19.0/</field>
+        <field name="collection_ids" eval="[(4, ref('llm_knowledge_collection_demo'))]" />
+    </record>
+
+</odoo>

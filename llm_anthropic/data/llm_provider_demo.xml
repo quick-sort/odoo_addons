@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo noupdate="1">
+
+    <!-- No api_key on purpose: demo data must never suggest a working
+         credential. Users add their own key before testing connectivity. -->
+
+    <record id="llm_provider_anthropic_demo" model="llm.provider">
+        <field name="name">Anthropic (Demo)</field>
+        <field name="service">anthropic</field>
+        <field name="api_base">https://api.anthropic.com</field>
+    </record>
+
+    <record id="llm_model_claude_sonnet_demo" model="llm.model">
+        <field name="name">claude-sonnet-4-5</field>
+        <field name="provider_id" ref="llm_provider_anthropic_demo" />
+        <field name="publisher_id" ref="llm_anthropic.llm_publisher_anthropic" />
+        <field name="model_use">chat</field>
+        <field name="supports_image_input">True</field>
+    </record>
+
+    <record id="llm_model_claude_haiku_demo" model="llm.model">
+        <field name="name">claude-haiku-4-5</field>
+        <field name="provider_id" ref="llm_provider_anthropic_demo" />
+        <field name="publisher_id" ref="llm_anthropic.llm_publisher_anthropic" />
+        <field name="model_use">chat</field>
+        <field name="supports_image_input">True</field>
+    </record>
+
+</odoo>

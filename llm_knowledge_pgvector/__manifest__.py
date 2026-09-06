@@ -26,7 +26,7 @@ It registers on ``llm.store`` as the ``pgvector_local`` service. Managing a
 ``llm_pgvector`` addon, which has none of the requirements above.
     """,
     "category": "Technical",
-    "version": "19.0.1.0.0",
+    "version": "19.0.1.0.1",
     "author": "quick-sort@outlook.com",
     "website": "quick-sort@outlook.com",
     "depends": ["base_pgvector", "llm_store"],
@@ -36,6 +36,7 @@ It registers on ``llm.store`` as the ``pgvector_local`` service. Managing a
         "views/llm_store_views.xml",
         "views/menu_views.xml",
     ],
+    "demo": ["data/llm_store_demo.xml"],
     "images": ["static/description/banner.jpeg"],
     "installable": True,
     "application": False,

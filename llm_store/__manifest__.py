@@ -27,6 +27,9 @@
         "views/llm_resource_views.xml",
         "views/menu.xml",
     ],
+    "demo": [
+        "data/llm_knowledge_splitter_demo.xml",
+    ],
     "images": ["static/description/banner.jpeg"],
     "license": "LGPL-3",
     "installable": True,

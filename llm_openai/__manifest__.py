@@ -16,6 +16,7 @@
     "data": [
         "data/llm_publisher.xml",
     ],
+    "demo": ["data/llm_provider_demo.xml"],
     "images": [
         "static/description/banner.jpeg",
     ],
