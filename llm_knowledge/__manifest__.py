@@ -8,12 +8,11 @@
         llm_knowledge extractor, parser, and retriever addons.
     """,
     "category": "Technical",
-    "version": "19.0.4.0.0",
+    "version": "19.0.5.0.0",
     "depends": [
         "llm",
         "component",
         "storage_backend",
-        "one_storage",
         "queue_job",
     ],
     "author": "quick-sort@outlook.com",
@@ -21,6 +20,7 @@
     "data": [
         "security/ir.model.access.csv",
         "data/server_actions.xml",
+        "data/ir_cron_data.xml",
         "views/llm_resource_views.xml",
         "views/llm_resource_extractor_views.xml",
         "views/llm_knowledge_collection_views.xml",
@@ -28,6 +28,9 @@
         "wizards/upload_resource_wizard_views.xml",
         "views/llm_resource_menu.xml",
         "views/menu.xml",
+    ],
+    "demo": [
+        "data/llm_knowledge_demo.xml",
     ],
     "images": ["static/description/banner.jpeg"],
     "license": "LGPL-3",

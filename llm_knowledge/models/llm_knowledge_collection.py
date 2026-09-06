@@ -46,6 +46,20 @@ class LLMKnowledgeCollection(models.Model):
         "when unset, extracted markdown is only cached inline on the "
         "resource.",
     )
+    source_backend_id = fields.Many2one(
+        "storage.backend",
+        string="Source Backend",
+        ondelete="restrict",
+        tracking=True,
+        help="Storage backend holding the collection's original files. "
+        "'Scan Storage' walks it (optionally limited to the Source Path) "
+        "and creates a file resource per discovered file.",
+    )
+    source_path = fields.Char(
+        string="Source Path",
+        help="Optional subfolder inside the Source Backend to scan. Empty "
+        "scans the backend root.",
+    )
     resource_ids = fields.Many2many(
         "llm.resource",
         string="Resources",

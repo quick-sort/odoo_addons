@@ -6,4 +6,5 @@ from . import llm_resource_parser
 from . import llm_resource_file_url
 from . import ir_attachment
 from . import llm_knowledge_collection
+from . import llm_knowledge_collection_storage
 from . import llm_knowledge_domain

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo noupdate="1">
+
+    <!-- Scans every active collection with a source storage backend: new
+         files become resources, gone files get the to_delete flag. -->
+    <record id="cron_scan_knowledge_storage" model="ir.cron">
+        <field name="name">LLM Knowledge: Scan storage sources</field>
+        <field name="model_id" ref="model_llm_knowledge_collection" />
+        <field name="state">code</field>
+        <field name="code">model._cron_scan_storage()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="priority">9</field>
+        <field name="active" eval="True" />
+    </record>
+
+</odoo>

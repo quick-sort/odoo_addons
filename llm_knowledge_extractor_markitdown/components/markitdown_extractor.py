@@ -17,7 +17,7 @@ class MarkitdownExtractor(Component):
 
     def extract(self, resource):
         content = resource._read_source_bytes()
-        suffix = os.path.splitext(resource.entry_id.name or "")[1] or ".bin"
+        suffix = os.path.splitext(resource.source_path or "")[1] or ".bin"
         with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
             tmp.write(content)
             tmp_path = tmp.name

@@ -97,9 +97,24 @@ resources. Unsupported binary, PDF, or HTML fields produce a link and a message 
 optional parser is required. File and URL resources require one of the extractor addons.
 
 The upload wizard now creates files and external URLs as native `source_type="file"`
-and `source_type="url"` resources. Uploaded bytes are copied into `one.storage`, so the
-wizard uses the selected file/URL extractor path and no longer forces legacy parser or
-HTTP dependencies.
+and `source_type="url"` resources. Uploaded bytes are copied into the collection's
+Source Backend (`source_backend_id`), so the wizard uses the selected file/URL
+extractor path and no longer forces legacy parser or HTTP dependencies.
+
+## Scan a source storage backend
+
+A collection can point at a storage backend holding its original files:
+
+- `source_backend_id` — the backend to scan (filesystem, S3, SFTP, …).
+- `source_path` — optional subfolder inside that backend; empty scans the root.
+
+"Scan Storage" (or the daily scheduled action) walks the backend recursively and:
+
+- creates and processes a file resource for each newly discovered file;
+- links a file's existing resource into the collection instead of duplicating it;
+- flags resources whose file disappeared from the backend with `to_delete`
+  (never deletes them — review and delete manually; the flag clears if the
+  file reappears on a later scan).
 
 ## Upgrading an existing database
 

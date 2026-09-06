@@ -28,6 +28,10 @@ class LLMResource(models.Model):
         "UNIQUE(model_id, res_id)",
         "A resource already exists for this record. Please use the existing resource.",
     )
+    _unique_file_reference = models.Constraint(
+        "UNIQUE(source_type, source_backend_id, source_path)",
+        "A resource already exists for this file. Please use the existing resource.",
+    )
 
     name = fields.Char(
         string="Name",
@@ -67,14 +71,20 @@ class LLMResource(models.Model):
         tracking=True,
         help="Where this resource's raw content comes from. 'Odoo Record' "
         "keeps the existing polymorphic model_id/res_id behavior; 'File' "
-        "reads from a one.storage.entry; 'URL' fetches a remote page.",
+        "reads from the source storage backend; 'URL' fetches a remote page.",
     )
-    entry_id = fields.Many2one(
-        "one.storage.entry",
-        string="Storage Entry",
+    source_backend_id = fields.Many2one(
+        "storage.backend",
+        string="Source Backend",
         ondelete="restrict",
         index=True,
-        help="Source file for 'File' type resources.",
+        help="Storage backend holding the original file. Only used for "
+        "source_type='file'.",
+    )
+    source_path = fields.Char(
+        string="Source Path",
+        help="Path of the original file inside the source backend. Only "
+        "used for source_type='file'.",
     )
     source_url = fields.Char(
         string="Source URL",
@@ -113,6 +123,13 @@ class LLMResource(models.Model):
         tracking=True,
         help="Date when the resource was locked for processing",
     )
+    to_delete = fields.Boolean(
+        string="To Delete",
+        tracking=True,
+        help="The source file was not found on the source backend at the "
+        "last scan. Review and delete the resource manually; the flag "
+        "clears if the file reappears.",
+    )
     kanban_state = fields.Selection(
         [
             ("normal", "Ready"),
@@ -150,7 +167,14 @@ class LLMResource(models.Model):
                 "%s/content.md" % resource.id if resource.id else False
             )
 
-    @api.constrains("source_type", "model_id", "res_id", "entry_id", "source_url")
+    @api.constrains(
+        "source_type",
+        "model_id",
+        "res_id",
+        "source_backend_id",
+        "source_path",
+        "source_url",
+    )
     def _check_source_reference(self):
         for resource in self:
             if resource.source_type == "record" and (
@@ -163,11 +187,13 @@ class LLMResource(models.Model):
                         resource.name,
                     )
                 )
-            if resource.source_type == "file" and not resource.entry_id:
+            if resource.source_type == "file" and (
+                not resource.source_backend_id or not resource.source_path
+            ):
                 raise UserError(
                     _(
                         "Resource '%s': a file-type resource requires a "
-                        "storage entry.",
+                        "source backend and path.",
                         resource.name,
                     )
                 )
@@ -188,9 +214,12 @@ class LLMResource(models.Model):
     def _read_source_bytes(self):
         """Return the raw bytes of a file-type resource's source file."""
         self.ensure_one()
-        if self.source_type != "file" or not self.entry_id:
+        if self.source_type != "file":
             return None
-        return self.entry_id.read_bytes()
+        if not self.source_backend_id or not self.source_path:
+            return None
+        with self.source_backend_id.open(self.source_path, "rb") as stream:
+            return stream.read()
 
     def _write_content_to_backend(self, markdown_text):
         """Persist extracted markdown to the collection's md_backend_id

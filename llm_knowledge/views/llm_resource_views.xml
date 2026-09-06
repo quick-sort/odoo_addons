@@ -196,7 +196,13 @@
                     <group string="Source" invisible="source_type == 'record'">
                         <group>
                             <field
-                name="entry_id"
+                name="source_backend_id"
+                options="{'no_create': True}"
+                invisible="source_type != 'file'"
+                required="source_type == 'file'"
+              />
+                            <field
+                name="source_path"
                 invisible="source_type != 'file'"
                 required="source_type == 'file'"
               />
@@ -242,6 +248,7 @@
                 <field name="res_id" />
                 <field name="external_url" widget="url" optional="show" />
                 <field name="state" />
+                <field name="to_delete" widget="boolean_toggle" optional="hide" />
                 <field name="lock_date" />
             </list>
         </field>
@@ -276,6 +283,11 @@
           string="Locked"
           name="locked"
           domain="[('lock_date', '!=', False)]"
+        />
+                <filter
+          string="To Delete"
+          name="to_delete"
+          domain="[('to_delete', '=', True)]"
         />
                 <filter
           string="State"

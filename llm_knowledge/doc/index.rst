@@ -93,9 +93,12 @@ continue to work. PDF and HTML fields use the generic unsupported-file represent
 Native file and URL resources require a matching extractor addon.
 
 Files and external URLs entered in the upload wizard are created as native file/URL
-resources. Uploaded file bytes are copied into ``one.storage``. The legacy HTTP
-retriever and record-backed PDF/HTML parsers are needed only for existing resources
-that retain the older attachment pipeline.
+resources. Uploaded file bytes are copied into the collection's Source Backend
+(``source_backend_id``). A collection with a Source Backend can also scan it ("Scan
+Storage" or the daily scheduled action): each file found becomes a file resource,
+and resources whose file disappeared are flagged ``to_delete`` for manual review.
+The legacy HTTP retriever and record-backed PDF/HTML parsers are needed only for
+existing resources that retain the older attachment pipeline.
 
 Upgrade guidance
 ================

@@ -7,6 +7,14 @@
             <form>
                 <header>
                     <button
+            name="scan_storage"
+            string="Scan Storage"
+            type="object"
+            class="btn-primary"
+            invisible="not source_backend_id"
+            confirm="This will scan the source storage backend, creating resources for new files and flagging resources whose file is gone. Continue?"
+          />
+                    <button
             name="sync_resources"
             string="Sync Resources"
             type="object"
@@ -53,6 +61,14 @@
                         <group name="group_left">
                             <field name="active" widget="boolean_toggle" />
                             <field name="md_backend_id" options="{'no_create': True}" />
+                            <field
+                name="source_backend_id"
+                options="{'no_create': True}"
+              />
+                            <field
+                name="source_path"
+                invisible="not source_backend_id"
+              />
                         </group>
                         <group name="group_right">
                             <field name="default_parser" />

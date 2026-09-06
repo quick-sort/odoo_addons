@@ -1,6 +1,7 @@
 import base64
 import logging
 import os
+import posixpath
 import re
 from urllib.parse import urlparse
 
@@ -84,14 +85,25 @@ class UploadResourceWizard(models.TransientModel):
     # Private Helper Methods for Processing
     # ----------------------------------------------------
     def _process_file_uploads(self, collection):
-        """Create native file resources for processing by a file extractor."""
+        """Copy uploaded files into the collection's source backend and
+        create native file resources for processing by a file extractor."""
         self.ensure_one()
         created_resources = self.env["llm.resource"]
         if not self.file_ids:
             return created_resources
 
-        storage_root = self.env["one.storage.entry"]._get_or_create_root()
-        upload_root = storage_root.mkdir("llm_knowledge_uploads", parents=True)
+        backend = collection.source_backend_id
+        if not backend:
+            raise UserError(
+                _(
+                    "Collection '%s' has no source storage backend configured "
+                    "for file uploads.",
+                    collection.name,
+                )
+            )
+        upload_dir = posixpath.join(
+            collection._get_source_prefix(), "llm_knowledge_uploads"
+        )
         for index, attachment in enumerate(self.file_ids):
             filename = self._extract_filename_from_url(
                 attachment.name or f"file_{index + 1}"
@@ -101,15 +113,15 @@ class UploadResourceWizard(models.TransientModel):
                 collection=collection.name,
                 index=index + 1,
             )
-            entry = upload_root.create_file(
-                f"{attachment.id}_{filename}",
-                base64.b64decode(attachment.datas or b""),
-            )
+            path = posixpath.join(upload_dir, f"{attachment.id}_{filename}")
+            with backend.open(path, "wb") as stream:
+                stream.write(base64.b64decode(attachment.datas or b""))
             created_resources |= self.env["llm.resource"].create(
                 {
                     "name": resource_name,
                     "source_type": "file",
-                    "entry_id": entry.id,
+                    "source_backend_id": backend.id,
+                    "source_path": path,
                     "collection_ids": [(4, collection.id)],
                 }
             )
