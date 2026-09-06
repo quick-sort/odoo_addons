@@ -113,43 +113,49 @@ class StorageBackendFileListWizard(models.TransientModel):
         # Ask for one more than the limit so we can tell whether the listing
         # was truncated without trusting the adapter to report totals.
         limit = self.limit or 200
-        files = self.backend_id.list_files(
+        paths = self.backend_id.list_files_recursive(
             relative_path=self.subpath or "", limit=limit + 1
         )
-        has_more = len(files) > limit
+        has_more = len(paths) > limit
         if has_more:
-            files = files[:limit]
+            paths = paths[:limit]
         self.has_more = has_more
-        # Sync the lines in place instead of replacing them wholesale:
-        # keeping existing line ids stable means row buttons still resolve
-        # when the browser holds the listing from before a (possibly slow,
-        # e.g. S3) refresh landed — replaced lines would raise
-        # "Record does not exist or has been deleted".
-        wanted = set(files)
+        # Recursive listings return canonical backend-relative paths. Keep
+        # those paths for operations while displaying names relative to the
+        # selected subpath.
+        prefix = self.subpath.strip("/") if self.subpath else ""
+        prefix_with_separator = prefix + "/" if prefix else ""
+
+        def display_name(path):
+            if prefix_with_separator and path.startswith(prefix_with_separator):
+                return path[len(prefix_with_separator) :]
+            return path
+
+        wanted = set(paths)
         seen = set()
         stale = self.env["storage.backend.file.list.line"]
         for line in self.line_ids.sorted("id"):
-            if line.name not in wanted or line.name in seen:
+            canonical_path = line.relative_path or line.name
+            if canonical_path not in wanted or canonical_path in seen:
                 stale |= line
             else:
-                seen.add(line.name)
+                seen.add(canonical_path)
+                name = display_name(canonical_path)
+                if line.name != name:
+                    line.name = name
         stale.unlink()
-        missing = [name for name in files if name not in seen]
+        missing = [path for path in paths if path not in seen]
         if missing:
-            # Adapters list names relative to the requested path (browsing
-            # level by level, "csindex/" shows "index_list.xlsx"), so re-join
-            # the subpath to get the full path inside the backend.
-            prefix = self.subpath.strip("/") if self.subpath else ""
             self.line_ids = [
                 (
                     0,
                     0,
                     {
-                        "name": name,
-                        "relative_path": "/".join(p for p in (prefix, name) if p),
+                        "name": display_name(path),
+                        "relative_path": path,
                     },
                 )
-                for name in missing
+                for path in missing
             ]
 
     def action_list_files(self):

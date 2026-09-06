@@ -95,6 +95,29 @@ class FileSystemCapabilitiesCase(CommonCase):
             for name in names:
                 backend.delete(name)
 
+    def test_list_files_recursive_detail_pattern_and_limit(self):
+        backend = self.backend
+        backend.gzip_extensions = "json"
+        names = ["recursive/a.json", "recursive/nested/b.json", "recursive/c.txt"]
+        for name in names:
+            self._write(backend, name, name.encode())
+        try:
+            items = backend.list_files_recursive(
+                "recursive", pattern="*.json", limit=1, detail=True
+            )
+            self.assertEqual(len(items), 1)
+            self.assertTrue(items[0]["name"].endswith(".json"))
+            self.assertFalse(items[0]["is_dir"])
+            self.assertGreater(items[0]["size"], 0)
+            all_names = backend.list_files_recursive("recursive")
+            self.assertIn("recursive/nested/b.json", all_names)
+            self.assertNotIn("recursive/nested/b.json.gz", all_names)
+        finally:
+            for name in names:
+                backend.delete(name)
+            backend.rmdir("recursive/nested")
+            backend.rmdir("recursive")
+
     def test_stat_file_and_dir(self):
         backend = self.backend
         filename = "stat_test.bin"
@@ -174,6 +197,26 @@ class FileSystemTraversalCase(CommonCase):
     def test_backslash_is_rejected(self):
         with self.assertRaises(AccessError):
             self._write("a\\b.txt")
+
+    def test_root_prefix_is_component_aware(self):
+        self.backend.directory_path = "datasets"
+        adapter = self.backend._get_adapter()
+        base_dir = adapter._basedir()
+        self.assertEqual(
+            adapter._fullpath("datasets2/file.txt"),
+            os.path.join(base_dir, "datasets", "datasets2", "file.txt"),
+        )
+        self.assertEqual(
+            adapter._fullpath("datasets/file.txt"),
+            os.path.join(base_dir, "datasets", "file.txt"),
+        )
+        logical_adapter = self.backend.with_context(
+            storage_backend_force_relative_path=True
+        )._get_adapter()
+        self.assertEqual(
+            logical_adapter._fullpath("datasets/file.txt"),
+            os.path.join(base_dir, "datasets", "datasets", "file.txt"),
+        )
 
     def test_clean_relative_path_still_works(self):
         self._write("ok.txt")

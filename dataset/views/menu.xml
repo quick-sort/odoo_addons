@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+ <menuitem id="menu_dataset_root" name="Dataset" web_icon="dataset,static/description/icon.svg" action="action_dataset" sequence="50"/>
+ <menuitem id="menu_dataset" name="Datasets" parent="menu_dataset_root" action="action_dataset" sequence="10"/>
+ <menuitem id="menu_data_chunk" name="Chunks" parent="menu_dataset_root" action="action_data_chunk" sequence="20"/>
+ <menuitem id="menu_dataset_settings" name="Settings" parent="menu_dataset_root" sequence="90"/>
+ <menuitem id="menu_source" name="Sources" parent="menu_dataset_settings" action="action_source" sequence="10"/>
+ <menuitem id="menu_package" name="Packages" parent="menu_dataset_settings" action="action_package" sequence="20"/>
+ <menuitem id="menu_manifest" name="Manifests" parent="menu_dataset_settings" action="action_manifest" sequence="30"/>
+ <menuitem id="menu_tag" name="Tags" parent="menu_dataset_settings" action="action_tag" sequence="40"/>
+</odoo>

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+ <record id="source_huggingface" model="dataset.source"><field name="name">Hugging Face</field><field name="code">hf</field><field name="url">https://huggingface.co/datasets</field></record>
+ <record id="source_kaggle" model="dataset.source"><field name="name">Kaggle</field><field name="code">kaggle</field></record>
+ <record id="source_hkex" model="dataset.source"><field name="name">HKEX</field><field name="code">hkex</field></record>
+ <record id="source_cde" model="dataset.source"><field name="name">CDE</field><field name="code">cde</field></record>
+ <record id="package_nlp" model="dataset.package"><field name="name">NLP</field><field name="code">nlp</field></record>
+ <record id="package_nlp_classification" model="dataset.package"><field name="name">Text Classification</field><field name="code">classification</field><field name="parent_id" ref="package_nlp"/></record>
+ <record id="package_nlp_qa" model="dataset.package"><field name="name">Question Answering</field><field name="code">qa</field><field name="parent_id" ref="package_nlp"/></record>
+ <record id="package_vision" model="dataset.package"><field name="name">Computer Vision</field><field name="code">vision</field></record>
+ <record id="package_vision_classification" model="dataset.package"><field name="name">Image Classification</field><field name="code">classification</field><field name="parent_id" ref="package_vision"/></record>
+ <record id="package_tabular" model="dataset.package"><field name="name">Tabular</field><field name="code">tabular</field></record>
+ <record id="package_markets" model="dataset.package"><field name="name">Markets</field><field name="code">markets</field></record>
+ <record id="package_regulatory" model="dataset.package"><field name="name">Regulatory</field><field name="code">regulatory</field></record>
+ <record id="package_regulatory_guidelines" model="dataset.package"><field name="name">Guidelines</field><field name="code">guidelines</field><field name="parent_id" ref="package_regulatory"/></record>
+ <record id="manifest_imdb_v1" model="dataset.manifest"><field name="name">imdb-v1</field><field name="values" eval="[{'split': 'train', 'shard': '0001'}, {'split': 'test', 'shard': '0001'}]"/></record>
+ <record id="manifest_squad_v2" model="dataset.manifest"><field name="name">squad-v2</field><field name="values" eval="[{'split': 'train'}, {'split': 'dev'}]"/></record>
+ <record id="manifest_hkex_quote_2026" model="dataset.manifest"><field name="name">hkex-quote-2026</field><field name="values" eval="[{'date': '2026-01-02'}]"/></record>
+ <record id="dataset_imdb" model="dataset"><field name="name">IMDB Reviews</field><field name="code">imdb</field><field name="source_id" ref="source_huggingface"/><field name="package_id" ref="package_nlp_classification"/><field name="manifest_id" ref="manifest_imdb_v1"/><field name="chunk_type">parquet</field><field name="key_fields" eval="['split', 'shard']"/></record>
+ <record id="dataset_squad" model="dataset"><field name="name">SQuAD v2</field><field name="code">squad_v2</field><field name="source_id" ref="source_huggingface"/><field name="package_id" ref="package_nlp_qa"/><field name="manifest_id" ref="manifest_squad_v2"/><field name="chunk_type">json</field><field name="key_fields" eval="['split']"/></record>
+ <record id="dataset_cifar10" model="dataset"><field name="name">CIFAR-10</field><field name="code">cifar10</field><field name="source_id" ref="source_kaggle"/><field name="package_id" ref="package_vision_classification"/><field name="chunk_type">parquet</field><field name="key_fields" eval="['split', 'shard']"/></record>
+ <record id="dataset_titanic" model="dataset"><field name="name">Titanic Survival</field><field name="code">titanic</field><field name="source_id" ref="source_kaggle"/><field name="package_id" ref="package_tabular"/><field name="chunk_type">csv</field></record>
+ <record id="dataset_hkex_calendar" model="dataset"><field name="name">HKEX Trade Calendar</field><field name="code">trade_calendar</field><field name="source_id" ref="source_hkex"/><field name="package_id" ref="package_markets"/><field name="chunk_type">csv</field><field name="key_fields" eval="['year']"/></record>
+ <record id="dataset_hkex_quote" model="dataset"><field name="name">HKEX Stock Quote</field><field name="code">stock_quote</field><field name="source_id" ref="source_hkex"/><field name="package_id" ref="package_markets"/><field name="manifest_id" ref="manifest_hkex_quote_2026"/><field name="chunk_type">parquet</field><field name="key_fields" eval="['date']"/></record>
+ <record id="dataset_cde_guidelines" model="dataset"><field name="name">CDE Drug Review Guidelines</field><field name="code">guidelines</field><field name="source_id" ref="source_cde"/><field name="package_id" ref="package_regulatory_guidelines"/><field name="chunk_type">pdf</field><field name="key_fields" eval="['publish_date', 'rule_name', 'doc_serial']"/></record>
+ <record id="chunk_imdb_train_0" model="dataset.data_chunk"><field name="dataset_id" ref="dataset_imdb"/><field name="metadata" eval="{'split': 'train', 'shard': '0001'}"/><field name="size">12582912</field></record>
+ <record id="chunk_titanic" model="dataset.data_chunk"><field name="dataset_id" ref="dataset_titanic"/><field name="metadata" eval="{}"/><field name="size">61194</field></record>
+</odoo>

@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+ <record id="view_data_chunk_form_storage" model="ir.ui.view"><field name="name">dataset.data_chunk.form.storage</field><field name="model">dataset.data_chunk</field><field name="inherit_id" ref="dataset.view_data_chunk_form"/><field name="arch" type="xml"><xpath expr="//group[last()]" position="after"><group><button name="cleanup_raw_data" type="object" string="Delete Stored Payload" icon="fa-trash" invisible="state == 'missing'" confirm="Delete this chunk payload from its configured storage backend?"/></group></xpath></field></record>
+</odoo>

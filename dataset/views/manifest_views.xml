@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+ <record id="view_manifest_form" model="ir.ui.view"><field name="name">dataset.manifest.form</field><field name="model">dataset.manifest</field><field name="arch" type="xml"><form string="Manifest"><sheet><group><group><field name="name"/><field name="type"/></group><group><field name="total_chunks"/></group></group><group><field name="values" widget="json_editor"/><field name="description"/></group></sheet></form></field></record>
+ <record id="view_manifest_list" model="ir.ui.view"><field name="name">dataset.manifest.list</field><field name="model">dataset.manifest</field><field name="arch" type="xml"><list string="Manifests"><field name="name"/><field name="type"/><field name="total_chunks"/></list></field></record>
+ <record id="view_manifest_search" model="ir.ui.view"><field name="name">dataset.manifest.search</field><field name="model">dataset.manifest</field><field name="arch" type="xml"><search string="Manifests"><field name="name"/><filter string="Dataset" name="type_dataset" domain="[('type', '=', 'dataset')]"/><group><filter string="Type" name="group_type" domain="[]" context="{'group_by': 'type'}"/></group></search></field></record>
+ <record id="action_manifest" model="ir.actions.act_window"><field name="name">Manifests</field><field name="res_model">dataset.manifest</field><field name="view_mode">list,form</field><field name="search_view_id" ref="view_manifest_search"/></record>
+</odoo>

@@ -89,6 +89,52 @@ class FtpCase(CommonCase, BackendStorageTestMixin):
         self.assertIs(by_name["file1.txt"]["is_dir"], False)
         self.assertEqual(by_name["file1.txt"]["size"], 12)
 
+    @mock.patch(FTP_LIB_PATH + ".FTP")
+    def test_recursive_list_nlst_fallback(self, mocked_ftp):
+        client = mocked_ftp.return_value.__enter__.return_value
+        state = {"cwd": "/"}
+
+        client.pwd.side_effect = lambda: state["cwd"]
+
+        def cwd(path):
+            normalized = path if path == "/" else path.rstrip("/")
+            if normalized in ("/", "upload", "upload/nested"):
+                state["cwd"] = normalized
+            elif state["cwd"] == "upload" and normalized == "nested":
+                state["cwd"] = "upload/nested"
+            else:
+                raise ftplib.error_perm("not a directory")
+
+        def nlst():
+            if state["cwd"] == "upload":
+                return ["upload/nested", "upload/root.txt"]
+            if state["cwd"] == "upload/nested":
+                return ["upload/nested/child.txt"]
+            return []
+
+        def size(name):
+            sizes = {
+                ("upload", "root.txt"): 4,
+                ("upload/nested", "child.txt"): 5,
+            }
+            try:
+                return sizes[(state["cwd"], name)]
+            except KeyError as error:
+                raise ftplib.error_perm("SIZE unavailable") from error
+
+        client.cwd.side_effect = cwd
+        client.nlst.side_effect = nlst
+        client.size.side_effect = size
+        client.mlsd.side_effect = ftplib.error_perm("MLSD unavailable")
+
+        items = self.backend.list_files_recursive(detail=True)
+
+        self.assertEqual(
+            {item["name"]: (item["size"], item["is_dir"]) for item in items},
+            {"root.txt": (4, False), "nested/child.txt": (5, False)},
+        )
+        self.assertEqual(state["cwd"], "/")
+
     @mock.patch(FTP_LIB_PATH)
     def test_list(self, mocked_ftplib):
         client = mocked_ftplib.FTP().__enter__()

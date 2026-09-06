@@ -1,0 +1,8 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_dataset_manager,dataset.manager,model_dataset,dataset.group_dataset_manager,1,1,1,1
+access_dataset_source_manager,dataset.source.manager,model_dataset_source,dataset.group_dataset_manager,1,1,1,1
+access_dataset_package_manager,dataset.package.manager,model_dataset_package,dataset.group_dataset_manager,1,1,1,1
+access_dataset_data_chunk_manager,dataset.data_chunk.manager,model_dataset_data_chunk,dataset.group_dataset_manager,1,1,1,1
+access_dataset_manifest_manager,dataset.manifest.manager,model_dataset_manifest,dataset.group_dataset_manager,1,1,1,1
+access_dataset_table_preview_wizard_manager,dataset.table_preview_wizard.manager,model_dataset_table_preview_wizard,dataset.group_dataset_manager,1,1,1,1
+access_dataset_tag_manager,dataset.tag.manager,model_dataset_tag,dataset.group_dataset_manager,1,1,1,1

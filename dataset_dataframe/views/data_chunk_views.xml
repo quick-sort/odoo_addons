@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_data_chunk_form_dataframe" model="ir.ui.view">
+        <field name="name">dataset.data_chunk.form.dataframe</field>
+        <field name="model">dataset.data_chunk</field>
+        <field name="inherit_id" ref="dataset.view_data_chunk_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form/sheet/div[@name='button_box']" position="inside">
+                <button name="action_refresh_record_count" type="object"
+                        string="Refresh Record Count" icon="fa-refresh"
+                        class="oe_stat_button"/>
+            </xpath>
+            <xpath expr="//form//field[@name='display_size']" position="after">
+                <field name="record_count"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_data_chunk_list_dataframe" model="ir.ui.view">
+        <field name="name">dataset.data_chunk.list.dataframe</field>
+        <field name="model">dataset.data_chunk</field>
+        <field name="inherit_id" ref="dataset.view_data_chunk_list"/>
+        <field name="arch" type="xml">
+            <xpath expr="//list/field[@name='display_size']" position="after">
+                <field name="record_count"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

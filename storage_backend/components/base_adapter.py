@@ -5,8 +5,10 @@
 # @author Simone Orsi <simahawk@gmail.com>
 
 import os
+import posixpath
 import re
 import shutil
+from collections import deque
 from contextlib import contextmanager
 
 from odoo.exceptions import AccessError
@@ -39,10 +41,27 @@ class BaseStorageAdapter(AbstractComponent):
 
     def _fullpath(self, relative_path):
         self._check_relative_path(relative_path)
-        dp = self.collection.directory_path
-        if not dp or relative_path.startswith(dp):
+        directory_path = self.collection.directory_path or ""
+        if not directory_path:
             return relative_path
-        return os.path.join(dp, relative_path)
+        directory_path = posixpath.normpath(directory_path)
+        relative_path = posixpath.normpath(relative_path) if relative_path else ""
+        if not relative_path:
+            return directory_path
+        # Some legacy callers pass paths already rooted at directory_path.
+        # Keep that compatibility unless the service explicitly marks the
+        # value as a logical backend-relative path. The explicit mode removes
+        # the otherwise unavoidable ambiguity when a valid first component is
+        # exactly equal to the configured root.
+        force_relative = self.env.context.get(
+            "storage_backend_force_relative_path", False
+        )
+        if not force_relative and (
+            relative_path == directory_path
+            or relative_path.startswith(directory_path.rstrip("/") + "/")
+        ):
+            return relative_path
+        return posixpath.join(directory_path, relative_path)
 
     @contextmanager
     def open(self, relative_path, mode="rb", **kwargs):
@@ -66,6 +85,41 @@ class BaseStorageAdapter(AbstractComponent):
                        seconds) when the adapter can provide it.
         """
         raise NotImplementedError
+
+    def list_recursive(self, relative_path="", limit=None, detail=False):
+        """Recursively list files with backend-relative POSIX names.
+
+        Adapters only need to implement the immediate-directory ``list``
+        contract. Directory entries are traversed breadth-first and file
+        detail returned by ``list`` is reused, avoiding per-file stat calls.
+        """
+        self._check_relative_path(relative_path)
+        root = relative_path.strip("/")
+        pending = deque([root])
+        visited = set()
+        files = []
+        while pending and (not limit or len(files) < limit):
+            current = pending.popleft()
+            if current in visited:
+                continue
+            visited.add(current)
+            for item in self.list(current, detail=True):
+                name = item["name"].rstrip("/")
+                if not name:
+                    continue
+                full_name = posixpath.join(current, name) if current else name
+                self._check_relative_path(full_name)
+                if item.get("is_dir", False):
+                    pending.append(full_name)
+                    continue
+                files.append(
+                    {**item, "name": full_name, "is_dir": False}
+                    if detail
+                    else full_name
+                )
+                if limit and len(files) >= limit:
+                    break
+        return files
 
     def exists(self, relative_path):
         raise NotImplementedError

@@ -65,12 +65,12 @@ class FileSystemStorageBackend(Component):
             items = []
             for entry in entries:
                 if detail:
-                    info = entry.stat()
+                    info = entry.stat(follow_symlinks=False)
                     items.append(
                         {
                             "name": entry.name,
                             "size": info.st_size,
-                            "is_dir": entry.is_dir(),
+                            "is_dir": entry.is_dir(follow_symlinks=False),
                             "mtime": info.st_mtime,
                         }
                     )

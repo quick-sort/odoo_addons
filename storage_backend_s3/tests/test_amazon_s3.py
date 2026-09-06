@@ -8,6 +8,7 @@
 
 import logging
 import os
+from unittest import mock
 
 from vcr_unittest import VCRMixin
 
@@ -60,6 +61,70 @@ class AmazonS3Case(VCRMixin, CommonCase, BackendStorageTestMixin):
             if item["is_dir"]:
                 self.assertFalse(item["name"].endswith("/"))
                 self.assertEqual(item["size"], 0)
+
+    def test_recursive_prefix_is_rooted_once(self):
+        self.backend.directory_path = "datasets"
+        adapter = self.backend._get_adapter()
+        bucket = mock.MagicMock()
+        bucket.name = "test-storage-backend"
+        bucket.meta.client.list_objects_v2.return_value = {
+            "Contents": [
+                {"Key": "datasets/datasets2/", "Size": 0},
+                {"Key": "datasets/datasets2/file.csv", "Size": 12},
+            ],
+            "IsTruncated": False,
+        }
+        with mock.patch.object(type(adapter), "_get_bucket", return_value=bucket):
+            items = self.backend.list_files_recursive("datasets2", detail=True)
+            rooted_items = self.backend.list_files_recursive(
+                "datasets/datasets2", detail=True
+            )
+        self.assertEqual(items, rooted_items)
+        self.assertEqual(
+            items,
+            [{"name": "datasets2/file.csv", "size": 12, "is_dir": False}],
+        )
+        prefixes = [
+            call.kwargs["Prefix"]
+            for call in bucket.meta.client.list_objects_v2.call_args_list
+        ]
+        self.assertEqual(prefixes, ["datasets/datasets2/"] * 2)
+
+    def test_recursive_exact_root_segment_is_explicitly_logical(self):
+        self.backend.directory_path = "datasets"
+        logical_backend = self.backend.with_context(
+            storage_backend_force_relative_path=True
+        )
+        adapter = logical_backend._get_adapter()
+        bucket = mock.MagicMock()
+        bucket.name = "test-storage-backend"
+        bucket.meta.client.list_objects_v2.return_value = {
+            "Contents": [
+                {
+                    "Key": "datasets/datasets/prices/file.csv",
+                    "Size": 12,
+                }
+            ],
+            "IsTruncated": False,
+        }
+        with mock.patch.object(type(adapter), "_get_bucket", return_value=bucket):
+            items = logical_backend.list_files_recursive(
+                "datasets/prices", detail=True
+            )
+        self.assertEqual(
+            items,
+            [
+                {
+                    "name": "datasets/prices/file.csv",
+                    "size": 12,
+                    "is_dir": False,
+                }
+            ],
+        )
+        self.assertEqual(
+            bucket.meta.client.list_objects_v2.call_args.kwargs["Prefix"],
+            "datasets/datasets/prices/",
+        )
 
     def test_params(self):
         adapter = self.backend._get_adapter()

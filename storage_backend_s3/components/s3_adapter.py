@@ -138,12 +138,8 @@ class S3StorageAdapter(Component):
 
     def list(self, relative_path="", limit=None, detail=False):
         bucket = self._get_bucket()
-        dir_path = self.collection.directory_path or ""
-        prefix = "/".join(
-            part for part in (dir_path.strip("/"), relative_path.strip("/")) if part
-        )
-        if prefix:
-            prefix += "/"
+        rooted_path = self._fullpath(relative_path).strip("/")
+        prefix = rooted_path + "/" if rooted_path else ""
         client = bucket.meta.client
         items = []
         kwargs = {
@@ -159,7 +155,6 @@ class S3StorageAdapter(Component):
                     # A common prefix that resolves to nothing (e.g. the
                     # delimiter itself) is not a real entry; skip it.
                     continue
-                name += "/"
                 items.append(
                     {"name": name, "size": 0, "is_dir": True} if detail else name
                 )
@@ -178,6 +173,45 @@ class S3StorageAdapter(Component):
                 break
             kwargs["ContinuationToken"] = response.get("NextContinuationToken")
         return items
+
+    def list_recursive(self, relative_path="", limit=None, detail=False):
+        """List S3 objects recursively without per-object metadata calls."""
+        self._check_relative_path(relative_path)
+        directory_path = self._fullpath("").strip("/")
+        rooted_path = self._fullpath(relative_path).strip("/")
+        prefix = rooted_path + "/" if rooted_path else ""
+        bucket = self._get_bucket()
+        client = bucket.meta.client
+        kwargs = {"Bucket": bucket.name, "Prefix": prefix}
+        files = []
+        while True:
+            response = client.list_objects_v2(**kwargs)
+            for item in response.get("Contents", ()):
+                key = item["Key"]
+                # S3 directory markers are not payload files.
+                if key.endswith("/"):
+                    continue
+                if directory_path:
+                    directory_prefix = directory_path + "/"
+                    if not key.startswith(directory_prefix):
+                        continue
+                    name = key[len(directory_prefix) :]
+                else:
+                    name = key
+                if not name:
+                    continue
+                self._check_relative_path(name)
+                files.append(
+                    {"name": name, "size": item["Size"], "is_dir": False}
+                    if detail
+                    else name
+                )
+                if limit and len(files) >= limit:
+                    return files
+            if not response.get("IsTruncated"):
+                break
+            kwargs["ContinuationToken"] = response["NextContinuationToken"]
+        return files
 
     def exists(self, relative_path):
         s3object = self._get_object(relative_path)

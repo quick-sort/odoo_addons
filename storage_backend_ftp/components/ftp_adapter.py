@@ -3,6 +3,7 @@
 import errno
 import logging
 import os
+import posixpath
 import ssl
 import tempfile
 from contextlib import contextmanager
@@ -150,6 +151,42 @@ class FTPStorageBackendAdapter(Component):
                     spool.seek(0)
                     yield spool
 
+    def _nlst_detail(self, client, full_path):
+        """Return immediate NLST entries with the detailed list contract."""
+        original_cwd = client.pwd()
+        try:
+            if full_path:
+                client.cwd(full_path)
+            items = []
+            for listed_name in client.nlst():
+                name = posixpath.basename(str(listed_name).rstrip("/"))
+                if not name or name in (".", ".."):
+                    continue
+                size = 0
+                is_dir = False
+                try:
+                    remote_size = client.size(name)
+                    if remote_size is not None:
+                        size = int(remote_size)
+                except ftplib.all_errors:
+                    # SIZE is commonly rejected for directories (and may be
+                    # unsupported entirely). Probe with CWD and always restore
+                    # the listing directory before inspecting the next entry.
+                    listing_cwd = client.pwd()
+                    try:
+                        client.cwd(name)
+                    except ftplib.all_errors:
+                        pass
+                    else:
+                        is_dir = True
+                    finally:
+                        if is_dir:
+                            client.cwd(listing_cwd)
+                items.append({"name": name, "size": size, "is_dir": is_dir})
+            return items
+        finally:
+            client.cwd(original_cwd)
+
     def list(self, relative_path="", limit=None, detail=False):
         full_path = self._fullpath(relative_path)
         with ftp(self.collection) as client:
@@ -165,10 +202,7 @@ class FTPStorageBackendAdapter(Component):
                             for name, facts in client.mlsd(full_path)
                         ]
                     except (ftplib.Error, OSError, AttributeError):
-                        # MLSD not supported: fall back to NLST without sizes
-                        items = [
-                            {"name": name, "size": 0} for name in client.nlst(full_path)
-                        ]
+                        items = self._nlst_detail(client, full_path)
                 else:
                     items = client.nlst(full_path)
             except OSError as e:

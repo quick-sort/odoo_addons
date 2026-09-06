@@ -176,6 +176,40 @@ class StorageBackend(models.Model):
                 items = fnmatch.filter(items, pattern)
         return items
 
+    def list_files_recursive(
+        self, relative_path="", pattern=False, limit=False, detail=False
+    ):
+        """Recursively list files using full backend-relative logical names.
+
+        Filtering is applied after gzip physical names are mapped back to
+        logical names. Detail dictionaries retain the adapter's physical
+        object size and any additional metadata.
+        """
+        adapter_limit = None if pattern else (limit or None)
+        items = self._forward(
+            "list_recursive",
+            relative_path,
+            limit=adapter_limit,
+            detail=detail,
+        )
+        if detail:
+            items = [
+                {**item, "name": self._gzip_logical(item["name"])}
+                for item in items
+                if not item.get("is_dir")
+            ]
+            if pattern:
+                items = [
+                    item
+                    for item in items
+                    if fnmatch.fnmatch(item["name"], pattern)
+                ]
+        else:
+            items = [self._gzip_logical(name) for name in items]
+            if pattern:
+                items = fnmatch.filter(items, pattern)
+        return items[:limit] if limit else items
+
     def find_files(self, pattern, relative_path="", **kw):
         return self._forward("find_files", pattern, relative_path=relative_path)
 
