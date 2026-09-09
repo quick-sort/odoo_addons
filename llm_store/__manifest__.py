@@ -24,7 +24,7 @@
         "views/llm_knowledge_vector_views.xml",
         "views/llm_store_chunk_views.xml",
         "views/llm_knowledge_collection_views.xml",
-        "views/llm_resource_views.xml",
+        "views/llm_document_views.xml",
         "views/menu.xml",
     ],
     "demo": [

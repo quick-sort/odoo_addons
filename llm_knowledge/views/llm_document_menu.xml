@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <menuitem id="menu_llm_document" name="Documents" parent="llm.menu_llm_config" action="action_llm_document" sequence="45" />
+    <menuitem id="menu_llm_document_extractor" name="Extractors" parent="llm.menu_llm_config" action="action_llm_document_extractor" sequence="46" />
+    <menuitem id="menu_llm_document_extractor_mapping" name="Extractor Mappings" parent="llm.menu_llm_config" action="action_llm_document_extractor_mapping" sequence="47" />
+</odoo>

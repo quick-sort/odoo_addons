@@ -9,7 +9,7 @@ stores with different chunk sizes and embedding methods per knowledge base"
 possible.
 
 Chunking and vectorization for a chunkset are fused into a single step
-(``action_build`` / ``_build_resource``) per (resource, chunkset, vector):
+(``action_build`` / ``_build_document``) per (document, chunkset, vector):
 chunk text is produced in memory by the splitter and handed straight to the
 embedding call, then persisted as payload alongside its vector in the
 vector store -- it is never written to the Odoo database or to a storage
@@ -109,23 +109,26 @@ class LLMKnowledgeChunkset(models.Model):
     # Chunk-pointer bookkeeping (no text stored; see llm.knowledge.vector
     # for the actual split+embed+upsert pipeline)
     # ------------------------------------------------------------------
-    def _split_resource(self, resource):
-        """Split ``resource``'s markdown content with this chunkset's
+    def _split_document(self, document_record):
+        """Split ``document_record``'s markdown content with this chunkset's
         splitter and return the resulting list of chunk texts (transient,
         never persisted -- callers pass these straight to embedding)."""
         self.ensure_one()
-        text = resource._read_content_from_backend()
+        document = document_record.get_processed_document()
+        text = document["markdown"]
         if not text:
             return []
-        return self.splitter_id.split(text, resource=resource)
+        return self.splitter_id.split(
+            text, document_record=document_record, document=document
+        )
 
-    def _sync_chunk_pointers(self, resource, chunk_texts):
+    def _sync_chunk_pointers(self, document_record, chunk_texts):
         """Ensure exactly ``len(chunk_texts)`` pointer rows exist for
-        ``(chunkset, resource)``, in sequence order. Returns the chunk
+        ``(chunkset, document_record)``, in sequence order. Returns the chunk
         recordset in the same order as ``chunk_texts``."""
         self.ensure_one()
         existing = self.env["llm.store.chunk"].search(
-            [("chunkset_id", "=", self.id), ("resource_id", "=", resource.id)],
+            [("chunkset_id", "=", self.id), ("document_id", "=", document_record.id)],
             order="sequence",
         )
         target_count = len(chunk_texts)
@@ -138,15 +141,15 @@ class LLMKnowledgeChunkset(models.Model):
                 self.env["llm.store.chunk"].create(
                     {
                         "chunkset_id": self.id,
-                        "resource_id": resource.id,
+                        "document_id": document_record.id,
                         "sequence": seq,
                     }
                 )
             )
-        return self.env["llm.store.chunk"].browse([c.id for c in chunks])
+        return self.env["llm.store.chunk"].browse([chunk.id for chunk in chunks])
 
     def action_chunk(self):
-        """Recompute chunk pointers for every resource in the collection.
+        """Recompute chunk pointers for every document in the collection.
 
         This only maintains pointer rows (id/sequence bookkeeping); it does
         not embed anything. Embedding (which is when chunk text actually
@@ -158,11 +161,11 @@ class LLMKnowledgeChunkset(models.Model):
         for chunkset in self:
             chunkset.write({"state": "chunking"})
             try:
-                for resource in chunkset.collection_id.resource_ids:
-                    if resource.state not in ("parsed", "chunked", "ready"):
+                for document_record in chunkset.collection_id.document_ids:
+                    if document_record.state not in ("processed", "chunked", "ready"):
                         continue
-                    chunk_texts = chunkset._split_resource(resource)
-                    chunkset._sync_chunk_pointers(resource, chunk_texts)
+                    chunk_texts = chunkset._split_document(document_record)
+                    chunkset._sync_chunk_pointers(document_record, chunk_texts)
                 chunkset.write({"state": "chunked"})
             except Exception:
                 _logger.exception("Chunking failed for chunkset %s", chunkset.name)

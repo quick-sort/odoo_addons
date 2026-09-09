@@ -14,8 +14,10 @@ this backend gets properties an external store cannot offer:
   vectors back too;
 - ``ondelete="cascade"`` on the chunk means Postgres removes the embeddings
   when a chunk is deleted;
-- ``UNIQUE(chunk_id, embedding_model_id)`` is enforced by the database;
-- similarity search can filter on ``resource_id`` / collections in the same
+- ``UNIQUE(chunk_id, vector_id)`` isolates each vector configuration in the database;
+- chunk text and metadata are persisted beside the embedding, so similarity
+  search returns the exact indexed payload without re-splitting the document;
+- similarity search can filter on ``document_id`` / collections in the same
   SQL statement, with no second round trip.
 
 The trade-off is that Odoo's own database must have the pgvector extension,

@@ -11,15 +11,15 @@ from odoo.exceptions import UserError
 _logger = logging.getLogger(__name__)
 
 
-class UploadResourceWizard(models.TransientModel):
-    _name = "llm.upload.resource.wizard"  # Keep original name or rename if preferred
-    _description = "Upload RAG Resources Wizard"
+class UploadDocumentWizard(models.TransientModel):
+    _name = "llm.upload.document.wizard"
+    _description = "Upload RAG Documents Wizard"
 
     collection_id = fields.Many2one(
-        "llm.knowledge.collection",  # Target llm.knowledge.collection
+        "llm.knowledge.collection",
         string="Collection",
-        required=True,  # Collection is required here
-        help="Collection to which resources will be added",
+        required=True,
+        help="Collection to which documents will be added",
     )
     file_ids = fields.Many2many(
         "ir.attachment", string="Files", help="Local files to upload"
@@ -27,17 +27,16 @@ class UploadResourceWizard(models.TransientModel):
     external_urls = fields.Text(
         string="External URLs", help="External URLs to include, one per line"
     )
-    # Field renamed for clarity
-    resource_name_template = fields.Char(
-        string="Resource Name Template",
+    document_name_template = fields.Char(
+        string="Document Name Template",
         default="{filename}",
-        help="Template for resource names. Use {filename}, {collection}, and {index} as placeholders.",
+        help="Template for document names. Use {filename}, {collection}, and {index} as placeholders.",
         required=True,
     )
     process_immediately = fields.Boolean(
         string="Process Immediately",
         default=False,
-        help="If checked, resources will be immediately processed through the RAG pipeline",
+        help="If checked, documents will be immediately processed through the RAG pipeline",
     )
     state = fields.Selection(
         [
@@ -46,51 +45,35 @@ class UploadResourceWizard(models.TransientModel):
         ],
         default="confirm",
     )
-    # Field renamed and target model changed
-    created_resource_ids = fields.Many2many(
-        "llm.resource",  # Target llm.resource
-        string="Created Resources",
+    created_document_ids = fields.Many2many(
+        "llm.document",
+        string="Created Documents",
     )
     created_count = fields.Integer(string="Created", compute="_compute_created_count")
 
-    @api.depends("created_resource_ids")
+    @api.depends("created_document_ids")
     def _compute_created_count(self):
         for wizard in self:
-            wizard.created_count = len(wizard.created_resource_ids)
+            wizard.created_count = len(wizard.created_document_ids)
 
     def _extract_filename_from_url(self, url):
-        """Extract a filename from a URL, handling query parameters.
-
-        Args:
-            url (str): The URL to extract the filename from.
-
-        Returns:
-            str: The extracted filename or a default name if extraction fails.
-        """
+        """Extract a filename from a URL, handling query parameters."""
         parsed_url = urlparse(url)
-        # Get the last part of the path
         filename = (
             os.path.basename(parsed_url.path)
             if parsed_url.path
-            else "resource_from_url"
+            else "document_from_url"
         )
-        # Remove potential query parameters or fragments if they got stuck
         filename = re.sub(r"[?#].*", "", filename)
-        # Basic sanitization (replace common problematic chars)
         filename = re.sub(r'[\\/:*?"<>|]', "_", filename)
-        # Limit length
-        return filename[:100] or "resource_from_url"  # Ensure not empty
+        return filename[:100] or "document_from_url"
 
-    # ----------------------------------------------------
-    # Private Helper Methods for Processing
-    # ----------------------------------------------------
     def _process_file_uploads(self, collection):
-        """Copy uploaded files into the collection's source backend and
-        create native file resources for processing by a file extractor."""
+        """Copy uploaded files to source storage and create file documents."""
         self.ensure_one()
-        created_resources = self.env["llm.resource"]
+        created_documents = self.env["llm.document"]
         if not self.file_ids:
-            return created_resources
+            return created_documents
 
         backend = collection.source_backend_id
         if not backend:
@@ -108,7 +91,7 @@ class UploadResourceWizard(models.TransientModel):
             filename = self._extract_filename_from_url(
                 attachment.name or f"file_{index + 1}"
             )
-            resource_name = self.resource_name_template.format(
+            document_name = self.document_name_template.format(
                 filename=filename,
                 collection=collection.name,
                 index=index + 1,
@@ -116,87 +99,90 @@ class UploadResourceWizard(models.TransientModel):
             path = posixpath.join(upload_dir, f"{attachment.id}_{filename}")
             with backend.open(path, "wb") as stream:
                 stream.write(base64.b64decode(attachment.datas or b""))
-            created_resources |= self.env["llm.resource"].create(
+            created_documents |= self.env["llm.document"].create(
                 {
-                    "name": resource_name,
+                    "name": document_name,
                     "source_type": "file",
                     "source_backend_id": backend.id,
                     "source_path": path,
-                    "collection_ids": [(4, collection.id)],
+                    "collection_id": collection.id,
                 }
             )
-        return created_resources
+        return created_documents
 
     def _process_external_urls(self, collection, file_count):
-        """Create URL resources for processing by an installed URL extractor."""
+        """Create URL documents for processing by an installed URL extractor."""
         self.ensure_one()
-        created_resources = self.env["llm.resource"]
+        created_documents = self.env["llm.document"]
         urls = [
             url.strip()
             for url in (self.external_urls or "").splitlines()
             if url.strip()
         ]
+        if urls and not collection.cache_backend_id:
+            raise UserError(
+                _(
+                    "Collection '%s' needs a cache backend before URL documents "
+                    "can be uploaded.",
+                    collection.name,
+                )
+            )
         for index, url in enumerate(urls):
             filename = self._extract_filename_from_url(url)
-            resource_name = self.resource_name_template.format(
+            document_name = self.document_name_template.format(
                 filename=filename,
                 collection=collection.name,
                 index=file_count + index + 1,
             )
             try:
-                created_resources |= self.env["llm.resource"].create(
+                created_documents |= self.env["llm.document"].create(
                     {
-                        "name": resource_name,
+                        "name": document_name,
                         "source_type": "url",
                         "source_url": url,
-                        "collection_ids": [(4, collection.id)],
+                        "collection_id": collection.id,
                     }
                 )
             except Exception:  # noqa: BLE001
-                _logger.exception("Failed to create llm.resource for URL %s", url)
+                _logger.exception("Failed to create llm.document for URL %s", url)
 
-        return created_resources
+        return created_documents
 
-    # ----------------------------------------------------
-    # Main Action
-    # ----------------------------------------------------
-    def action_upload_resources(self):
-        """Create native file/URL resources and optionally process them."""
+    def action_upload_documents(self):
+        """Create native file/URL documents and optionally process them."""
         self.ensure_one()
         collection = self.collection_id
 
         if not self.file_ids and not self.external_urls:
             raise UserError(_("Please provide at least one file or URL"))
 
-        file_resources = self._process_file_uploads(collection)
-        url_resources = self._process_external_urls(collection, len(self.file_ids))
+        file_documents = self._process_file_uploads(collection)
+        url_documents = self._process_external_urls(collection, len(self.file_ids))
+        created_documents = file_documents | url_documents
 
-        created_resources = file_resources | url_resources
-
-        # Process resources if requested (full RAG pipeline)
-        if self.process_immediately and created_resources:
-            _logger.info(f"Processing {len(created_resources)} resources immediately.")
-            for resource in created_resources:
+        if self.process_immediately and created_documents:
+            _logger.info("Processing %s documents immediately.", len(created_documents))
+            for document in created_documents:
                 try:
-                    resource.process_resource()  # Calls retriever, parser, embedder
-                except Exception as e:
+                    document.process_document()
+                except Exception as error:  # noqa: BLE001
                     _logger.error(
-                        f"Error processing resource {resource.id} ({resource.name}): {e}",
+                        "Error processing document %s (%s): %s",
+                        document.id,
+                        document.name,
+                        error,
                         exc_info=True,
                     )
-                    resource._post_styled_message(
-                        f"Processing failed: {str(e)}", "error"
+                    document._post_styled_message(
+                        _("Processing failed: %s", str(error)), "error"
                     )
 
-        # Update wizard state
         self.write(
             {
                 "state": "done",
-                "created_resource_ids": [(6, 0, created_resources.ids)],
+                "created_document_ids": [(6, 0, created_documents.ids)],
             }
         )
-
-        # Return action to show results or stay in wizard
         return {
             "type": "ir.actions.act_window",
             "res_model": self._name,
@@ -206,18 +192,14 @@ class UploadResourceWizard(models.TransientModel):
             "context": self.env.context,
         }
 
-    # Method renamed for clarity
-    def action_view_resources(self):
-        """Open the created resources"""
+    def action_view_documents(self):
+        """Open the created documents."""
         return {
-            "name": "Uploaded RAG Resources",
+            "name": _("Uploaded RAG Documents"),
             "type": "ir.actions.act_window",
-            "res_model": "llm.resource",  # Target llm.resource
+            "res_model": "llm.document",
             "view_mode": "list,form,kanban",
-            "domain": [
-                ("id", "in", self.created_resource_ids.ids)
-            ],  # Use renamed field
-            # Use the specific views defined in llm_knowledge for llm.resource
+            "domain": [("id", "in", self.created_document_ids.ids)],
             "view_ids": [
                 (5, 0, 0),
                 (
@@ -226,7 +208,7 @@ class UploadResourceWizard(models.TransientModel):
                     {
                         "view_mode": "kanban",
                         "view_id": self.env.ref(
-                            "llm_knowledge.view_llm_resource_kanban"
+                            "llm_knowledge.view_llm_document_kanban"
                         ).id,
                     },
                 ),
@@ -236,7 +218,7 @@ class UploadResourceWizard(models.TransientModel):
                     {
                         "view_mode": "list",
                         "view_id": self.env.ref(
-                            "llm_knowledge.view_llm_resource_tree"
+                            "llm_knowledge.view_llm_document_tree"
                         ).id,
                     },
                 ),
@@ -246,12 +228,12 @@ class UploadResourceWizard(models.TransientModel):
                     {
                         "view_mode": "form",
                         "view_id": self.env.ref(
-                            "llm_knowledge.view_llm_resource_form"
+                            "llm_knowledge.view_llm_document_form"
                         ).id,
                     },
                 ),
             ],
             "search_view_id": [
-                self.env.ref("llm_knowledge.view_llm_resource_search").id
+                self.env.ref("llm_knowledge.view_llm_document_search").id
             ],
         }

@@ -8,7 +8,7 @@ class MailThread(models.AbstractModel):
 
     def _post_styled_message(self, message, message_type="info"):
         """
-        Post a message to the resource's chatter with appropriate styling.
+        Post a message to the record's chatter with appropriate styling.
 
         Args:
             message (str): The message to post

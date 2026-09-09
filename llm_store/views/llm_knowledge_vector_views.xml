@@ -11,7 +11,7 @@
             string="Build Embeddings"
             type="object"
             class="oe_highlight"
-            confirm="This will (re)split, embed and upsert every resource of this vector's chunkset. Continue?"
+            confirm="This will (re)split, embed and upsert every document of this vector's chunkset. Continue?"
           />
                     <button
             name="action_drop"

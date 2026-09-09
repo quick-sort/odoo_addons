@@ -11,7 +11,8 @@ class LLMKnowledgeSplitterComponent(AbstractComponent):
         """Split ``text`` into a list of chunk strings.
 
         ``context`` may carry extra information some splitters use, e.g.
-        the 'contextual' splitter expects ``resource`` (the llm.resource
-        being split) so it can build a document-level context prefix.
+        the 'contextual' splitter expects ``document_record`` (the llm.document
+        being split) plus the processed ``document`` contract so it can build a
+        document-level context prefix.
         """
         raise NotImplementedError

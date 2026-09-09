@@ -1,27 +1,14 @@
 {
-    "name": "LLM Knowledge Automation",
-    "summary": "Auto-sync knowledge base: keeps AI current with real-time data updates, domain filters, and automated RAG pipeline processing",
-    "description": """
-        Set it and forget it - your AI's knowledge stays automatically updated as your data changes.
-        No manual sync required. Domain filters automatically create, update, and remove documents
-        from knowledge collections when records change. RAG pipeline runs automatically.
-    """,
+    "name": "LLM Knowledge Automation (Deprecated)",
+    "summary": "Disabled legacy record automation; no document sync API is provided",
     "category": "Technical",
-    "version": "18.0.1.0.0",
-    "depends": ["llm_knowledge", "base_automation"],
-    "external_dependencies": {
-        "python": [],
-    },
+    "version": "19.0.2.0.0",
+    "depends": ["llm_knowledge"],
     "author": "quick-sort@outlook.com",
     "website": "quick-sort@outlook.com",
-    "data": [
-        "views/llm_knowledge_collection_views.xml",
-    ],
     "license": "LGPL-3",
-    "installable": True,
+    "data": [],
+    "installable": False,
     "application": False,
     "auto_install": False,
-    "images": [
-        "static/description/banner.jpeg",
-    ],
 }

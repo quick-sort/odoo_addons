@@ -7,12 +7,12 @@ _logger = logging.getLogger(__name__)
 
 
 class LLMStoreChunk(models.Model):
-    """A chunk is a pointer/metadata row only: (resource, chunkset,
+    """A chunk is a pointer/metadata row only: (document, chunkset,
     sequence). The chunk's text is never stored in Odoo's database, and
     never written to a storage backend either -- it is produced transiently
-    during splitting (llm.knowledge.chunkset._split_resource), embedded
+    during splitting (llm.knowledge.chunkset._split_document), embedded
     immediately, and persisted as payload alongside its vector inside the
-    vector store (llm.knowledge.vector._build_resource / insert_vectors).
+    vector store (llm.knowledge.vector._build_document / insert_vectors).
 
     ``content`` is only populated transiently on records returned by
     ``search()`` with an 'embedding' domain term (see
@@ -27,8 +27,8 @@ class LLMStoreChunk(models.Model):
     _order = "sequence, id"
 
     _unique_chunk_position = models.Constraint(
-        "UNIQUE(chunkset_id, resource_id, sequence)",
-        "A chunk already exists at this position for this chunkset/resource.",
+        "UNIQUE(chunkset_id, document_id, sequence)",
+        "A chunk already exists at this position for this chunkset/document.",
     )
 
     name = fields.Char(
@@ -36,9 +36,9 @@ class LLMStoreChunk(models.Model):
         compute="_compute_name",
         store=True,
     )
-    resource_id = fields.Many2one(
-        "llm.resource",
-        string="Resource",
+    document_id = fields.Many2one(
+        "llm.document",
+        string="Document",
         required=True,
         ondelete="cascade",
         index=True,
@@ -53,7 +53,7 @@ class LLMStoreChunk(models.Model):
     sequence = fields.Integer(
         string="Sequence",
         default=10,
-        help="Order of the chunk within the resource, for this chunkset",
+        help="Order of the chunk within the document, for this chunkset",
     )
     content = fields.Text(
         string="Content",
@@ -61,7 +61,7 @@ class LLMStoreChunk(models.Model):
         compute="_compute_content",
         help="Chunk text is not stored in Odoo -- it lives in the vector "
         "store as payload alongside its embedding (see "
-        "llm.knowledge.vector._build_resource). This field is only "
+        "llm.knowledge.vector._build_document). This field is only "
         "populated transiently on records returned by a vector search "
         "(llm.store.chunk.search() with an 'embedding' domain term), "
         "which carries the text back from the search hit's payload via "
@@ -73,11 +73,11 @@ class LLMStoreChunk(models.Model):
         default={},
         help="Additional metadata for this chunk",
     )
-    # Related field to resource collections
-    collection_ids = fields.Many2many(
+    # Related field to the document's single owning collection
+    collection_id = fields.Many2one(
         "llm.knowledge.collection",
-        string="Collections",
-        related="resource_id.collection_ids",
+        string="Collection",
+        related="document_id.collection_id",
         store=False,
     )
     # Virtual field for vector search input
@@ -106,11 +106,11 @@ class LLMStoreChunk(models.Model):
         # Return always-true domain (search() will handle the actual filtering)
         return [("id", ">", 0)]
 
-    @api.depends("resource_id.name", "sequence")
+    @api.depends("document_id.name", "sequence")
     def _compute_name(self):
         for chunk in self:
-            if chunk.resource_id and chunk.resource_id.name:
-                chunk.name = f"{chunk.resource_id.name} - Chunk {chunk.sequence}"
+            if chunk.document_id and chunk.document_id.name:
+                chunk.name = f"{chunk.document_id.name} - Chunk {chunk.sequence}"
             else:
                 chunk.name = f"Chunk {chunk.sequence}"
 
@@ -147,8 +147,7 @@ class LLMStoreChunk(models.Model):
         return self.chunkset_id.vector_ids.mapped("embedding_model_id")
 
     def unlink(self):
-        """Override unlink to remove vectors from vector stores before deleting chunks"""
-        # Group chunks by chunkset for efficient processing
+        """Delete vectors first and keep pointers when any store cleanup fails."""
         chunks_by_chunkset = {}
         for chunk in self:
             chunks_by_chunkset.setdefault(
@@ -156,23 +155,40 @@ class LLMStoreChunk(models.Model):
             )
             chunks_by_chunkset[chunk.chunkset_id.id] |= chunk
 
-        # Remove vectors from each chunkset's vector configurations
         for chunkset_id, chunks in chunks_by_chunkset.items():
             chunkset = self.env["llm.knowledge.chunkset"].browse(chunkset_id)
-            for vector in chunkset.vector_ids:
-                if not vector.store_id:
-                    continue
+            for vector in chunkset.vector_ids.filtered("store_id"):
                 try:
-                    vector.delete_vectors(ids=chunks.ids)
-                    _logger.info(
-                        f"Removed {len(chunks)} vectors from vector config {vector.name} (ID: {vector.id})"
+                    deleted = vector.delete_vectors(ids=chunks.ids)
+                except Exception as error:
+                    _logger.exception(
+                        "Failed to remove vectors for chunks %s from vector %s",
+                        chunks.ids,
+                        vector.id,
                     )
-                except Exception as e:
-                    _logger.warning(
-                        f"Error removing vectors for chunks from vector config {vector.name} (ID: {vector.id}): {str(e)}"
+                    raise UserError(
+                        _(
+                            "Could not remove vectors from '%(vector)s'. The chunk "
+                            "pointers were kept so cleanup can be retried: %(error)s",
+                            vector=vector.name,
+                            error=str(error),
+                        )
+                    ) from error
+                if deleted is False:
+                    raise UserError(
+                        _(
+                            "Vector store cleanup for '%s' did not complete. The "
+                            "chunk pointers were kept; retry before refreshing the document.",
+                            vector.name,
+                        )
                     )
+                _logger.info(
+                    "Removed vectors for %d chunks from vector %s (ID: %s)",
+                    len(chunks),
+                    vector.name,
+                    vector.id,
+                )
 
-        # Proceed with standard deletion
         return super().unlink()
 
     def _has_vector_search(self, domain, vector_search_term=None, query_vector=None):

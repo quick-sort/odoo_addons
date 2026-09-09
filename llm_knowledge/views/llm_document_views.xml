@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="view_llm_document_kanban" model="ir.ui.view">
+        <field name="name">llm.document.kanban</field>
+        <field name="model">llm.document</field>
+        <field name="arch" type="xml">
+            <kanban default_group_by="state" class="o_kanban_small_column" sample="1">
+                <field name="id" />
+                <field name="name" />
+                <field name="state" />
+                <field name="kanban_state" />
+                <field name="lock_date" />
+                <field name="source_type" />
+                <field name="collection_id" />
+                <templates>
+                    <t t-name="card">
+                        <div class="oe_kanban_global_click">
+                            <div class="o_kanban_record_top">
+                                <strong class="o_kanban_record_title"><field name="name" /></strong>
+                            </div>
+                            <div class="o_kanban_record_body">
+                                <div><field name="source_type" /> · <field name="collection_id" /></div>
+                            </div>
+                            <div class="o_kanban_record_bottom">
+                                <field name="kanban_state" widget="state_selection" />
+                                <field
+                                    name="state"
+                                    widget="label_selection"
+                                    options="{'classes': {'draft': 'default', 'retrieved': 'primary', 'processed': 'info'}}"
+                                />
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <record id="view_llm_document_form" model="ir.ui.view">
+        <field name="name">llm.document.form</field>
+        <field name="model">llm.document</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="retrieve" string="Retrieve" type="object" class="oe_highlight" invisible="state != 'draft'" />
+                    <button name="extract" string="Extract Markdown" type="object" class="oe_highlight" invisible="state != 'retrieved'" />
+                    <button name="process_document" string="Process All" type="object" class="btn-secondary" />
+                    <button name="action_force_refresh" string="Force Refresh" type="object" class="btn-secondary" />
+                    <field name="state" widget="statusbar" statusbar_visible="draft,retrieved,processed" />
+                </header>
+                <sheet>
+                    <div class="oe_title"><h1><field name="name" placeholder="Document Name" /></h1></div>
+                    <group>
+                        <group>
+                            <field name="collection_id" options="{'no_create': True}" />
+                            <field name="source_type" readonly="state != 'draft'" />
+                            <field name="source_backend_id" options="{'no_create': True}" invisible="source_type != 'file'" required="source_type == 'file'" />
+                            <field name="source_path" invisible="source_type != 'file'" required="source_type == 'file'" />
+                            <field name="source_url" widget="url" invisible="source_type != 'url'" required="source_type == 'url'" />
+                            <field name="extractor_id" options="{'no_create': True}" />
+                        </group>
+                        <group>
+                            <field name="filename" readonly="1" />
+                            <field name="mimetype" readonly="1" />
+                            <field name="size" readonly="1" />
+                            <field name="checksum" readonly="1" />
+                            <field name="retrieved_at" readonly="1" />
+                            <field name="lock_date" readonly="1" />
+                        </group>
+                    </group>
+                    <group string="HTTP Metadata" invisible="source_type != 'url'">
+                        <field name="final_url" widget="url" readonly="1" />
+                        <field name="etag" readonly="1" />
+                        <field name="last_modified" readonly="1" />
+                    </group>
+                    <group string="Cache and Processing">
+                        <group>
+                            <field name="raw_cache_path" readonly="1" />
+                            <field name="markdown_cache_path" readonly="1" />
+                            <field name="processed_at" readonly="1" />
+                        </group>
+                        <group>
+                            <field name="processed_size" readonly="1" />
+                            <field name="processed_checksum" readonly="1" />
+                            <field name="to_delete" readonly="1" />
+                        </group>
+                    </group>
+                    <div class="alert alert-danger" role="alert" invisible="not processing_error">
+                        <field name="processing_error" nolabel="1" readonly="1" />
+                    </div>
+                    <notebook>
+                        <page string="Markdown" name="markdown">
+                            <field name="markdown" nolabel="1" widget="text" />
+                        </page>
+                        <page string="Metadata" name="metadata">
+                            <field name="processed_metadata" nolabel="1" widget="json_widget" readonly="1" />
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter />
+            </form>
+        </field>
+    </record>
+
+    <record id="view_llm_document_tree" model="ir.ui.view">
+        <field name="name">llm.document.list</field>
+        <field name="model">llm.document</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name" />
+                <field name="collection_id" />
+                <field name="source_type" />
+                <field name="filename" optional="show" />
+                <field name="mimetype" optional="show" />
+                <field name="state" />
+                <field name="to_delete" widget="boolean_toggle" optional="hide" />
+                <field name="lock_date" optional="hide" />
+            </list>
+        </field>
+    </record>
+
+    <record id="view_llm_document_search" model="ir.ui.view">
+        <field name="name">llm.document.search</field>
+        <field name="model">llm.document</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name" />
+                <field name="collection_id" />
+                <field name="filename" />
+                <field name="mimetype" />
+                <filter string="Draft" name="state_draft" domain="[('state', '=', 'draft')]" />
+                <filter string="Retrieved" name="state_retrieved" domain="[('state', '=', 'retrieved')]" />
+                <filter string="Processed" name="state_processed" domain="[('state', '=', 'processed')]" />
+                <filter string="Locked" name="locked" domain="[('lock_date', '!=', False)]" />
+                <filter string="To Delete" name="to_delete" domain="[('to_delete', '=', True)]" />
+                <filter string="State" name="group_by_state" domain="[]" context="{'group_by':'state'}" />
+                <filter string="Collection" name="group_by_collection" domain="[]" context="{'group_by':'collection_id'}" />
+                <filter string="Source Type" name="group_by_source_type" domain="[]" context="{'group_by':'source_type'}" />
+            </search>
+        </field>
+    </record>
+
+    <record id="action_llm_document" model="ir.actions.act_window">
+        <field name="name">Documents</field>
+        <field name="res_model">llm.document</field>
+        <field name="view_mode">kanban,list,form</field>
+        <field name="search_view_id" ref="view_llm_document_search" />
+        <field name="context">{"search_default_group_by_state": 1}</field>
+    </record>
+
+    <record id="view_llm_document_document_tree" model="ir.ui.view">
+        <field name="name">llm.document.document.list</field>
+        <field name="model">llm.document</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name" />
+                <field name="collection_id" />
+                <field name="source_type" />
+                <field name="mimetype" />
+                <field name="state" />
+            </list>
+        </field>
+    </record>
+
+    <record id="view_llm_document_document_kanban" model="ir.ui.view">
+        <field name="name">llm.document.document.kanban</field>
+        <field name="model">llm.document</field>
+        <field name="inherit_id" ref="view_llm_document_kanban" />
+        <field name="mode">primary</field>
+        <field name="arch" type="xml">
+            <xpath expr="//kanban" position="attributes"><attribute name="group_by">state</attribute></xpath>
+        </field>
+    </record>
+
+    <record id="action_llm_knowledge_document" model="ir.actions.act_window">
+        <field name="name">Documents</field>
+        <field name="res_model">llm.document</field>
+        <field name="view_mode">kanban,list,form</field>
+        <field name="domain">[('collection_id', '!=', False)]</field>
+        <field name="context">{'search_default_group_by_state': 1}</field>
+    </record>
+</odoo>

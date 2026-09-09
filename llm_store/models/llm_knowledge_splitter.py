@@ -62,7 +62,8 @@ class LLMKnowledgeSplitter(models.Model):
     def split(self, text, **context):
         """Split ``text`` into a list of chunk strings. ``context`` is
         forwarded to the adapter (e.g. the 'contextual' splitter uses
-        ``resource`` to build document-level context)."""
+        ``document_record`` and the processed ``document`` contract to build
+        document-level context)."""
         self.ensure_one()
         adapter = self._get_adapter()
         if adapter is None:

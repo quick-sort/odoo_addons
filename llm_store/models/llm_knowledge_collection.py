@@ -1,7 +1,7 @@
 """Extends llm.knowledge.collection (from llm_knowledge) with chunking and
 vector-store configuration.
 
-llm_knowledge only knows about resources and their plain text/markdown; a
+llm_knowledge only knows about documents and their plain text/markdown; a
 collection does not carry a single store/embedding-model pair by itself.
 This addon adds ``chunkset_ids`` (N chunking configurations per collection)
 and, through them, ``vector_ids`` (N embedding-model x vector-store
@@ -20,7 +20,7 @@ import logging
 
 from odoo import _, api, fields, models
 
-from .llm_resource_chunker import DEFAULT_CHUNK_OVERLAP, DEFAULT_CHUNK_SIZE
+from .llm_document_chunker import DEFAULT_CHUNK_OVERLAP, DEFAULT_CHUNK_SIZE
 
 _logger = logging.getLogger(__name__)
 
@@ -63,10 +63,10 @@ class LLMKnowledgeCollection(models.Model):
     )
     chunk_ids = fields.Many2many(
         "llm.store.chunk",
-        string="Chunks (from Resources)",
+        string="Chunks (from Documents)",
         compute="_compute_chunk_ids",
         store=False,
-        help="Chunks belonging to the resources included in this collection.",
+        help="Chunks belonging to the documents included in this collection.",
     )
     chunkset_ids = fields.One2many(
         "llm.knowledge.chunkset",
@@ -115,10 +115,10 @@ class LLMKnowledgeCollection(models.Model):
         tracking=True,
     )
 
-    @api.depends("resource_ids.chunk_ids")
+    @api.depends("document_ids.chunk_ids")
     def _compute_chunk_ids(self):
         for collection in self:
-            collection.chunk_ids = collection.resource_ids.mapped("chunk_ids")
+            collection.chunk_ids = collection.document_ids.mapped("chunk_ids")
 
     @api.depends("chunk_ids")
     def _compute_chunk_count(self):
@@ -241,10 +241,10 @@ class LLMKnowledgeCollection(models.Model):
                 update_vals["store_id"] = store
             if update_vals:
                 vector.write(update_vals)
-                self._reset_ready_resources(
+                self._reset_ready_documents(
                     success_message=_(
                         "Default vector configuration changed. Reset {count} "
-                        "resources for re-embedding."
+                        "documents for re-embedding."
                     )
                 )
         return True
@@ -268,15 +268,15 @@ class LLMKnowledgeCollection(models.Model):
 
         return result
 
-    def _reset_ready_resources(
-        self, success_message="Reset {{count}} resources for re-embedding."
+    def _reset_ready_documents(
+        self, success_message="Reset {{count}} documents for re-embedding."
     ):
-        """Finds ready resources, resets their state to 'chunked', and posts a message."""
+        """Finds ready documents, resets their state to 'chunked', and posts a message."""
         self.ensure_one()
-        ready_resources = self.resource_ids.filtered(lambda r: r.state == "ready")
-        if ready_resources:
-            count = len(ready_resources)
-            ready_resources.write({"state": "chunked"})
+        ready_documents = self.document_ids.filtered(lambda r: r.state == "ready")
+        if ready_documents:
+            count = len(ready_documents)
+            ready_documents.write({"state": "chunked"})
             self._post_styled_message(
                 success_message.format(count=count), message_type="info"
             )
@@ -289,7 +289,7 @@ class LLMKnowledgeCollection(models.Model):
             "name": _("Collection Chunks"),
             "view_mode": "list,form",
             "res_model": "llm.store.chunk",
-            "domain": [("collection_ids", "=", self.id)],
+            "domain": [("collection_id", "=", self.id)],
             "type": "ir.actions.act_window",
         }
 
@@ -306,16 +306,16 @@ class LLMKnowledgeCollection(models.Model):
 
     def reindex_collection(self):
         """Reindex every vector configuration of this collection: drop and
-        rebuild each vector's store-side collection, resetting resources
+        rebuild each vector's store-side collection, resetting documents
         for re-embedding."""
         for collection in self:
             if not collection.vector_ids:
-                reset_count = collection._reset_ready_resources(
-                    success_message=_("Reset {count} resources for re-embedding.")
+                reset_count = collection._reset_ready_documents(
+                    success_message=_("Reset {count} documents for re-embedding.")
                 )
                 if not reset_count:
                     collection._post_styled_message(
-                        _("No resources found to reindex."), message_type="info"
+                        _("No documents found to reindex."), message_type="info"
                     )
                 continue
 
@@ -329,21 +329,21 @@ class LLMKnowledgeCollection(models.Model):
                         message_type="error",
                     )
 
-            reset_count = collection._reset_ready_resources(
+            reset_count = collection._reset_ready_documents(
                 success_message=_(
-                    "Reset {count} resources for re-embedding across "
+                    "Reset {count} documents for re-embedding across "
                     f"{len(collection.vector_ids)} vector configuration(s)."
                 )
             )
             if not reset_count:
                 collection._post_styled_message(
-                    _("No resources found to reindex."), message_type="info"
+                    _("No documents found to reindex."), message_type="info"
                 )
 
-    def action_embed_resources(self, specific_resource_ids=None):
-        """Action handler for embedding resources in the UI."""
+    def action_embed_documents(self, specific_document_ids=None):
+        """Action handler for embedding documents in the UI."""
         self.ensure_one()
-        result = self.embed_resources(specific_resource_ids=specific_resource_ids)
+        result = self.embed_documents(specific_document_ids=specific_document_ids)
 
         if result and result.get("success"):
             return True
@@ -352,21 +352,21 @@ class LLMKnowledgeCollection(models.Model):
             "tag": "display_notification",
             "params": {
                 "title": _("Embedding Failed"),
-                "message": _("Failed to embed resources. Check the logs for details."),
+                "message": _("Failed to embed documents. Check the logs for details."),
                 "type": "warning",
                 "sticky": False,
             },
         }
 
-    def embed_resources(self, specific_resource_ids=None, batch_size=50):
+    def embed_documents(self, specific_document_ids=None, batch_size=50):
         """Build every vector configuration of this collection for its
-        resources (chunked resources only). Each vector splits, embeds and
+        documents (chunked documents only). Each vector splits, embeds and
         upserts independently -- see llm.knowledge.vector.action_build.
         ``batch_size`` is currently informational only: vectors batch per
-        resource, not per fixed chunk count, since chunking is transient."""
+        document, not per fixed chunk count, since chunking is transient."""
         overall_success = False
         processed_chunks_total = 0
-        processed_resources = set()
+        processed_documents = set()
 
         for collection in self:
             if not collection.vector_ids:
@@ -380,22 +380,22 @@ class LLMKnowledgeCollection(models.Model):
                 )
                 continue
 
-            resources = collection.resource_ids
-            if specific_resource_ids:
-                resources = resources.filtered(lambda r: r.id in specific_resource_ids)
-            resources = resources.filtered(lambda r: r.state in ("chunked", "ready"))
+            documents = collection.document_ids
+            if specific_document_ids:
+                documents = documents.filtered(lambda r: r.id in specific_document_ids)
+            documents = documents.filtered(lambda r: r.state in ("chunked", "ready"))
 
-            if not resources:
+            if not documents:
                 collection._post_styled_message(
-                    _("No chunked resources found to embed."), message_type="info"
+                    _("No chunked documents found to embed."), message_type="info"
                 )
                 continue
 
             for vector in collection.vector_ids:
                 try:
-                    vector.action_build(specific_resource_ids=resources.ids)
+                    vector.action_build(specific_document_ids=documents.ids)
                     overall_success = True
-                    processed_resources.update(resources.ids)
+                    processed_documents.update(documents.ids)
                     processed_chunks_total += len(vector.chunkset_id.chunk_ids)
                 except Exception as e:  # noqa: BLE001
                     collection._post_styled_message(
@@ -408,13 +408,13 @@ class LLMKnowledgeCollection(models.Model):
                     )
 
             if overall_success:
-                resources.write({"state": "ready"})
+                documents.write({"state": "ready"})
                 self.env.cr.commit()
                 collection._post_styled_message(
                     _(
-                        "Successfully embedded %d resources across %d vector "
+                        "Successfully embedded %d documents across %d vector "
                         "configuration(s).",
-                        len(resources),
+                        len(documents),
                         len(collection.vector_ids),
                     ),
                     message_type="success",
@@ -423,21 +423,21 @@ class LLMKnowledgeCollection(models.Model):
         return {
             "success": overall_success,
             "processed_chunks": processed_chunks_total,
-            "processed_resources": len(processed_resources),
+            "processed_documents": len(processed_documents),
         }
 
-    def _handle_removed_resources(self, removed_resource_ids):
-        """Extend the base hook: also remove this resource's vectors/chunks
+    def _handle_removed_documents(self, removed_document_ids):
+        """Extend the base hook: also remove this document's vectors/chunks
         from every vector configuration of this collection."""
-        result = super()._handle_removed_resources(removed_resource_ids)
-        if removed_resource_ids:
-            resources = self.env["llm.resource"].browse(removed_resource_ids)
-            for resource in resources:
-                self._handle_resource_removal(resource)
+        result = super()._handle_removed_documents(removed_document_ids)
+        if removed_document_ids:
+            documents = self.env["llm.document"].browse(removed_document_ids)
+            for document in documents:
+                self._handle_document_removal(document)
         return result
 
-    def _handle_resource_removal(self, resource):
-        """Remove this resource's chunks/vectors from every vector
+    def _handle_document_removal(self, document):
+        """Remove this document's chunks/vectors from every vector
         configuration of this collection."""
         self.ensure_one()
         for vector in self.vector_ids:
@@ -446,7 +446,7 @@ class LLMKnowledgeCollection(models.Model):
             chunks = self.env["llm.store.chunk"].search(
                 [
                     ("chunkset_id", "=", vector.chunkset_id.id),
-                    ("resource_id", "=", resource.id),
+                    ("document_id", "=", document.id),
                 ]
             )
             if not chunks:
@@ -455,10 +455,10 @@ class LLMKnowledgeCollection(models.Model):
                 vector.delete_vectors(ids=chunks.ids)
                 chunks.unlink()
                 _logger.info(
-                    f"Removed vectors/chunks for resource {resource.id} from vector {vector.id}"
+                    f"Removed vectors/chunks for document {document.id} from vector {vector.id}"
                 )
             except Exception as e:  # noqa: BLE001
                 _logger.warning(
-                    f"Error removing vectors for resource {resource.id} from vector {vector.id}: {str(e)}"
+                    f"Error removing vectors for document {document.id} from vector {vector.id}: {str(e)}"
                 )
         return True

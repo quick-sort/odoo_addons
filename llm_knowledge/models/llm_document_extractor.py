@@ -13,13 +13,13 @@ def archive_dangling_extractor(records):
         records.write({"active": False})
 
 
-class LLMResourceExtractor(models.Model):
+class LLMDocumentExtractor(models.Model):
     """Polymorphic host for optional file and URL extraction backends."""
 
-    _name = "llm.resource.extractor"
-    _description = "LLM Resource Extractor"
+    _name = "llm.document.extractor"
+    _description = "LLM Document Extractor"
     _inherit = ["collection.base"]
-    _backend_name = "llm_resource_extractor"
+    _backend_name = "llm_document_extractor"
 
     name = fields.Char(required=True)
     extractor_type = fields.Selection(
@@ -44,10 +44,6 @@ class LLMResourceExtractor(models.Model):
                 self.extractor_type,
             )
             return None
-
-    def _get_output_format(self):
-        adapter = self._get_adapter()
-        return getattr(adapter, "_output_format", "md") if adapter else "md"
 
     def action_test_config(self):
         self.ensure_one()

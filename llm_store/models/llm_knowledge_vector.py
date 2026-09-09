@@ -123,10 +123,10 @@ class LLMKnowledgeVector(models.Model):
     # ------------------------------------------------------------------
     # Build: split (transient) -> embed -> insert, text travels as payload
     # ------------------------------------------------------------------
-    def action_build(self, specific_resource_ids=None):
-        """Chunk and embed every resource of this vector's collection (or
-        only ``specific_resource_ids``) into the vector store, in one pass
-        per resource: split -> embed -> insert_vectors(metadata={"text":...}).
+    def action_build(self, specific_document_ids=None):
+        """Chunk and embed every document of this vector's collection (or
+        only ``specific_document_ids``) into the vector store, in one pass
+        per document: split -> embed -> insert_vectors(metadata={"text":...}).
         Chunk pointer rows are created/kept in sync as a side effect but
         never carry the text themselves.
         """
@@ -135,55 +135,64 @@ class LLMKnowledgeVector(models.Model):
             try:
                 vector._initialize_store()
                 chunkset = vector.chunkset_id
-                resources = chunkset.collection_id.resource_ids
-                if specific_resource_ids:
-                    resources = resources.filtered(
-                        lambda r: r.id in specific_resource_ids
+                documents = chunkset.collection_id.document_ids
+                if specific_document_ids:
+                    documents = documents.filtered(
+                        lambda r: r.id in specific_document_ids
                     )
-                resources = resources.filtered(
-                    lambda r: r.state in ("parsed", "chunked", "ready")
+                documents = documents.filtered(
+                    lambda r: r.state in ("processed", "chunked", "ready")
                 )
                 total_chunks = 0
-                for resource in resources:
-                    total_chunks += vector._build_resource(chunkset, resource)
+                for document_record in documents:
+                    total_chunks += vector._build_document(chunkset, document_record)
                 vector.write({"state": "vectorized"})
                 _logger.info(
-                    "Vector '%s': embedded %d chunks from %d resources.",
+                    "Vector '%s': embedded %d chunks from %d documents.",
                     vector.name,
                     total_chunks,
-                    len(resources),
+                    len(documents),
                 )
             except Exception:
                 _logger.exception("Vectorization failed for vector %s", vector.name)
                 vector.write({"state": "error"})
                 raise
 
-    def _build_resource(self, chunkset, resource):
-        """Split + embed + insert one resource's chunks for this vector.
+    def _build_document(self, chunkset, document_record):
+        """Split + embed + insert one document record's chunks for this vector.
         Returns the number of chunks processed."""
         self.ensure_one()
-        chunk_texts = chunkset._split_resource(resource)
+        chunk_texts = chunkset._split_document(document_record)
         if not chunk_texts:
             return 0
-        chunks = chunkset._sync_chunk_pointers(resource, chunk_texts)
+        chunks = chunkset._sync_chunk_pointers(document_record, chunk_texts)
 
         vectors = self.embedding_model_id.embedding(chunk_texts)
         if not self.dimension and vectors:
             self.dimension = len(vectors[0])
             self._initialize_store()
 
+        document = document_record.get_processed_document()
         metadata_list = []
         for chunk, text in zip(chunks, chunk_texts):  # noqa: B905
-            metadata_list.append(
+            payload = dict(document["metadata"])
+            payload.update(
                 {
                     "text": text,
-                    "resource_id": resource.id,
-                    "resource_name": resource.name,
+                    "title": document["title"],
+                    "source_uri": document["source_uri"],
+                    "mimetype": document["mimetype"],
+                    "filename": document["filename"],
+                    "checksum": document["checksum"],
+                    "document_id": document_record.id,
+                    "document_name": document_record.name,
+                    "collection_id": document_record.collection_id.id,
                     "chunk_id": chunk.id,
                     "chunkset_id": chunkset.id,
                     "sequence": chunk.sequence,
                 }
             )
+            metadata_list.append(payload)
         self.insert_vectors(
             vectors=vectors,
             metadata=metadata_list,

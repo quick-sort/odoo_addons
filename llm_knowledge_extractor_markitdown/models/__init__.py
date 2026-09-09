@@ -1,1 +1,1 @@
-from . import llm_resource_extractor
+from . import llm_document_extractor

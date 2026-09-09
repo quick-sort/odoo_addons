@@ -1,154 +1,114 @@
 # LLM Knowledge
 
-Dependency-light knowledge collection and resource management for Odoo RAG workflows.
-`llm_knowledge` owns the resource lifecycle, extractor configuration model, and the
-abstract component contract. Document extraction libraries live in optional addons,
-so a core installation does not require every supported parser.
+`llm_knowledge` provides native file and URL documents for Odoo RAG workflows.
+Each `llm.document` belongs to exactly one collection and follows a binary retrieval
+→ Markdown extraction lifecycle. HTTP retrieval is built into the core addon; optional
+addons provide extraction, while `llm_store` and vector backends provide chunking,
+embedding, and vector search.
 
 ## Architecture
 
 ```text
-llm_knowledge                         core resource lifecycle and extractor API
-├── llm_knowledge_extractor_markitdown   local files → Markdown
-├── llm_knowledge_extractor_trafilatura  web URLs → Markdown
-├── llm_knowledge_extractor_mineru       files → MinerU JSON
-├── llm_knowledge_parser_markdownify     legacy HTML fields → Markdown
-├── llm_knowledge_parser_pymupdf         legacy PDF fields → Markdown + images
-└── llm_knowledge_retriever_http          legacy attachment URLs → content
+llm.knowledge.collection
+└── document_ids → llm.document
+    ├── file: source_backend_id + source_path
+    ├── URL: source_url + collection cache backend
+    ├── retrieve() → binary envelope
+    ├── extract() → Markdown
+    └── process_document() → retrieve + extract (+ downstream split/embed)
 ```
 
-The optional addons are not auto-installed. Install only the implementations needed
-by a database.
+Core extractor configuration uses:
+
+- `llm.document.extractor` — polymorphic extractor host;
+- `llm.document.extractor.mapping` — collection-specific or global MIME/extension routing;
+- `llm.document.extractor.component` — component contract returning Markdown `str`.
+
+Cache artifacts use `collections/<collection_id>/documents/<document_id>/`. No legacy
+model alias or cache-path fallback is provided.
 
 ## Installation
 
-Core has no third-party Python extraction dependency:
-
-```bash
-odoo-bin -d your_database -i llm_knowledge
-```
-
-Choose optional features independently:
-
-| Feature | Odoo addon | Python import/package |
-| --- | --- | --- |
-| Local Office/PDF/HTML extraction | `llm_knowledge_extractor_markitdown` | `markitdown` |
-| Web article extraction | `llm_knowledge_extractor_trafilatura` | `trafilatura` |
-| External MinerU service | `llm_knowledge_extractor_mineru` | `requests` |
-| Legacy HTML field parsing | `llm_knowledge_parser_markdownify` | `markdownify` |
-| Legacy PDF field parsing | `llm_knowledge_parser_pymupdf` | `pymupdf` (`PyMuPDF`) |
-| Legacy attachment URL retrieval | `llm_knowledge_retriever_http` | `requests`, `markdownify` |
-
-For example, a deployment that extracts only web pages needs only Trafilatura:
-
-```bash
-python3 -m pip install trafilatura
-odoo-bin -d your_database -i llm_knowledge_extractor_trafilatura
-```
-
-A deployment that sends files to MinerU needs only Requests locally:
+Install the `requests` Python package, then install the addon:
 
 ```bash
 python3 -m pip install requests
-odoo-bin -d your_database -i llm_knowledge_extractor_mineru
+odoo-bin -d your_database -i llm_knowledge
 ```
 
-Odoo checks each addon's `external_dependencies`; it does not install Python packages.
-Pin package versions in the deployment's own requirements or lock file.
+Core has no third-party extraction dependency. Install only the optional extractor
+implementations required by the deployment:
 
-## Configure an extractor
+| Capability | Addon | Python dependency |
+| --- | --- | --- |
+| Local file extraction | `llm_knowledge_extractor_markitdown` | `markitdown` |
+| Web article extraction | `llm_knowledge_extractor_trafilatura` | `trafilatura` |
+| External MinerU extraction | `llm_knowledge_extractor_mineru` | `requests` |
 
-Installing an extractor addon registers its component and adds its technical type to
-`llm.resource.extractor`. Create at least one active extractor record before processing
-file or URL resources.
+The deprecated parser addons are intentionally disabled and are not part of the native
+document pipeline.
+
+## HTTP URL retrieval
+
+Native URL retrieval accepts absolute HTTP and HTTPS URLs, follows at most five redirects,
+uses 10-second connect and 60-second read timeouts, and limits responses to 50 MiB. Every
+redirect and the connected peer are checked against private, loopback, link-local,
+reserved, multicast, and unspecified addresses to reduce SSRF risk. Proxy environment
+variables are intentionally ignored.
+
+Private destinations are blocked by default. Trusted deployments can explicitly set the
+system parameter `llm_knowledge.allow_private_urls` to `True`; this is a global security
+relaxation and should not be enabled for untrusted users. Force refresh uses stored ETag
+and Last-Modified values for conditional requests, while normal processing reuses the
+cached binary.
+
+## Configure extraction
+
+Create an extractor and route supported files or URLs to it with a mapping:
 
 ```python
-extractor = env["llm.resource.extractor"].create(
-    {
-        "name": "Web pages",
-        "extractor_type": "trafilatura",
-    }
-)
+extractor = env["llm.document.extractor"].create({
+    "name": "Web pages",
+    "extractor_type": "trafilatura",
+})
+env["llm.document.extractor.mapping"].create({
+    "name": "HTML",
+    "mimetype": "text/html",
+    "extractor_id": extractor.id,
+})
 
-resource = env["llm.resource"].create(
-    {
-        "name": "Odoo documentation",
-        "source_type": "url",
-        "source_url": "https://www.odoo.com/documentation/19.0/",
-        "extractor_id": extractor.id,
-        "collection_ids": [(4, collection.id)],
-    }
-)
-resource.process_resource()
+document = env["llm.document"].create({
+    "name": "Odoo documentation",
+    "collection_id": collection.id,
+    "source_type": "url",
+    "source_url": "https://www.odoo.com/documentation/19.0/",
+})
+document.process_document()
 ```
 
-Without an explicit `extractor_id`, the first active installed extractor compatible
-with the resource source type is used. Extractor records whose implementation addon is
-not installed are skipped. An explicit unavailable or incompatible extractor produces
-a clear resource error instead of aborting fallback discovery.
+A document-level `extractor_id` is the highest-priority override. Otherwise collection
+mappings are evaluated before global mappings, using exact MIME, exact extension, MIME
+wildcard, then blank-default priority.
 
-MinerU's API URL and API key fields are provided by
-`llm_knowledge_extractor_mineru` and appear only when that addon is installed.
+## Upload and storage scan
 
-## Core behavior without optional addons
+The upload wizard creates native file/URL documents. Uploaded files are copied to the
+collection's Source Backend. URL documents require a cache backend. Collections can
+scan their source backend recursively: new files create documents, missing files are
+flagged `to_delete`, and reappearing files clear that flag.
 
-Core can still parse plain text, Markdown, JSON, and image references from record-backed
-resources. Unsupported binary, PDF, or HTML fields produce a link and a message that an
-optional parser is required. File and URL resources require one of the extractor addons.
+## Extension contract
 
-The upload wizard now creates files and external URLs as native `source_type="file"`
-and `source_type="url"` resources. Uploaded bytes are copied into the collection's
-Source Backend (`source_backend_id`), so the wizard uses the selected file/URL
-extractor path and no longer forces legacy parser or HTTP dependencies.
-
-## Scan a source storage backend
-
-A collection can point at a storage backend holding its original files:
-
-- `source_backend_id` — the backend to scan (filesystem, S3, SFTP, …).
-- `source_path` — optional subfolder inside that backend; empty scans the root.
-
-"Scan Storage" (or the daily scheduled action) walks the backend recursively and:
-
-- creates and processes a file resource for each newly discovered file;
-- links a file's existing resource into the collection instead of duplicating it;
-- flags resources whose file disappeared from the backend with `to_delete`
-  (never deletes them — review and delete manually; the flag clears if the
-  file reappears on a later scan).
-
-## Upgrading an existing database
-
-The technical extractor values remain unchanged: `markitdown`, `trafilatura`, and
-`mineru`. After deploying this code, install every optional addon used by existing
-records in the same maintenance operation:
-
-```bash
-odoo-bin -d your_database \
-  -u llm_knowledge \
-  -i llm_knowledge_extractor_markitdown,llm_knowledge_extractor_trafilatura
-```
-
-Also install:
-
-- `llm_knowledge_extractor_mineru` when a MinerU extractor record exists;
-- `llm_knowledge_retriever_http` while legacy resources use `retriever="http"`;
-- `llm_knowledge_parser_pymupdf` to preserve legacy attachment PDF parsing;
-- `llm_knowledge_parser_markdownify` to preserve legacy attachment HTML parsing.
-
-Existing columns and technical values are preserved. Once legacy HTTP resources have
-been migrated to native URL resources, the compatibility retriever addon can be removed.
-
-## Extension API
-
-A new extractor addon should:
+An extractor addon should:
 
 1. depend on `llm_knowledge`;
-2. register a component inheriting `llm.resource.extractor.component` with a unique
-   `_usage`, `_input` (`file` or `url`), and `_output_format` (`md` or `json`);
-3. extend `extractor_type` with `fields.Selection(selection_add=[...])` and an
+2. register a component inheriting `llm.document.extractor.component` with a unique
+   `_usage` and an `extract(envelope) -> Markdown str` implementation;
+3. extend `llm.document.extractor.extractor_type` with `selection_add` and an
    `ondelete` policy such as `archive_dangling_extractor`;
-4. declare only its own Python packages in `external_dependencies`;
-5. remain non-auto-installable so administrators choose the dependency footprint.
+4. declare only its own external Python dependencies;
+5. document the MIME/extension mappings required to select it.
 
-Chunking, embedding, and vector search are supplied by downstream addons such as
-`llm_store` and `llm_knowledge_pgvector`.
+This development branch intentionally provides no database migration, old model alias,
+old cache fallback, or old vector payload compatibility. Reindex vector collections
+after deployment.

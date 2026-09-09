@@ -237,7 +237,7 @@ class KnowledgeSearchTool(models.Model):
             if chunk:
                 formatted_results.append({
                     'content': chunk.content,
-                    'source': chunk.resource_id.name,
+                    'source': chunk.document_id.name,
                     'similarity_score': result.get('score', 0),
                     'metadata': result.get('metadata', {})
                 })

@@ -1,78 +1,63 @@
-import logging
-
 from odoo import api, fields, models
 
 from odoo.addons.base_pgvector.fields import PgVector
-
-_logger = logging.getLogger(__name__)
 
 
 class LLMKnowledgeChunkEmbedding(models.Model):
     _name = "llm.knowledge.chunk.embedding"
     _description = "Vector Embedding for Knowledge Chunks"
-    _rec_name = "chunk_id"  # Use chunk name as display name
+    _rec_name = "chunk_id"
 
     chunk_id = fields.Many2one(
-        "llm.store.chunk",
-        string="Chunk",
+        "llm.store.chunk", required=True, ondelete="cascade", index=True
+    )
+    vector_id = fields.Many2one(
+        "llm.knowledge.vector",
         required=True,
         ondelete="cascade",
         index=True,
     )
-    # Related field to get collections from chunk's resource
-    collection_ids = fields.Many2many(
+    collection_id = fields.Many2one(
         "llm.knowledge.collection",
-        string="Collections",
-        related="chunk_id.collection_ids",
+        related="vector_id.collection_id",
         store=False,
         readonly=True,
     )
     embedding_model_id = fields.Many2one(
         "llm.model",
-        string="Embedding Model",
         domain="[('model_use', '=', 'embedding')]",
         required=True,
         ondelete="restrict",
         index=True,
     )
     embedding = PgVector(
-        string="Vector Embedding",
-        help="Vector embedding for similarity search",
+        string="Vector Embedding", help="Vector embedding for similarity search"
+    )
+    content = fields.Text(readonly=True)
+    metadata = fields.Json(default=dict, readonly=True)
+    document_id = fields.Many2one(
+        related="chunk_id.document_id", store=True, readonly=True, index=True
     )
 
-    resource_id = fields.Many2one(
-        related="chunk_id.resource_id",
-        store=True,
-        readonly=True,
-        index=True,
-    )
-
-    _unique_chunk_embedding_model = models.Constraint(
-        "UNIQUE(chunk_id, embedding_model_id)",
-        "A chunk can only have one embedding per embedding model",
+    _unique_chunk_vector = models.Constraint(
+        "UNIQUE(chunk_id, vector_id)",
+        "A chunk can only have one embedding per vector configuration.",
     )
 
     display_name = fields.Char(compute="_compute_display_name")
 
-    @api.depends("chunk_id.name", "embedding_model_id.name")
+    @api.depends("chunk_id.name", "vector_id.name")
     def _compute_display_name(self):
         for record in self:
-            record.display_name = (
-                f"{record.chunk_id.name or 'Chunk'} "
-                f"[{record.embedding_model_id.name or 'Model'}]"
+            record.display_name = "%s [%s]" % (
+                record.chunk_id.name or "Chunk",
+                record.vector_id.name or "Vector",
             )
 
     @api.model_create_multi
     def create(self, vals_list):
-        """Override create to handle special cases"""
         for vals in vals_list:
-            # If embedding_model_id not provided, try to get from collection
-            if not vals.get("embedding_model_id") and vals.get("chunk_id"):
-                chunk = self.env["llm.store.chunk"].browse(vals["chunk_id"])
-                # Get first collection's embedding model
-                if chunk.collection_ids and chunk.collection_ids[0].embedding_model_id:
-                    vals["embedding_model_id"] = chunk.collection_ids[
-                        0
-                    ].embedding_model_id.id
-
+            if vals.get("vector_id") and not vals.get("embedding_model_id"):
+                vector = self.env["llm.knowledge.vector"].browse(vals["vector_id"])
+                vals["embedding_model_id"] = vector.embedding_model_id.id
         return super().create(vals_list)

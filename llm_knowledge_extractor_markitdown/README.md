@@ -7,4 +7,4 @@ python3 -m pip install markitdown
 odoo-bin -d your_database -i llm_knowledge_extractor_markitdown
 ```
 
-Create an active `llm.resource.extractor` record with type `markitdown`.
+Create an active `llm.document.extractor` record with type `markitdown`.

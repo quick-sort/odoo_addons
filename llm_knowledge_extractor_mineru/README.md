@@ -1,6 +1,6 @@
 # LLM Knowledge Extractor - MinerU
 
-Sends file resources to a configured MinerU HTTP service and stores its JSON output.
+Sends file documents to a configured MinerU HTTP service and stores its JSON output.
 
 ```bash
 python3 -m pip install requests

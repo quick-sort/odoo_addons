@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="view_llm_document_form_store" model="ir.ui.view">
+        <field name="name">llm.document.form.store</field>
+        <field name="model">llm.document</field>
+        <field name="inherit_id" ref="llm_knowledge.view_llm_document_form" />
+        <field name="arch" type="xml">
+            <button name="process_document" position="before">
+                <button name="chunk" string="Chunk" type="object" class="oe_highlight" invisible="state != 'processed'" />
+                <button name="action_embed" string="Embed" type="object" class="oe_highlight" invisible="state != 'chunked'" />
+            </button>
+            <button name="process_document" position="after">
+                <button name="action_reindex" string="Re-index" type="object" class="btn-secondary" invisible="state != 'ready'" />
+            </button>
+            <field name="state" widget="statusbar" position="attributes">
+                <attribute name="statusbar_visible">draft,retrieved,processed,chunked,ready</attribute>
+            </field>
+            <div class="oe_title" position="before">
+                <div class="oe_button_box" name="button_box">
+                    <field name="chunk_count" invisible="1" />
+                    <button name="action_view_chunks" type="object" class="oe_stat_button" icon="fa-puzzle-piece" invisible="chunk_count == 0">
+                        <field name="chunk_count" widget="statinfo" string="Chunks" />
+                    </button>
+                </div>
+            </div>
+            <notebook position="inside">
+                <page string="Chunks" name="chunks" invisible="chunk_count == 0">
+                    <field name="chunk_ids" context="{'default_document_id': id}">
+                        <list><field name="chunkset_id" /><field name="sequence" widget="handle" /><field name="name" /><field name="metadata" widget="json_preview" optional="show" /></list>
+                    </field>
+                </page>
+            </notebook>
+        </field>
+    </record>
+
+    <record id="view_llm_document_kanban_store" model="ir.ui.view">
+        <field name="name">llm.document.kanban.store</field>
+        <field name="model">llm.document</field>
+        <field name="inherit_id" ref="llm_knowledge.view_llm_document_kanban" />
+        <field name="arch" type="xml">
+            <field name="collection_id" position="before"><field name="chunk_count" /></field>
+            <div class="o_kanban_record_body" position="inside">
+                <div class="text-muted" t-if="record.chunk_count.raw_value &gt; 0"><i class="fa fa-puzzle-piece" title="Chunks" /> <field name="chunk_count" /> chunks</div>
+            </div>
+            <field name="state" widget="label_selection" position="attributes">
+                <attribute name="options">{'classes': {'draft': 'default', 'retrieved': 'primary', 'processed': 'info', 'chunked': 'warning', 'ready': 'success'}}</attribute>
+            </field>
+        </field>
+    </record>
+
+    <record id="view_llm_document_tree_store" model="ir.ui.view">
+        <field name="name">llm.document.list.store</field><field name="model">llm.document</field><field name="inherit_id" ref="llm_knowledge.view_llm_document_tree" />
+        <field name="arch" type="xml"><field name="state" position="after"><field name="chunk_count" /></field></field>
+    </record>
+    <record id="view_llm_document_document_tree_store" model="ir.ui.view">
+        <field name="name">llm.document.document.list.store</field><field name="model">llm.document</field><field name="inherit_id" ref="llm_knowledge.view_llm_document_document_tree" />
+        <field name="arch" type="xml"><field name="state" position="after"><field name="chunk_count" /></field></field>
+    </record>
+    <record id="view_llm_document_search_store" model="ir.ui.view">
+        <field name="name">llm.document.search.store</field><field name="model">llm.document</field><field name="inherit_id" ref="llm_knowledge.view_llm_document_search" />
+        <field name="arch" type="xml"><filter name="state_processed" position="after"><filter string="Chunked" name="state_chunked" domain="[('state', '=', 'chunked')]" /><filter string="Ready" name="state_ready" domain="[('state', '=', 'ready')]" /></filter></field>
+    </record>
+</odoo>

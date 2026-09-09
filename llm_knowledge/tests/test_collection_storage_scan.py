@@ -26,6 +26,7 @@ class TestCollectionStorageScan(TransactionComponentCase):
             {
                 "name": "Scan KB",
                 "source_backend_id": cls.backend.id,
+                "cache_backend_id": cls.backend.id,
             }
         )
 
@@ -48,60 +49,60 @@ class TestCollectionStorageScan(TransactionComponentCase):
             fh.write(data)
         return full
 
-    def _file_resources(self):
+    def _file_documents(self):
         # Scoped to this class's backend so demo data never interferes.
-        return self.env["llm.resource"].search(
+        return self.env["llm.document"].search(
             [
                 ("source_type", "=", "file"),
                 ("source_backend_id", "=", self.backend.id),
             ]
         )
 
-    def test_scan_creates_draft_resources(self):
+    def test_scan_creates_draft_documents(self):
         self._write("doc.md", b"# Title")
         self._write("notes/deep.txt", b"nested")
         self.collection.scan_storage()
 
-        resources = self._file_resources()
-        self.assertEqual(len(resources), 2)
-        by_path = {r.source_path: r for r in resources}
+        documents = self._file_documents()
+        self.assertEqual(len(documents), 2)
+        by_path = {r.source_path: r for r in documents}
         self.assertIn("doc.md", by_path)
         self.assertIn("notes/deep.txt", by_path)
-        # No extractor installed: extraction posts an error message and the
-        # resource stays draft.
-        self.assertEqual(by_path["doc.md"].state, "draft")
-        self.assertIn(self.collection, by_path["doc.md"].collection_ids)
+        # Retrieval succeeds, then missing extractor mapping keeps the document retryable.
+        self.assertEqual(by_path["doc.md"].state, "retrieved")
+        self.assertEqual(by_path["doc.md"].collection_id, self.collection)
 
-    def test_rescan_links_existing_without_duplicates(self):
+    def test_same_source_in_different_collections_creates_owned_documents(self):
         self._write("doc.md")
         self.collection.scan_storage()
-        resource = self._file_resources()
 
         other = self.env["llm.knowledge.collection"].create(
             {
                 "name": "Other KB",
                 "source_backend_id": self.backend.id,
+                "cache_backend_id": self.backend.id,
             }
         )
         other.scan_storage()
         self.collection.scan_storage()
 
-        self.assertEqual(len(self._file_resources()), 1)
-        self.assertEqual(len(resource.collection_ids), 2)
+        documents = self._file_documents()
+        self.assertEqual(len(documents), 2)
+        self.assertEqual(set(documents.mapped("collection_id")), {self.collection, other})
 
     def test_gone_file_flagged_and_reappearance_clears_flag(self):
         path = self._write("doc.md")
         self.collection.scan_storage()
-        resource = self._file_resources()
-        self.assertFalse(resource.to_delete)
+        document = self._file_documents()
+        self.assertFalse(document.to_delete)
 
         os.remove(path)
         self.collection.scan_storage()
-        self.assertTrue(resource.to_delete)
+        self.assertTrue(document.to_delete)
 
         self._write("doc.md", b"back again")
         self.collection.scan_storage()
-        self.assertFalse(resource.to_delete)
+        self.assertFalse(document.to_delete)
 
     def test_source_path_limits_scan_and_gone_detection(self):
         self.collection.source_path = "docs"
@@ -109,36 +110,37 @@ class TestCollectionStorageScan(TransactionComponentCase):
         self._write("outside.md")
         self.collection.scan_storage()
 
-        resources = self._file_resources()
-        self.assertEqual(resources.mapped("source_path"), ["docs/inside.md"])
+        documents = self._file_documents()
+        self.assertEqual(documents.mapped("source_path"), ["docs/inside.md"])
 
-        # Removing the whole scanned subtree flags only resources under the
+        # Removing the whole scanned subtree flags only documents under the
         # source path; the sibling stays untouched (and unscanned).
         shutil.rmtree(os.path.join(self.tmpdir, "docs"))
         self.collection.scan_storage()
-        self.assertTrue(resources.to_delete)
+        self.assertTrue(documents.to_delete)
 
     def test_upload_wizard_requires_source_backend(self):
-        wizard = self.env["llm.upload.resource.wizard"].create(
+        wizard = self.env["llm.upload.document.wizard"].create(
             {
                 "collection_id": self.collection.id,
                 "external_urls": "https://example.com/article",
             }
         )
-        wizard.action_upload_resources()
-        url_resource = self.env["llm.resource"].search(
+        wizard.action_upload_documents()
+        demo_document = self.env.ref(
+            "llm_knowledge.llm_document_url_demo",
+            raise_if_not_found=False,
+        )
+        url_document = self.env["llm.document"].search(
             [
                 ("source_type", "=", "url"),
                 ("create_uid", "!=", False),
-                ("id", "not in", self.env.ref(
-                    "llm_knowledge.llm_resource_url_demo",
-                    raise_if_not_found=False,
-                ).ids),
+                ("id", "not in", demo_document.ids if demo_document else []),
             ]
         )
         self.assertEqual(
-            len(url_resource), 1,
-            "expected exactly the wizard's URL resource",
+            len(url_document), 1,
+            "expected exactly the wizard's URL document",
         )
 
         backendless = self.env["llm.knowledge.collection"].create(
@@ -147,7 +149,7 @@ class TestCollectionStorageScan(TransactionComponentCase):
         attachment = self.env["ir.attachment"].create(
             {"name": "file.txt", "datas": b"aGVsbG8="}
         )
-        wizard = self.env["llm.upload.resource.wizard"].create(
+        wizard = self.env["llm.upload.document.wizard"].create(
             {
                 "collection_id": backendless.id,
                 "file_ids": [(4, attachment.id)],
@@ -160,16 +162,16 @@ class TestCollectionStorageScan(TransactionComponentCase):
         attachment = self.env["ir.attachment"].create(
             {"name": "notes.txt", "datas": b"aGVsbG8="}
         )
-        wizard = self.env["llm.upload.resource.wizard"].create(
+        wizard = self.env["llm.upload.document.wizard"].create(
             {
                 "collection_id": self.collection.id,
                 "file_ids": [(4, attachment.id)],
             }
         )
-        wizard.action_upload_resources()
+        wizard.action_upload_documents()
 
-        resources = self._file_resources()
-        self.assertEqual(len(resources), 1)
-        resource = resources[0]
-        self.assertTrue(resource.source_backend_id.file_exists(resource.source_path))
-        self.assertEqual(resource._read_source_bytes(), b"hello")
+        documents = self._file_documents()
+        self.assertEqual(len(documents), 1)
+        document = documents[0]
+        self.assertTrue(document.source_backend_id.file_exists(document.source_path))
+        self.assertEqual(document._retrieve_file_binary()["content"], b"hello")

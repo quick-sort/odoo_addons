@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="view_llm_document_extractor_mapping_list" model="ir.ui.view">
+        <field name="name">llm.document.extractor.mapping.list</field>
+        <field name="model">llm.document.extractor.mapping</field>
+        <field name="arch" type="xml">
+            <list editable="bottom">
+                <field name="sequence" widget="handle" />
+                <field name="name" />
+                <field name="collection_id" optional="show" />
+                <field name="mimetype" />
+                <field name="extension" />
+                <field name="extractor_id" />
+                <field name="active" widget="boolean_toggle" />
+            </list>
+        </field>
+    </record>
+    <record id="view_llm_document_extractor_mapping_form" model="ir.ui.view">
+        <field name="name">llm.document.extractor.mapping.form</field>
+        <field name="model">llm.document.extractor.mapping</field>
+        <field name="arch" type="xml">
+            <form><sheet><div class="oe_title"><h1><field name="name" /></h1></div><group><field name="collection_id" /><field name="extractor_id" /><field name="mimetype" /><field name="extension" /><field name="sequence" /><field name="active" /></group></sheet></form>
+        </field>
+    </record>
+    <record id="view_llm_document_extractor_mapping_search" model="ir.ui.view">
+        <field name="name">llm.document.extractor.mapping.search</field>
+        <field name="model">llm.document.extractor.mapping</field>
+        <field name="arch" type="xml">
+            <search><field name="name" /><field name="collection_id" /><field name="mimetype" /><field name="extension" /><field name="extractor_id" /><filter string="Global" name="global" domain="[('collection_id', '=', False)]" /><filter string="Collection" name="collection" domain="[('collection_id', '!=', False)]" /></search>
+        </field>
+    </record>
+    <record id="action_llm_document_extractor_mapping" model="ir.actions.act_window">
+        <field name="name">Extractor Mappings</field>
+        <field name="res_model">llm.document.extractor.mapping</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_llm_document_extractor_mapping_search" />
+    </record>
+</odoo>

@@ -1,4 +1,4 @@
-"""MarkItDown file extractor."""
+"""MarkItDown binary-envelope extractor."""
 
 import os
 import tempfile
@@ -10,19 +10,17 @@ from odoo.addons.component.core import Component
 
 class MarkitdownExtractor(Component):
     _name = "llm.markitdown.extractor"
-    _inherit = "llm.resource.extractor.component"
+    _inherit = "llm.document.extractor.component"
     _usage = "markitdown"
-    _input = "file"
-    _output_format = "md"
 
-    def extract(self, resource):
-        content = resource._read_source_bytes()
-        suffix = os.path.splitext(resource.source_path or "")[1] or ".bin"
-        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
-            tmp.write(content)
-            tmp_path = tmp.name
+    def extract(self, envelope):
+        content = envelope["content"]
+        suffix = os.path.splitext(envelope.get("filename") or "")[1] or ".bin"
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as temporary:
+            temporary.write(content)
+            temporary_path = temporary.name
         try:
-            result = MarkItDown().convert(tmp_path)
+            result = MarkItDown().convert(temporary_path)
             return result.text_content or ""
         finally:
-            os.unlink(tmp_path)
+            os.unlink(temporary_path)

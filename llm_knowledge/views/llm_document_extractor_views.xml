@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <odoo>
-    <record id="view_llm_resource_extractor_form" model="ir.ui.view">
-        <field name="name">llm.resource.extractor.form</field>
-        <field name="model">llm.resource.extractor</field>
+    <record id="view_llm_document_extractor_form" model="ir.ui.view">
+        <field name="name">llm.document.extractor.form</field>
+        <field name="model">llm.document.extractor</field>
         <field name="arch" type="xml">
             <form>
                 <header>
@@ -26,9 +26,9 @@
         </field>
     </record>
 
-    <record id="view_llm_resource_extractor_tree" model="ir.ui.view">
-        <field name="name">llm.resource.extractor.tree</field>
-        <field name="model">llm.resource.extractor</field>
+    <record id="view_llm_document_extractor_tree" model="ir.ui.view">
+        <field name="name">llm.document.extractor.tree</field>
+        <field name="model">llm.document.extractor</field>
         <field name="arch" type="xml">
             <list>
                 <field name="name" />
@@ -38,9 +38,9 @@
         </field>
     </record>
 
-    <record id="action_llm_resource_extractor" model="ir.actions.act_window">
+    <record id="action_llm_document_extractor" model="ir.actions.act_window">
         <field name="name">Extractors</field>
-        <field name="res_model">llm.resource.extractor</field>
+        <field name="res_model">llm.document.extractor</field>
         <field name="view_mode">list,form</field>
     </record>
 </odoo>
