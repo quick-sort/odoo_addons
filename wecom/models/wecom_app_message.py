@@ -6,13 +6,13 @@ from odoo import fields, models, api, exceptions
 _logger = logging.getLogger(__name__)
 
 
-class WechatAppMessage(models.Model):
-    _name = 'wechat.app.message'
+class WecomAppMessage(models.Model):
+    _name = 'wecom.app.message'
     _description = '企微应用消息发布'
     _order = 'create_date desc'
 
-    app_id = fields.Many2one('wechat.app', string="发布应用", required=True, ondelete='restrict',
-                              default=lambda self: self.env['wechat.app'].search(
+    app_id = fields.Many2one('wecom.app', string="发布应用", required=True, ondelete='restrict',
+                              default=lambda self: self.env['wecom.app'].search(
                                   [('company_id', '=', self.env.company.id)], limit=1))
     company_id = fields.Many2one('res.company', related='app_id.company_id', store=True, readonly=True)
 
@@ -48,9 +48,9 @@ class WechatAppMessage(models.Model):
     content_image_filename = fields.Char(string="正文图片文件名")
 
     send_to_all = fields.Boolean(string="发送给全部成员")
-    user_ids = fields.Many2many('wechat.user', string="接收成员",
+    user_ids = fields.Many2many('wecom.user', string="接收成员",
                                  help="从本地缓存的企微通讯录中选择，如列表为空请先到「企微应用」上点击“同步成员”")
-    department_ids = fields.Many2many('wechat.department', string="接收部门")
+    department_ids = fields.Many2many('wecom.department', string="接收部门")
     touser = fields.Char(string="接收成员UserId", help="直接填写企微成员UserId，多个用“|”分隔；"
                                                     "与「接收成员」同时填写时会合并发送")
     toparty = fields.Char(string="接收部门Id", help="直接填写企微部门Id，多个用“|”分隔；"
@@ -69,7 +69,7 @@ class WechatAppMessage(models.Model):
         ('draft', '草稿'),
         ('sent', '已发送'),
         ('failed', '发送失败'),
-    ], string="状态", default='draft', copy=False, tracking=False)
+    ], string="状态", default='draft', copy=False)
     send_date = fields.Datetime(string="发送时间", readonly=True, copy=False)
     invalid_user = fields.Char(string="无效成员", readonly=True, copy=False)
     invalid_party = fields.Char(string="无效部门", readonly=True, copy=False)
@@ -109,7 +109,7 @@ class WechatAppMessage(models.Model):
             raise exceptions.UserError("请先填写正文内容后再预览。")
         return {
             'type': 'ir.actions.act_url',
-            'url': f'/wechat/app_message/{self.id}/preview',
+            'url': f'/wecom/app_message/{self.id}/preview',
             'target': 'new',
         }
 
@@ -123,8 +123,8 @@ class WechatAppMessage(models.Model):
         """
         内部发送接口：发送企微模块内已存在的消息记录，并把发送结果回写到记录上。
 
-        供本模块的界面按钮以及 wechat.app.send_message()（对外接口）调用。
-        其他模块请调用 wechat.app.send_message()，它会自动创建消息记录后再走这里，
+        供本模块的界面按钮以及 wecom.app.send_message()（对外接口）调用。
+        其他模块请调用 wecom.app.send_message()，它会自动创建消息记录后再走这里，
         以保证发送历史完整。
 
         :param raise_exception: 发送失败时是否抛出异常。True（默认）先把记录置为“发送失败”再抛出；
@@ -133,7 +133,7 @@ class WechatAppMessage(models.Model):
         """
         for rec in self:
             try:
-                result = rec._send_to_wechat()
+                result = rec._send_to_wecom()
             except Exception as e:
                 _logger.error(f"企微应用消息发布失败：{e}")
                 rec.write({'state': 'failed', 'result': str(e), 'send_date': fields.Datetime.now()})
@@ -150,7 +150,7 @@ class WechatAppMessage(models.Model):
             })
         return self
 
-    def _send_to_wechat(self):
+    def _send_to_wecom(self):
         """
         按消息类型上传素材并调用企微应用的内部发送接口，返回企业微信的原始结果。
         """
@@ -193,8 +193,8 @@ class WechatAppMessage(models.Model):
         返回企业微信接口需要的 (touser, toparty) 字符串。
         """
         self.ensure_one()
-        users = self.user_ids.mapped('wechat_id') + (self.touser or '').split('|')
-        parties = [str(wid) for wid in self.department_ids.mapped('wechat_id')] + (self.toparty or '').split('|')
+        users = self.user_ids.mapped('wecom_id') + (self.touser or '').split('|')
+        parties = [str(wid) for wid in self.department_ids.mapped('wecom_id')] + (self.toparty or '').split('|')
         return '|'.join(dict.fromkeys(filter(None, users))), '|'.join(dict.fromkeys(filter(None, parties)))
 
     def _get_mpnews_content(self):

@@ -33,8 +33,8 @@ const BASE_STYLE = `
     a { color: #576b95; }
 `;
 
-export class WechatHtmlPreviewField extends Component {
-    static template = "odoo_wechat.WechatHtmlPreviewField";
+export class WecomHtmlPreviewField extends Component {
+    static template = "wecom.WecomHtmlPreviewField";
     static props = {
         ...standardFieldProps,
         height: { type: Number, optional: true },
@@ -69,8 +69,8 @@ export class WechatHtmlPreviewField extends Component {
     }
 }
 
-export const wechatHtmlPreviewField = {
-    component: WechatHtmlPreviewField,
+export const wecomHtmlPreviewField = {
+    component: WecomHtmlPreviewField,
     displayName: _t("企微正文预览"),
     supportedTypes: ["text", "html"],
     supportedOptions: [
@@ -86,4 +86,4 @@ export const wechatHtmlPreviewField = {
     }),
 };
 
-registry.category("fields").add("wechat_html_preview", wechatHtmlPreviewField);
+registry.category("fields").add("wecom_html_preview", wecomHtmlPreviewField);

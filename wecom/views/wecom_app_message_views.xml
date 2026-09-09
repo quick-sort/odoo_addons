@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
-    <record id="view_wechat_app_message_tree" model="ir.ui.view">
-        <field name="name">wechat.app.message.tree</field>
-        <field name="model">wechat.app.message</field>
+    <record id="view_wecom_app_message_tree" model="ir.ui.view">
+        <field name="name">wecom.app.message.tree</field>
+        <field name="model">wecom.app.message</field>
         <field name="arch" type="xml">
             <list>
                 <field name="create_date" string="创建时间"/>
@@ -17,9 +17,9 @@
         </field>
     </record>
 
-    <record id="view_wechat_app_message_form" model="ir.ui.view">
-        <field name="name">wechat.app.message.form</field>
-        <field name="model">wechat.app.message</field>
+    <record id="view_wecom_app_message_form" model="ir.ui.view">
+        <field name="name">wecom.app.message.form</field>
+        <field name="model">wecom.app.message</field>
         <field name="arch" type="xml">
             <form>
                 <header>
@@ -84,7 +84,7 @@
                         <field name="content" widget="ace" options="{'mode': 'xml'}"
                                invisible="state == 'sent'"
                                required="msg_type == 'mpnews' and not content_image"/>
-                        <field name="content" widget="wechat_html_preview" nolabel="1" readonly="1"
+                        <field name="content" widget="wecom_html_preview" nolabel="1" readonly="1"
                                options="{'height': 700}" invisible="state != 'sent'"/>
                     </group>
                     <group string="发送结果" invisible="state == 'draft'">
@@ -100,9 +100,9 @@
         </field>
     </record>
 
-    <record model="ir.actions.act_window" id="wechat_app_message_action">
+    <record model="ir.actions.act_window" id="wecom_app_message_action">
         <field name="name">发布历史</field>
-        <field name="res_model">wechat.app.message</field>
+        <field name="res_model">wecom.app.message</field>
         <field name="view_mode">list,form</field>
     </record>
 

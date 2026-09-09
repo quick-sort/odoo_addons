@@ -1,3 +1,3 @@
 # -*- coding: utf-8 -*-
 
-from . import wechat_api
+from . import wecom_api

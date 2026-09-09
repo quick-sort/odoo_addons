@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+    <!-- 应用主菜单，整个企业微信集成作为独立App，仅系统管理员可见/操作 -->
+    <menuitem name="企业微信" id="wecom_root_menu" sequence="120" groups="base.group_system"
+              web_icon="wecom,static/description/icon.png"/>
+
+    <menuitem id="wecom_app_menu" name="企微应用" parent="wecom_root_menu" sequence="10"
+              action="wecom_app_action"/>
+
+    <menuitem id="wecom_app_message_menu" name="发布历史" parent="wecom_root_menu" sequence="20"
+              action="wecom_app_message_action"/>
+
+    <menuitem id="wecom_contacts_menu" name="通讯录" parent="wecom_root_menu" sequence="30"/>
+
+    <menuitem id="wecom_department_menu" name="企微部门" parent="wecom_contacts_menu" sequence="10"
+              action="wecom_department_action"/>
+
+    <menuitem id="wecom_user_menu" name="企微成员" parent="wecom_contacts_menu" sequence="20"
+              action="wecom_user_action"/>
+
+</odoo>
