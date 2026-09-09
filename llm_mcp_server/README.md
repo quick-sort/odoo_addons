@@ -24,10 +24,10 @@ HTTP-based MCP server that exposes Odoo tools to any MCP-compatible AI client.
                                     │
                         ┌───────────┴───────────┐
                         ▼                       ▼
-    ┌───────────────────────────┐   ┌───────────────────────────┐
-    │         llm_tool          │   │           llm             │
-    │    (Tool Registry)        │   │    (Core Base Module)     │
-    └───────────────────────────┘   └───────────────────────────┘
+    ┌───────────────────────────────────────────────────────┐
+    │                    llm (Core Module)                  │
+    │             Tool Registry (llm.tool model)            │
+    └───────────────────────────────────────────────────────┘
 ```
 
 ## Installation
@@ -42,8 +42,7 @@ odoo-bin -d your_db -i llm_mcp_server
 
 ### Auto-Installed Dependencies
 
-- `llm` (core infrastructure)
-- `llm_tool` (tool framework)
+- `llm` (core infrastructure incl. tool framework)
 
 ### Why Use This Module?
 
@@ -59,8 +58,7 @@ odoo-bin -d your_db -i llm_mcp_server
 | I want to...          | Install                                                  |
 | --------------------- | -------------------------------------------------------- |
 | Claude Desktop + Odoo | `llm_mcp_server`                                         |
-| External + knowledge  | `llm_mcp_server` + `llm_tool_knowledge` + `llm_pgvector` |
-| External + Letta      | `llm_mcp_server` + `llm_letta`                           |
+| External + knowledge  | `llm_mcp_server` + `llm_knowledge` + `llm_knowledge_pgvector` |
 
 ## What is MCP?
 
@@ -69,8 +67,8 @@ odoo-bin -d your_db -i llm_mcp_server
 ## Requirements
 
 - **Python**: 3.10+
-- **Odoo**: 18.0
-- **Dependencies**: See [requirements.txt](https://github.com/apexive/odoo-llm/blob/18.0/requirements.txt)
+- **Odoo**: 19.0
+- **Dependencies**: `mcp` (Python package, declared in `__manifest__.py` `external_dependencies`)
 
 ## Quick Start
 
@@ -225,7 +223,7 @@ Every Odoo user can connect their own AI client independently:
 
 ## Creating Tools
 
-Tools are auto-discovered from the `llm.tool` model. See [llm_tool module](https://github.com/apexive/odoo-llm/tree/18.0/llm_tool) for creating custom tools.
+Tools are auto-discovered from the `llm.tool` model. See [llm/DECORATOR.md](../llm/DECORATOR.md) for creating custom tools with the `@llm_tool` decorator.
 
 ## Testing & Debugging
 
@@ -291,5 +289,5 @@ Contributions and feature requests welcome!
 ## Resources
 
 - [MCP Protocol Spec](https://modelcontextprotocol.io/)
-- [Odoo LLM Repository](https://github.com/apexive/odoo-llm)
+- [Technical Guide](docs/TECHNICAL_GUIDE.md)
 - [Video Tutorial](https://drive.google.com/file/d/1TgPrfLuAtql3en3B_McKlMmDWuYn3wXM/view)

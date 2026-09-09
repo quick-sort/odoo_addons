@@ -1,4 +1,5 @@
 import logging
+import time
 
 from mcp.types import CallToolResult, ListToolsResult, TextContent, Tool
 
@@ -6,6 +7,8 @@ from odoo import _, api, models
 from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
+
+RESULT_SUMMARY_MAX = 2000
 
 
 class LLMTool(models.Model):
@@ -46,6 +49,7 @@ class LLMTool(models.Model):
         if not tool:
             raise UserError(_("Tool '%s' not found or inactive") % tool_name)
 
+        start = time.monotonic()
         try:
             # Execute the tool
             result = tool.execute(tool_arguments)
@@ -54,11 +58,51 @@ class LLMTool(models.Model):
             content = [
                 TextContent(type="text", text=str(result) if result is not None else "")
             ]
-            return CallToolResult(content=content, isError=False)
+            result = CallToolResult(content=content, is_error=False)
         except Exception as e:
             _logger.exception(f"Error executing tool {tool_name}")
             # Return error result
             error_content = [
                 TextContent(type="text", text=f"Tool execution failed: {str(e)}")
             ]
-            return CallToolResult(content=error_content, isError=True)
+            result = CallToolResult(content=error_content, is_error=True)
+
+        try:
+            self._mcp_audit_tool_call(params, result, time.monotonic() - start)
+        except Exception:
+            # A failed audit write must never break the tool response.
+            _logger.exception("Failed to record MCP tool call audit row")
+
+        return result
+
+    @api.model
+    def _mcp_audit_tool_call(self, params, result, duration):
+        summary = ""
+        content = getattr(result, "content", None) or []
+        if content:
+            summary = getattr(content[0], "text", "") or ""
+        tool_name = params.get("name") or ""
+
+        self.env["llm.mcp.tool.call"].create(
+            {
+                "user_id": self.env.uid,
+                "tool_id": self.search([("name", "=", tool_name)], limit=1).id or False,
+                "tool_name": tool_name,
+                "session_id": self._mcp_session_id_from_request(),
+                "arguments": params.get("arguments") or {},
+                "is_error": bool(getattr(result, "is_error", False)),
+                "result_summary": summary[:RESULT_SUMMARY_MAX],
+                "duration_ms": int(duration * 1000),
+            }
+        )
+
+    @staticmethod
+    def _mcp_session_id_from_request():
+        # execute_mcp_tool is also called from tests and shell code where
+        # no HTTP request exists.
+        try:
+            from odoo.http import request
+
+            return request.httprequest.headers.get("mcp-session-id") or ""
+        except RuntimeError:
+            return ""

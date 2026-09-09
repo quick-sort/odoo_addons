@@ -227,43 +227,33 @@ class LLMMCPServerConfig(models.Model):
     def action_test_connection(self):
         """Test MCP server by listing available tools.
 
-        If the current user has API keys, generate a temporary key and test
-        via HTTP with bearer auth.  Otherwise test without authentication.
+        Generates a temporary API key and tests via HTTP with bearer auth,
+        so the test exercises the same per-user authentication path real
+        MCP clients use.
         """
-        import json as _json
         import requests as _req
 
         self.ensure_one()
         mcp_url = self.get_mcp_server_url()
         headers = {"Content-Type": "application/json"}
 
-        # Check if current user has any API keys
-        has_keys = bool(
+        # Generate a temporary key for testing
+        api_key = (
             self.env["res.users.apikeys"]
             .sudo()
-            .search_count([("user_id", "=", self.env.uid)])
+            ._generate(None, "__mcp_test__", None)
         )
-
-        api_key = None
-        temp_key_rec = None
-        if has_keys:
-            # Generate a temporary key for testing
-            api_key = (
-                self.env["res.users.apikeys"]
-                .sudo()
-                ._generate(None, "__mcp_test__", None)
+        # Find the record we just created so we can delete it later
+        temp_key_rec = (
+            self.env["res.users.apikeys"]
+            .sudo()
+            .search(
+                [("user_id", "=", self.env.uid), ("name", "=", "__mcp_test__")],
+                order="id desc",
+                limit=1,
             )
-            # Find the record we just created so we can delete it later
-            temp_key_rec = (
-                self.env["res.users.apikeys"]
-                .sudo()
-                .search(
-                    [("user_id", "=", self.env.uid), ("name", "=", "__mcp_test__")],
-                    order="id desc",
-                    limit=1,
-                )
-            )
-            headers["Authorization"] = f"Bearer {api_key}"
+        )
+        headers["Authorization"] = f"Bearer {api_key}"
 
         try:
             # 1. Initialize
@@ -323,7 +313,6 @@ class LLMMCPServerConfig(models.Model):
             "views": [(False, "form")],
             "target": "new",
             "context": {
-                "default_has_key": has_keys,
                 "default_tool_count": len(tool_names),
                 "default_tool_list": result_text,
             },

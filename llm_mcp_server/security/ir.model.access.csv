@@ -7,3 +7,5 @@ access_llm_mcp_session_user,llm.mcp.session user,model_llm_mcp_session,base.grou
 access_llm_mcp_session_public,llm.mcp.session public,model_llm_mcp_session,,1,1,1,0
 access_llm_mcp_key_show_user,llm.mcp.key.show user,model_llm_mcp_key_show,base.group_user,1,1,1,1
 access_llm_mcp_test_result_user,llm.mcp.test.result user,model_llm_mcp_test_result,base.group_user,1,1,1,1
+access_llm_mcp_tool_call_manager,llm.mcp.tool.call manager,model_llm_mcp_tool_call,llm.group_llm_manager,1,0,0,1
+access_llm_mcp_tool_call_user,llm.mcp.tool.call user,model_llm_mcp_tool_call,base.group_user,0,0,1,0

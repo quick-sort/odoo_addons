@@ -143,7 +143,6 @@
                         <strong>Connection OK</strong>
                     </div>
                     <group>
-                        <field name="has_key" widget="boolean" />
                         <field name="tool_count" />
                     </group>
                     <separator string="Available Tools" />

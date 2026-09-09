@@ -11,12 +11,14 @@
 
         Core Features:
         • MCP 2025-06-18 protocol compliance with JSON-RPC 2.0
-        • Bearer token authentication with Odoo user integration
+        • Bearer token authentication required on every request; tool
+          execution runs under the API key's user, so Odoo ACLs and
+          record rules bound the accessible resources
+        • Per-user tool call audit trail (llm.mcp.tool.call)
         • Stateful session management with concurrent request handling
         • Automatic tool discovery from llm.tool registry
         • Real-time tool execution with proper Odoo context
         • Health monitoring and protocol version negotiation
-        • Production-ready with optimized logging and error handling
 
         Supported Methods:
         • initialize - Server capability negotiation
@@ -36,6 +38,7 @@
         "data/llm_mcp_server_config.xml",
         "views/llm_mcp_server_config_views.xml",
         "views/llm_mcp_session_views.xml",
+        "views/llm_mcp_tool_call_views.xml",
         "views/res_users_views.xml",
         "wizards/mcp_key_wizard_views.xml",
     ],

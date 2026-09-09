@@ -60,6 +60,7 @@ class MCPController(http.Controller):
     @http.route(
         "/mcp", type="mcp_json", auth="public", methods=["POST"], csrf=False, cors="*"
     )
+    @requires_bearer_auth
     def mcp_endpoint(self, **params):
         """MCP endpoint for JSON-RPC methods using custom dispatcher"""
         # Extract data from JSON-RPC request via dispatcher
@@ -154,6 +155,10 @@ class MCPController(http.Controller):
             # Transition to initializing state
             session.transition_to("initializing")
 
+            # Bind the authenticated user to the session at creation time
+            if not request.env.user._is_public():
+                session.user_id = request.env.user.id
+
             # Return wrapped response with session_id
             return MCPInitializeResponse(result=result, session_id=session.session_id)
 
@@ -192,18 +197,8 @@ class MCPController(http.Controller):
         """Handle tools/list method"""
         return request.env["llm.tool"].get_mcp_tools_list(params=params)
 
-    @requires_bearer_auth
     def _mcp_tools_call(self, params, request_id):
         """Handle tools/call method"""
-        # Get session ID from headers if available
-        session_id = request.httprequest.headers.get("mcp-session-id")
-
-        # Update session user_id if we have a session and authenticated user
-        if session_id and request.env.user and not request.env.user._is_public():
-            session = request.env["llm.mcp.session"].get_session(session_id)
-            if session and not session.user_id:
-                session.user_id = request.env.user.id
-
         return request.env["llm.tool"].execute_mcp_tool(params=params)
 
     def _is_callable(self, method_name):
