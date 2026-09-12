@@ -1,14 +1,12 @@
 {
     "name": "LLM Vector Store Base",
-    "summary": """
-        Integration with various vector database providers for LLM applications""",
+    "summary": "Store instances and isolated knowledge databases for RAG",
     "description": """
-        Provides integration with vector stores for:
-        - Vector storage and retrieval
-        - Similarity search
-        - Collection management
-        - RAG (Retrieval Augmented Generation) support
-
+        Separates vector-store service instances from the physical databases
+        built for knowledge collections. A store instance owns administrator
+        connectivity and can provision many isolated databases. Each database
+        stores exactly one knowledge collection using one independently
+        benchmarkable chunking, embedding, and index method.
     """,
     "author": "quick-sort@outlook.com",
     "website": "quick-sort@outlook.com",
@@ -18,6 +16,7 @@
     "data": [
         "security/ir.model.access.csv",
         "views/llm_store_views.xml",
+        "views/llm_store_database_views.xml",
         "views/llm_store_menu_views.xml",
         "views/llm_knowledge_splitter_views.xml",
         "views/llm_knowledge_chunkset_views.xml",
@@ -27,9 +26,7 @@
         "views/llm_document_views.xml",
         "views/menu.xml",
     ],
-    "demo": [
-        "data/llm_knowledge_splitter_demo.xml",
-    ],
+    "demo": ["data/llm_knowledge_splitter_demo.xml"],
     "images": ["static/description/banner.jpeg"],
     "license": "LGPL-3",
     "installable": True,

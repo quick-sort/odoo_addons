@@ -1,6 +1,8 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_llm_store_user,llm.store.user,model_llm_store,base.group_user,1,0,0,0
 access_llm_store_manager,llm.store.manager,model_llm_store,llm.group_llm_manager,1,1,1,1
+access_llm_store_database_user,llm.store.database.user,model_llm_store_database,base.group_user,1,0,0,0
+access_llm_store_database_manager,llm.store.database.manager,model_llm_store_database,llm.group_llm_manager,1,1,1,1
 
 access_llm_knowledge_splitter_user,llm.knowledge.splitter.user,model_llm_knowledge_splitter,base.group_user,1,0,0,0
 access_llm_knowledge_splitter_manager,llm.knowledge.splitter.manager,model_llm_knowledge_splitter,llm.group_llm_manager,1,1,1,1

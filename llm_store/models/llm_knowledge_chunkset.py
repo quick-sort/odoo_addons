@@ -1,19 +1,14 @@
-"""One chunking configuration of a collection.
+"""One chunking method that may be selected by store databases.
 
-A collection may hold several chunksets (different splitters/chunk sizes,
-including a 'contextual' splitter for contextual-retrieval wrapping). Each
-chunkset in turn may feed several ``llm.knowledge.vector`` configurations
-(different embedding models/dimensions/stores), so one collection can be
-compared across configurations -- this is what makes "multiple vector
-stores with different chunk sizes and embedding methods per knowledge base"
-possible.
+A knowledge collection may have several chunksets. Each physical
+``llm.store.database`` selects exactly one chunkset together with one embedding
+model and its own backend index configuration. This lets the same source
+collection be built into multiple isolated databases and benchmarked without
+mixing methods or duplicating chunk text in Odoo.
 
-Chunking and vectorization for a chunkset are fused into a single step
-(``action_build`` / ``_build_document``) per (document, chunkset, vector):
-chunk text is produced in memory by the splitter and handed straight to the
-embedding call, then persisted as payload alongside its vector in the
-vector store -- it is never written to the Odoo database or to a storage
-backend (see llm.store.chunk, which is a pointer-only row).
+Chunking and vectorization are fused during a database build: text is produced
+in memory, embedded, then persisted as backend payload. ``llm.store.chunk``
+remains a pointer-only row.
 """
 
 import logging
@@ -71,7 +66,7 @@ class LLMKnowledgeChunkset(models.Model):
     vector_ids = fields.One2many(
         "llm.knowledge.vector",
         "chunkset_id",
-        string="Vector Configurations",
+        string="Database Builds",
     )
     vector_count = fields.Integer(compute="_compute_vector_count")
 

@@ -1,207 +1,72 @@
-==========================================
-LLM Vector Store Base for Odoo
-==========================================
-
-Comprehensive vector database abstraction layer providing unified interfaces for similarity search, embeddings storage, and RAG capabilities.
-
-**Module Type:** 📦 Infrastructure
-
-.. image:: ../static/description/llm_store_architecture.png
-   :alt: LLM Store Architecture
-   :width: 100%
-
-Installation
-============
-
-What to Install
----------------
-
-This module is typically **auto-installed** as a dependency. You rarely need to install it directly.
-
-**For RAG/Knowledge Base features:**
-
-.. code-block:: bash
-
-    # Install knowledge module with a vector store
-    odoo-bin -d your_db -i llm_knowledge,llm_pgvector
-
-Auto-Installed Dependencies
----------------------------
-
-These are pulled in automatically:
-
-- ``llm`` (core infrastructure)
-- ``mail`` (Odoo messaging)
-
-Choose a Vector Store Implementation
-------------------------------------
-
-+----------------+---------------------------+-----------------------------------+
-| Module         | Best For                  | Requirements                      |
-+================+===========================+===================================+
-| ``llm_pgvector`` | Production (recommended) | PostgreSQL 14+ with pgvector     |
-+----------------+---------------------------+-----------------------------------+
-| ``llm_qdrant``   | Large-scale deployments  | Qdrant server                    |
-+----------------+---------------------------+-----------------------------------+
-| ``llm_chroma``   | Development/testing      | None (embedded)                  |
-+----------------+---------------------------+-----------------------------------+
-
-Common Setups
--------------
-
-+----------------------------------+----------------------------------------------------------+
-| I want to...                     | Install                                                  |
-+==================================+==========================================================+
-| Add RAG to my AI assistant       | ``llm_knowledge`` + ``llm_pgvector`` + ``llm_assistant`` |
-+----------------------------------+----------------------------------------------------------+
-| Simple document search           | ``llm_knowledge`` + ``llm_chroma``                       |
-+----------------------------------+----------------------------------------------------------+
-| High-performance vector search   | ``llm_knowledge`` + ``llm_qdrant``                       |
-+----------------------------------+----------------------------------------------------------+
-
-Overview
-========
-
-The LLM Vector Store Base module serves as the foundation for vector database operations in the Odoo LLM ecosystem. It provides a provider-agnostic interface that enables seamless integration with various vector databases while maintaining consistent APIs and performance optimizations.
-
-Core Capabilities
------------------
-
-- **Multi-Provider Support** - Unified interface for ChromaDB, pgvector, Qdrant, and other vector stores
-- **Collection Management** - Abstract models for organizing and managing vector collections
-- **Vector Operations** - Insert, search, update, and delete operations with metadata support
-- **Index Management** - Automatic index creation and optimization for performance
-- **RAG Integration** - Seamless integration with knowledge base and retrieval systems
-
-Key Features
-============
-
-Provider Abstraction Framework
-------------------------------
-
-**Unified Interface Across Vector Stores:**
-
-.. code-block:: python
-
-    class LLMStore(models.Model):
-        _name = "llm.store"
-        _description = "LLM Vector Store"
-
-        def _dispatch(self, method, *args, **kwargs):
-            """Dynamic dispatch to service-specific implementation"""
-            service_method = f"{self.service}_{method}"
-            if hasattr(self, service_method):
-                return getattr(self, service_method)(*args, **kwargs)
-
-Collection Management
----------------------
-
-.. code-block:: python
-
-    # Create collection
-    collection = env['llm.store.collection'].create({
-        'name': 'knowledge_base',
-        'store_id': store.id,
-        'dimension': 1536,  # OpenAI embedding dimension
-        'distance_metric': 'cosine'
-    })
-    collection.create_collection()
-
-    # Insert vectors
-    collection.insert_vectors(
-        vectors=[[0.1, 0.2, 0.3, ...]],
-        metadata=[{'document_id': 123}],
-        ids=['doc_123']
-    )
-
-    # Search vectors
-    results = collection.search_vectors(
-        query_vector=[0.2, 0.3, 0.4, ...],
-        limit=5
-    )
-
-API Reference
-=============
-
-Core Store Methods
-------------------
-
-.. code-block:: python
-
-    # Collection management
-    def create_collection(self, name, dimension, metric='cosine'):
-        """Create new vector collection"""
-
-    def delete_collection(self, name):
-        """Delete vector collection"""
-
-    # Vector operations
-    def insert_vectors(self, collection, vectors, metadata=None, ids=None):
-        """Insert vectors into collection"""
-
-    def search_vectors(self, collection, query_vector, limit=10, filter=None):
-        """Search similar vectors"""
-
-    def update_vectors(self, collection, ids, vectors=None, metadata=None):
-        """Update existing vectors"""
-
-    def delete_vectors(self, collection, ids=None, filter=None):
-        """Delete vectors from collection"""
-
-Technical Specifications
+========================
+LLM Store Architecture
 ========================
 
-Module Information
-------------------
+``llm_store`` models two resource levels explicitly:
 
-- **Name**: LLM Vector Store Base
-- **Version**: 18.0.1.0.0
-- **Category**: Technical
-- **License**: LGPL-3
-- **Dependencies**: ``llm``, ``mail``
-- **Author**: Apexive Solutions LLC
+.. code-block:: text
 
-Key Models
-----------
+    llm.store (service instance / administrator control plane)
+      1 --- N llm.store.database (isolated physical knowledge database)
+                  N --- 1 llm.knowledge.collection (logical source content)
+                  1 --- 1 llm.knowledge.vector (build execution layer)
 
-- **``llm.store``**: Base vector store configuration
-- **``llm.store.collection``**: Vector collection management
+Store instance
+==============
 
-Performance Characteristics
----------------------------
+``llm.store`` represents one deployment, cluster, server, or SaaS tenant. It
+contains the provider service, administrator endpoint and administrator
+credentials used to create child accounts and databases. It is not itself a
+knowledge database.
 
-+------------------+----------+-----------+-----------+
-| Operation        | ChromaDB | pgvector  | Qdrant    |
-+==================+==========+===========+===========+
-| Insert Speed     | Good     | Excellent | Excellent |
-+------------------+----------+-----------+-----------+
-| Search Speed     | Good     | Very Good | Excellent |
-+------------------+----------+-----------+-----------+
-| Scalability      | Limited  | Good      | Excellent |
-+------------------+----------+-----------+-----------+
-| Setup Complexity | Low      | Medium    | Medium    |
-+------------------+----------+-----------+-----------+
+Store database
+==============
 
-Related Modules
-===============
+``llm.store.database`` represents one independently configurable physical
+knowledge database. A provider may implement it as a database, schema, table,
+collection, index, namespace, or directory.
 
-- **``llm``** - Base infrastructure and provider framework
-- **``llm_knowledge``** - Knowledge base and RAG integration
-- **``llm_chroma``** - ChromaDB vector store implementation
-- **``llm_pgvector``** - PostgreSQL pgvector implementation
-- **``llm_qdrant``** - Qdrant vector store implementation
+Each database belongs to one store instance and stores exactly one
+``llm.knowledge.collection``. It owns its backend key, optional child account,
+data-plane connection, chunking configuration, embedding model, dimension,
+index configuration, and provision/drop lifecycle.
 
-Resources
-=========
+Knowledge collection
+====================
 
-- `GitHub Repository <https://github.com/apexive/odoo-llm>`_
-- `Architecture Overview <../OVERVIEW.md>`_
+``llm.knowledge.collection`` owns source documents. One collection may have
+many databases, each built with a different import and indexing method. This is
+how retrieval quality, latency, build cost and storage cost can be compared
+without mixing methods in one physical database. One instance may host
+databases from many knowledge collections.
 
-License
-=======
+Adapter compatibility
+=====================
 
-This module is licensed under `LGPL-3 <https://www.gnu.org/licenses/lgpl-3.0.html>`_.
+The primary adapter API is database-oriented:
 
-----
+.. code-block:: python
 
-*© 2025 Apexive Solutions LLC. All rights reserved.*
+    provision_database(store, database)
+    drop_database(store, database)
+    database_exists(store, database)
+    insert_database_vectors(store, database, vectors, metadata, ids)
+    delete_database_vectors(store, database, ids)
+    search_database_vectors(store, database, query_vector, limit, filter)
+    create_database_index(store, database, index_type)
+
+Default implementations bridge to the collection-oriented provider methods
+using ``database.backend_key``. This keeps provider adapters independent from
+Odoo build-record IDs while new providers can implement native database
+provisioning and database-level credentials directly.
+
+Lifecycle invariants
+====================
+
+- A database stores one and only one logical knowledge collection.
+- A knowledge collection may own multiple independent database variants.
+- A database records one chunking/embedding/index method.
+- Only the database owns the backend create/drop lifecycle.
+- Build records never delete backend resources independently.
+- Remote cleanup failure blocks deletion of the owning Odoo database record.
+- A store instance cannot be deleted while databases still reference it.

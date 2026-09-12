@@ -1,24 +1,19 @@
-"""Extends llm.knowledge.collection (from llm_knowledge) with chunking and
-vector-store configuration.
+"""Add independently buildable physical databases to knowledge collections.
 
-llm_knowledge only knows about documents and their plain text/markdown; a
-collection does not carry a single store/embedding-model pair by itself.
-This addon adds ``chunkset_ids`` (N chunking configurations per collection)
-and, through them, ``vector_ids`` (N embedding-model x vector-store
-configurations per chunkset) -- so one knowledge base can be indexed with
-several chunk sizes and compared across several vector stores (e.g.
-pgvector vs. qdrant) at once.
+``llm.knowledge.collection`` owns logical source documents.  It may be built
+into several ``llm.store.database`` records, each using a different chunking,
+embedding or backend-index method so retrieval quality and performance can be
+compared without mixing variants in one physical database.
 
-``embedding_model_id``/``store_id`` below are convenience fields for the
-common single-configuration case: writing them transparently creates/
-updates a "Default" chunkset+vector pair, so simple setups keep the same
-one-field-each experience while power users add more chunksets/vectors for
-comparison.
+The legacy ``embedding_model_id`` and ``store_id`` fields remain convenience
+projections of ``default_database_id``.  New integrations should select or
+create the database explicitly.
 """
 
 import logging
 
 from odoo import _, api, fields, models
+from odoo.exceptions import ValidationError
 
 from .llm_document_chunker import DEFAULT_CHUNK_OVERLAP, DEFAULT_CHUNK_SIZE
 
@@ -39,24 +34,39 @@ class LLMKnowledgeCollection(models.Model):
         readonly=False,
         domain="[('model_use', '=', 'embedding')]",
         tracking=True,
-        help="Convenience field: mirrors the embedding model of this "
-        "collection's default vector configuration. For multiple embedding "
-        "models per collection, add more llm.knowledge.vector records "
-        "instead.",
+        help="Compatibility projection of the embedding model used by this "
+        "collection's default physical database.",
     )
     store_id = fields.Many2one(
         "llm.store",
-        string="Vector Store",
+        string="Store Instance",
         compute="_compute_default_vector_fields",
         inverse="_inverse_store_id",
         store=True,
         readonly=False,
         tracking=True,
-        help="Convenience field: mirrors the vector store of this "
-        "collection's default vector configuration. For multiple vector "
-        "stores per collection, add more llm.knowledge.vector records "
-        "instead.",
+        help="Compatibility projection of the default database's instance.",
     )
+    default_database_id = fields.Many2one(
+        "llm.store.database",
+        string="Default Store Database",
+        compute="_compute_default_vector_fields",
+        inverse="_inverse_default_database_id",
+        store=True,
+        readonly=False,
+        tracking=True,
+        domain="[('knowledge_collection_id', '=', id)]",
+        help="Default physical database used for retrieval when no build variant "
+        "is selected explicitly.",
+    )
+    database_ids = fields.One2many(
+        "llm.store.database",
+        "knowledge_collection_id",
+        string="Store Databases",
+        help="Independent physical builds of this knowledge collection. Each "
+        "database has its own chunking, embedding and index configuration.",
+    )
+    database_count = fields.Integer(compute="_compute_database_count")
     chunk_count = fields.Integer(
         string="Chunk Count",
         compute="_compute_chunk_count",
@@ -72,16 +82,14 @@ class LLMKnowledgeCollection(models.Model):
         "llm.knowledge.chunkset",
         "collection_id",
         string="Chunking Configurations",
-        help="A collection can hold several chunksets (different "
-        "splitters/chunk sizes, including 'contextual' for "
-        "contextual-retrieval wrapping); each chunkset can in turn feed "
-        "several llm.knowledge.vector configurations (different embedding "
-        "models/dimensions/stores).",
+        help="A collection can hold several chunksets. Each physical store "
+        "database selects one chunkset as part of its independently "
+        "benchmarkable build method.",
     )
     chunkset_count = fields.Integer(compute="_compute_chunkset_count")
     vector_ids = fields.Many2many(
         "llm.knowledge.vector",
-        string="Vector Configurations",
+        string="Database Builds",
         compute="_compute_vector_ids",
         store=False,
     )
@@ -130,6 +138,11 @@ class LLMKnowledgeCollection(models.Model):
         for collection in self:
             collection.chunkset_count = len(collection.chunkset_ids)
 
+    @api.depends("database_ids")
+    def _compute_database_count(self):
+        for collection in self:
+            collection.database_count = len(collection.database_ids)
+
     @api.depends("chunkset_ids.vector_ids")
     def _compute_vector_ids(self):
         for collection in self:
@@ -142,14 +155,19 @@ class LLMKnowledgeCollection(models.Model):
 
     @api.depends(
         "chunkset_ids.vector_ids.is_default",
-        "chunkset_ids.vector_ids.embedding_model_id",
-        "chunkset_ids.vector_ids.store_id",
+        "chunkset_ids.vector_ids.database_id",
+        "chunkset_ids.vector_ids.database_id.embedding_model_id",
+        "chunkset_ids.vector_ids.database_id.store_id",
     )
     def _compute_default_vector_fields(self):
         for collection in self:
             vector = collection._get_default_vector()
-            collection.embedding_model_id = vector.embedding_model_id if vector else False
-            collection.store_id = vector.store_id if vector else False
+            database = vector.database_id if vector else False
+            collection.default_database_id = database
+            collection.embedding_model_id = (
+                database.embedding_model_id if database else False
+            )
+            collection.store_id = database.store_id if database else False
 
     def _inverse_embedding_model_id(self):
         for collection in self:
@@ -161,6 +179,21 @@ class LLMKnowledgeCollection(models.Model):
         for collection in self:
             collection._sync_default_chunkset_vector(store_id=collection.store_id.id)
 
+    def _inverse_default_database_id(self):
+        for collection in self:
+            database = collection.default_database_id
+            if not database:
+                continue
+            if database.knowledge_collection_id != collection:
+                raise ValidationError(
+                    _("The default database must belong to this knowledge collection.")
+                )
+            current = collection._get_default_vector()
+            target = database._ensure_vector()
+            if current and current != target:
+                current.is_default = False
+            target.is_default = True
+
     # ------------------------------------------------------------------
     # Default chunkset/vector management (backs the convenience fields)
     # ------------------------------------------------------------------
@@ -170,16 +203,14 @@ class LLMKnowledgeCollection(models.Model):
 
     def _get_default_vector(self):
         self.ensure_one()
-        chunkset = self._get_default_chunkset()
-        return chunkset.vector_ids.filtered("is_default")[:1] if chunkset else False
+        return self.vector_ids.filtered("is_default")[:1]
 
     def _sync_default_chunkset_vector(self, embedding_model_id=None, store_id=None):
-        """Create/update the "Default" chunkset+vector pair from this
-        collection's embedding_model_id/store_id/default_* fields (or the
-        explicit overrides passed in, used by the compute/inverse fields to
-        avoid read-after-write ordering issues). A no-op if neither an
-        embedding model nor a store is configured yet, and no chunkset
-        exists already to update."""
+        """Maintain the legacy default fields by creating/updating a database.
+
+        The physical database, not the vector execution record, owns the
+        instance, chunking and embedding configuration.
+        """
         self.ensure_one()
         model_id = (
             embedding_model_id
@@ -190,9 +221,6 @@ class LLMKnowledgeCollection(models.Model):
 
         chunkset = self._get_default_chunkset()
         if not chunkset and not (model_id or store):
-            # Nothing configured yet and no existing default to maintain:
-            # skip creating an empty chunkset for collections that don't
-            # embed anything directly (e.g. pure domain-sync containers).
             return False
 
         if not chunkset:
@@ -224,14 +252,17 @@ class LLMKnowledgeCollection(models.Model):
 
         vector = self._get_default_vector()
         if not vector and model_id and store:
-            self.env["llm.knowledge.vector"].create(
+            database = self.env["llm.store.database"].create(
                 {
-                    "name": _DEFAULT_CHUNKSET_NAME,
+                    "name": _("%s - Default", self.name),
+                    "store_id": store,
+                    "knowledge_collection_id": self.id,
                     "chunkset_id": chunkset.id,
                     "embedding_model_id": model_id,
-                    "store_id": store,
-                    "is_default": True,
                 }
+            )
+            self.env["llm.knowledge.vector"].create(
+                {"database_id": database.id, "is_default": True}
             )
         elif vector:
             update_vals = {}
@@ -239,11 +270,14 @@ class LLMKnowledgeCollection(models.Model):
                 update_vals["embedding_model_id"] = model_id
             if store and vector.store_id.id != store:
                 update_vals["store_id"] = store
+            if chunkset and vector.database_id.chunkset_id != chunkset:
+                update_vals["chunkset_id"] = chunkset.id
             if update_vals:
-                vector.write(update_vals)
+                vector.database_id.write(update_vals)
+                vector.write({"state": "draft"})
                 self._reset_ready_documents(
                     success_message=_(
-                        "Default vector configuration changed. Reset {count} "
+                        "Default database method changed. Reset {count} "
                         "documents for re-embedding."
                     )
                 )
@@ -304,40 +338,49 @@ class LLMKnowledgeCollection(models.Model):
             "context": {"default_collection_id": self.id},
         }
 
+    def action_view_databases(self):
+        self.ensure_one()
+        return {
+            "name": _("Knowledge Store Databases"),
+            "view_mode": "list,form",
+            "res_model": "llm.store.database",
+            "domain": [("knowledge_collection_id", "=", self.id)],
+            "type": "ir.actions.act_window",
+            "context": {"default_knowledge_collection_id": self.id},
+        }
+
     def reindex_collection(self):
-        """Reindex every vector configuration of this collection: drop and
-        rebuild each vector's store-side collection, resetting documents
-        for re-embedding."""
+        """Drop each physical database once and queue its documents to rebuild."""
         for collection in self:
-            if not collection.vector_ids:
-                reset_count = collection._reset_ready_documents(
-                    success_message=_("Reset {count} documents for re-embedding.")
+            if not collection.database_ids:
+                collection._post_styled_message(
+                    _("No store databases are configured for this collection."),
+                    message_type="info",
                 )
-                if not reset_count:
-                    collection._post_styled_message(
-                        _("No documents found to reindex."), message_type="info"
-                    )
                 continue
 
-            for vector in collection.vector_ids:
+            for database in collection.database_ids:
                 try:
-                    vector.action_drop()
-                    vector._initialize_store()
-                except Exception as e:  # noqa: BLE001
+                    database.action_drop()
+                except Exception as error:  # noqa: BLE001
                     collection._post_styled_message(
-                        _("Error reindexing vector '%s': %s", vector.name, str(e)),
+                        _(
+                            "Error resetting database '%(database)s': %(error)s",
+                            database=database.name,
+                            error=str(error),
+                        ),
                         message_type="error",
                     )
 
             reset_count = collection._reset_ready_documents(
                 success_message=_(
                     "Reset {count} documents for re-embedding across "
-                    f"{len(collection.vector_ids)} vector configuration(s)."
+                    f"{len(collection.database_ids)} database variant(s)."
                 )
             )
             if not reset_count:
                 collection._post_styled_message(
-                    _("No documents found to reindex."), message_type="info"
+                    _("No ready documents found to reindex."), message_type="info"
                 )
 
     def action_embed_documents(self, specific_document_ids=None):
@@ -359,22 +402,18 @@ class LLMKnowledgeCollection(models.Model):
         }
 
     def embed_documents(self, specific_document_ids=None, batch_size=50):
-        """Build every vector configuration of this collection for its
-        documents (chunked documents only). Each vector splits, embeds and
-        upserts independently -- see llm.knowledge.vector.action_build.
-        ``batch_size`` is currently informational only: vectors batch per
-        document, not per fixed chunk count, since chunking is transient."""
+        """Build every configured physical database for this collection."""
         overall_success = False
         processed_chunks_total = 0
         processed_documents = set()
 
         for collection in self:
+            collection_success = False
             if not collection.vector_ids:
                 collection._post_styled_message(
                     _(
-                        "No vector configuration found for this collection. "
-                        "Set an embedding model and vector store, or add an "
-                        "llm.knowledge.vector record."
+                        "No store database found for this collection. Create a "
+                        "database build with a chunking and embedding method first."
                     ),
                     message_type="warning",
                 )
@@ -394,28 +433,28 @@ class LLMKnowledgeCollection(models.Model):
             for vector in collection.vector_ids:
                 try:
                     vector.action_build(specific_document_ids=documents.ids)
+                    collection_success = True
                     overall_success = True
                     processed_documents.update(documents.ids)
                     processed_chunks_total += len(vector.chunkset_id.chunk_ids)
-                except Exception as e:  # noqa: BLE001
+                except Exception as error:  # noqa: BLE001
                     collection._post_styled_message(
                         _(
-                            "Error building vector '%s': %s",
-                            vector.name,
-                            str(e),
+                            "Error building database '%(database)s': %(error)s",
+                            database=vector.database_id.name,
+                            error=str(error),
                         ),
                         message_type="error",
                     )
 
-            if overall_success:
+            if collection_success:
                 documents.write({"state": "ready"})
-                self.env.cr.commit()
                 collection._post_styled_message(
                     _(
-                        "Successfully embedded %d documents across %d vector "
-                        "configuration(s).",
-                        len(documents),
-                        len(collection.vector_ids),
+                        "Successfully embedded %(documents)d documents across "
+                        "%(databases)d database variant(s).",
+                        documents=len(documents),
+                        databases=len(collection.vector_ids),
                     ),
                     message_type="success",
                 )
@@ -427,8 +466,7 @@ class LLMKnowledgeCollection(models.Model):
         }
 
     def _handle_removed_documents(self, removed_document_ids):
-        """Extend the base hook: also remove this document's vectors/chunks
-        from every vector configuration of this collection."""
+        """Remove all backend vectors before discarding document pointers."""
         result = super()._handle_removed_documents(removed_document_ids)
         if removed_document_ids:
             documents = self.env["llm.document"].browse(removed_document_ids)
@@ -437,28 +475,16 @@ class LLMKnowledgeCollection(models.Model):
         return result
 
     def _handle_document_removal(self, document):
-        """Remove this document's chunks/vectors from every vector
-        configuration of this collection."""
+        """Delete pointers once; their unlink hook cleans every database."""
         self.ensure_one()
-        for vector in self.vector_ids:
-            if not vector.store_id or not vector.store_id.collection_exists(vector.id):
-                continue
-            chunks = self.env["llm.store.chunk"].search(
-                [
-                    ("chunkset_id", "=", vector.chunkset_id.id),
-                    ("document_id", "=", document.id),
-                ]
+        chunks = self.env["llm.store.chunk"].search(
+            [("document_id", "=", document.id)]
+        )
+        if chunks:
+            chunks.unlink()
+            _logger.info(
+                "Removed %d chunk pointers and their database vectors for document %s",
+                len(chunks),
+                document.id,
             )
-            if not chunks:
-                continue
-            try:
-                vector.delete_vectors(ids=chunks.ids)
-                chunks.unlink()
-                _logger.info(
-                    f"Removed vectors/chunks for document {document.id} from vector {vector.id}"
-                )
-            except Exception as e:  # noqa: BLE001
-                _logger.warning(
-                    f"Error removing vectors for document {document.id} from vector {vector.id}: {str(e)}"
-                )
         return True

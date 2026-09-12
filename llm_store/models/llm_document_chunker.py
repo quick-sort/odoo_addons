@@ -66,7 +66,7 @@ class LLMKnowledgeChunker(models.Model):
         try:
             locked.write({"state": "chunked"})
             locked._post_styled_message(
-                _("Ready for embedding; splitting runs per vector configuration."),
+                _("Ready for embedding; splitting runs per database build."),
                 "success",
             )
             return True

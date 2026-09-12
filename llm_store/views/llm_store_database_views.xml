@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="view_llm_store_database_form" model="ir.ui.view">
+        <field name="name">llm.store.database.form</field>
+        <field name="model">llm.store.database</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_initialize" string="Initialize" type="object" class="btn-secondary" invisible="state == 'ready'" />
+                    <button name="action_build" string="Build" type="object" class="oe_highlight" />
+                    <button name="action_rebuild" string="Rebuild" type="object" class="btn-secondary" confirm="This drops and rebuilds only this database variant. Continue?" />
+                    <button name="action_drop" string="Drop Database" type="object" class="btn-secondary" invisible="state == 'draft'" confirm="This deletes the physical backend database and all vectors in it. Continue?" />
+                    <field name="state" widget="statusbar" statusbar_visible="draft,provisioning,ready,error" />
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name" placeholder="Database Variant Name" /></h1>
+                    </div>
+                    <group>
+                        <group string="Ownership">
+                            <field name="store_id" options="{'no_create': True}" />
+                            <field name="knowledge_collection_id" options="{'no_create': True}" />
+                            <field name="chunkset_id" options="{'no_create': True}" />
+                            <field name="embedding_model_id" options="{'no_create': True}" />
+                            <field name="dimension" />
+                        </group>
+                        <group string="Physical Database">
+                            <field name="backend_key" readonly="1" />
+                            <field name="database_name" />
+                            <field name="connection_uri" />
+                            <field name="database_user" />
+                            <field name="database_secret" password="True" />
+                            <field name="active" widget="boolean_toggle" />
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Backend Configuration">
+                            <group>
+                                <field name="index_configuration" widget="json_inline" />
+                                <field name="metadata" widget="json_inline" />
+                            </group>
+                        </page>
+                        <page string="Build">
+                            <field name="vector_ids" nolabel="1" readonly="1">
+                                <list>
+                                    <field name="name" />
+                                    <field name="chunkset_id" />
+                                    <field name="embedding_model_id" />
+                                    <field name="dimension" />
+                                    <field name="state" />
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Diagnostics" invisible="not last_error">
+                            <field name="last_error" readonly="1" nolabel="1" />
+                        </page>
+                        <page string="Description">
+                            <field name="description" nolabel="1" />
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter />
+            </form>
+        </field>
+    </record>
+
+    <record id="view_llm_store_database_tree" model="ir.ui.view">
+        <field name="name">llm.store.database.list</field>
+        <field name="model">llm.store.database</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name" />
+                <field name="store_id" />
+                <field name="knowledge_collection_id" />
+                <field name="chunkset_id" />
+                <field name="embedding_model_id" />
+                <field name="dimension" />
+                <field name="state" />
+            </list>
+        </field>
+    </record>
+
+    <record id="view_llm_store_database_search" model="ir.ui.view">
+        <field name="name">llm.store.database.search</field>
+        <field name="model">llm.store.database</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name" />
+                <field name="store_id" />
+                <field name="knowledge_collection_id" />
+                <field name="embedding_model_id" />
+                <filter string="Store Instance" name="group_by_store" context="{'group_by': 'store_id'}" />
+                <filter string="Knowledge Collection" name="group_by_collection" context="{'group_by': 'knowledge_collection_id'}" />
+                <filter string="State" name="group_by_state" context="{'group_by': 'state'}" />
+            </search>
+        </field>
+    </record>
+
+    <record id="action_llm_store_database" model="ir.actions.act_window">
+        <field name="name">Store Databases</field>
+        <field name="res_model">llm.store.database</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Create an isolated knowledge database.</p>
+            <p>Each database stores one knowledge collection using one build method. Create several variants to compare retrieval performance.</p>
+        </field>
+    </record>
+</odoo>
