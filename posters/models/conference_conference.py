@@ -2,7 +2,7 @@ import csv
 import io
 import logging
 
-from odoo import _, fields, models
+from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
@@ -16,13 +16,27 @@ class ConferenceConference(models.Model):
     name = fields.Char(required=True)
     date = fields.Date()
     location = fields.Char()
-    storage_id = fields.Many2one('poster.storage', string='Storage')
+    storage_id = fields.Many2one(
+        'storage.backend',
+        string='Storage Backend',
+        ondelete='restrict',
+        groups='base.group_system',
+    )
+    has_storage = fields.Boolean(
+        compute='_compute_has_storage',
+        compute_sudo=True,
+    )
     path = fields.Char(
         string='Path',
-        help='Path within the storage for this collection, e.g. 2024/asco',
+        help='Path within the storage backend for this collection, e.g. 2024/asco',
     )
     poster_ids = fields.One2many('conference.poster', 'conference_id', string='Posters')
     poster_count = fields.Integer(compute='_compute_poster_count')
+
+    @api.depends('storage_id')
+    def _compute_has_storage(self):
+        for rec in self:
+            rec.has_storage = bool(rec.sudo().storage_id)
 
     def _compute_poster_count(self):
         counts = self.env['conference.poster']._read_group(
@@ -35,22 +49,43 @@ class ConferenceConference(models.Model):
             rec.poster_count = count_map.get(rec.id, 0)
 
     def _poster_file_path(self, filename):
-        """Return the full relative path for a poster file within this collection."""
+        """Return the backend-relative path for a file in this collection."""
         self.ensure_one()
         base = (self.path or '').strip('/')
         name = (filename or '').lstrip('/')
         return f'{base}/{name}' if base else name
 
+    def _storage_backend(self):
+        """Return the configured backend with service-level privileges."""
+        self.ensure_one()
+        self.check_access('read')
+        backend = self.sudo().storage_id
+        if not backend:
+            raise UserError(_('This collection has no storage backend configured.'))
+        return backend.sudo().with_context(storage_backend_force_relative_path=True)
+
+    def _read_storage_file(self, filename):
+        """Read a collection file through the configured storage backend."""
+        self.ensure_one()
+        backend = self._storage_backend()
+        relative_path = self._poster_file_path(filename)
+        with backend.open(relative_path, 'rb') as stream:
+            return stream.read()
+
     def action_import_metadata(self):
         self.ensure_one()
-        if not self.storage_id:
-            raise UserError(_('This collection has no storage configured.'))
+        self.check_access('write')
 
-        metadata_path = self._poster_file_path('metadata.csv')
         try:
-            raw = self.storage_id.read_file(metadata_path)
-        except Exception as e:
-            raise UserError(_('Could not read metadata.csv: %s') % e) from e
+            raw = self._read_storage_file('metadata.csv')
+        except Exception:
+            _logger.exception(
+                'Could not read metadata.csv for collection %s',
+                self.id,
+            )
+            raise UserError(
+                _('Could not read metadata.csv from the configured storage backend.')
+            ) from None
 
         reader = csv.DictReader(io.StringIO(raw.decode('utf-8-sig')))
         Poster = self.env['conference.poster']

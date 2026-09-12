@@ -28,16 +28,4 @@
               action="action_conference_target"
               sequence="30"/>
 
-    <menuitem id="menu_posters_settings_storage" name="Storages"
-              parent="menu_posters_settings"
-              action="action_poster_storage"
-              sequence="40"/>
-
-    <!-- Storage also under Odoo Settings > Technical, system admin only -->
-    <menuitem id="menu_posters_technical_storage" name="Poster Storages"
-              parent="base.menu_administration"
-              action="action_poster_storage"
-              sequence="50"
-              groups="base.group_system"/>
-
 </odoo>

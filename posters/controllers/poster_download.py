@@ -22,13 +22,10 @@ CONTENT_TYPES = {
 
 
 def _read_poster_file(poster):
-    """Return raw bytes for a poster using its collection's storage."""
-    conference = poster.conference_id
-    storage = conference.storage_id
-    if not storage:
-        raise FileNotFoundError(f'Collection "{conference.name}" has no storage configured')
-    full_path = conference._poster_file_path(poster.file_path)
-    return storage.read_file(full_path)
+    """Return raw bytes for an accessible poster through its storage backend."""
+    poster.ensure_one()
+    poster.check_access('read')
+    return poster.conference_id._read_storage_file(poster.file_path)
 
 
 class PosterDownloadController(http.Controller):

@@ -1,19 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
-    <!-- Storages -->
-    <record id="storage_local" model="poster.storage">
-        <field name="name">Local File Storage</field>
-        <field name="protocol">file</field>
-        <field name="path_prefix">/mnt/posters</field>
-        <field name="storage_options">{}</field>
-    </record>
-
-    <record id="storage_s3" model="poster.storage">
-        <field name="name">S3 Poster Bucket</field>
-        <field name="protocol">s3</field>
-        <field name="path_prefix">s3://company-posters/conferences</field>
-        <field name="storage_options">{"key": "AKIAIOSFODNN7EXAMPLE", "secret": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY", "client_kwargs": {"region_name": "us-east-1"}}</field>
+    <!-- Storage backends. Filesystem paths are relative to the Odoo storage root. -->
+    <record id="storage_files" model="storage.backend">
+        <field name="name">Poster Files</field>
+        <field name="backend_type">filesystem</field>
+        <field name="directory_path">posters</field>
     </record>
 
     <!-- Indications -->
@@ -88,11 +80,10 @@
         <field name="color">7</field>
     </record>
 
-    <record id="storage_demo" model="poster.storage">
-        <field name="name">Demo Local Files</field>
-        <field name="protocol">file</field>
-        <field name="path_prefix">/mnt/extra-addons/posters/demo/files</field>
-        <field name="storage_options">{}</field>
+    <record id="storage_demo_backend" model="storage.backend">
+        <field name="name">Demo Poster Files</field>
+        <field name="backend_type">filesystem</field>
+        <field name="directory_path">posters/demo/files</field>
     </record>
 
     <!-- Collections -->
@@ -100,7 +91,7 @@
         <field name="name">AACR 2026</field>
         <field name="date">2026-04-25</field>
         <field name="location">Chicago, IL</field>
-        <field name="storage_id" ref="storage_demo"/>
+        <field name="storage_id" ref="storage_demo_backend"/>
         <field name="path"></field>
     </record>
 
@@ -108,7 +99,7 @@
         <field name="name">AACR 2025</field>
         <field name="date">2025-04-25</field>
         <field name="location">Chicago, IL</field>
-        <field name="storage_id" ref="storage_s3"/>
+        <field name="storage_id" ref="storage_files"/>
         <field name="path">2025/aacr</field>
     </record>
 
@@ -116,7 +107,7 @@
         <field name="name">ACAAI 2024</field>
         <field name="date">2024-11-07</field>
         <field name="location">Boston, MA</field>
-        <field name="storage_id" ref="storage_s3"/>
+        <field name="storage_id" ref="storage_files"/>
         <field name="path">2024/acaai</field>
     </record>
 
@@ -124,7 +115,7 @@
         <field name="name">ASCO GI 2025</field>
         <field name="date">2025-01-23</field>
         <field name="location">San Francisco, CA</field>
-        <field name="storage_id" ref="storage_s3"/>
+        <field name="storage_id" ref="storage_files"/>
         <field name="path">2025/asco_gi</field>
     </record>
 
@@ -132,11 +123,11 @@
         <field name="name">ASH 2024</field>
         <field name="date">2024-12-07</field>
         <field name="location">San Diego, CA</field>
-        <field name="storage_id" ref="storage_s3"/>
+        <field name="storage_id" ref="storage_files"/>
         <field name="path">2024/ash</field>
     </record>
 
-    <!-- Posters: AACR 2026 (files relative to storage_demo path_prefix) -->
+    <!-- Posters: AACR 2026 (files relative to the demo backend root) -->
     <record id="poster_aacr2026_001" model="conference.poster">
         <field name="name">BT5528 (EphA2 BDC) + nivolumab in advanced solid tumors: Phase 1/2 results</field>
         <field name="abstract_no">CT063</field>

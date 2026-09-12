@@ -9,7 +9,7 @@
                 <field name="name"/>
                 <field name="date"/>
                 <field name="location"/>
-                <field name="storage_id" optional="show"/>
+                <field name="storage_id" groups="base.group_system" optional="show"/>
                 <field name="poster_count" string="Posters"/>
             </list>
         </field>
@@ -21,9 +21,10 @@
         <field name="arch" type="xml">
             <form string="Collection">
                 <header>
+                    <field name="has_storage" invisible="1"/>
                     <button name="action_import_metadata" type="object"
                             string="Import Metadata" class="btn-secondary"
-                            invisible="not storage_id"/>
+                            invisible="not has_storage"/>
                 </header>
                 <sheet>
                     <div class="oe_button_box" name="button_box">
@@ -40,7 +41,7 @@
                             <field name="location"/>
                         </group>
                         <group string="Storage">
-                            <field name="storage_id"/>
+                            <field name="storage_id" groups="base.group_system"/>
                             <field name="path" placeholder="e.g. 2024/asco"/>
                         </group>
                     </group>
@@ -56,7 +57,7 @@
             <search string="Collections">
                 <field name="name"/>
                 <field name="location"/>
-                <field name="storage_id"/>
+                <field name="storage_id" groups="base.group_system"/>
                 <filter string="Group by Year" name="group_by_year" context="{'group_by': 'date:year'}"/>
             </search>
         </field>

@@ -4,12 +4,10 @@
     'category': 'Medical',
     'summary': 'Index and manage conference poster documents (PDF, PPTX, TXT)',
     'images': ['static/description/icon.png'],
-    'depends': ['base', 'web_json_editor'],
-    'external_dependencies': {'python': ['fsspec', 's3fs']},
+    'depends': ['base', 'storage_backend'],
     'data': [
         'security/security.xml',
         'security/ir.model.access.csv',
-        'views/poster_storage_views.xml',
         'views/conference_poster_views.xml',
         'views/conference_conference_views.xml',
         'views/menus.xml',
@@ -23,6 +21,7 @@
     'demo': [
         'demo/demo_data.xml',
     ],
+    'post_init_hook': 'post_init_hook',
     'author': 'Rui Zhou',
     'installable': True,
     'application': True,
