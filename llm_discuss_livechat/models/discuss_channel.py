@@ -4,14 +4,19 @@ from odoo import models
 class DiscussChannel(models.Model):
     _inherit = "discuss.channel"
 
+    def _llm_discuss_user_can_use_assistant(self, assistant, user):
+        """Require the assistant to still be this Live Chat's operator."""
+        self.ensure_one()
+        if self.channel_type == "livechat":
+            bot_partner = assistant.discuss_user_id.partner_id
+            return bool(
+                bot_partner
+                and self.livechat_operator_id == bot_partner
+            )
+        return super()._llm_discuss_user_can_use_assistant(assistant, user)
+
     def _llm_discuss_should_trigger(self, assistant, message, msg_vals):
-        """Add the Live Chat rule on top of ``llm_discuss``'s base rules:
-        any comment message in a livechat session where this assistant is
-        the current operator triggers a reply, regardless of
-        ``discuss_trigger_mode`` (a Live Chat session only ever has one
-        visitor and one operator, so every visitor message is implicitly
-        addressed to the operator).
-        """
+        """Trigger on visitor comments when this assistant is the operator."""
         self.ensure_one()
         bot_partner = assistant.discuss_user_id.partner_id
         if (

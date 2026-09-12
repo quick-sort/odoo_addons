@@ -1,207 +1,188 @@
-# LLM Discuss — Design Document
+# LLM Discuss — Design
 
-Status: implemented (v19.0.1.0.0)
-Related module: `llm_discuss_livechat` (optional, adds Live Chat operator support)
+Status: implemented (`19.0.3.0.0`)
 
-## 1. Problem
+Related module: `llm_discuss_livechat` (optional website Live Chat bridge)
 
-`odoo_llm` (`llm`, `llm_thread`, `llm_assistant`, ...) implements a full LLM
-assistant stack, but it is **not connected to Odoo's Discuss app**. Assistants
-live in their own `llm.thread` conversation records, rendered by a dedicated
-client action — a parallel chat UI, not the Discuss channels employees and
-Live Chat visitors actually use.
+## 1. Native Odoo integration
 
-This module makes an `llm.assistant` behave like an **internal bot**: a real
-`res.users` account that other users can chat with (1:1 "direct message") or
-`@mention` inside any `discuss.channel`, and that replies automatically using
-the assistant's configured provider/model/prompt/tools.
+The user-facing conversation is always a native `discuss.channel`. The module
+does not render a parallel LLM chat UI and does not modify Odoo core.
 
-## 2. Prior art in Odoo core
-
-Odoo core already ships exactly this pattern for OdooBot, in `mail_bot`:
-
-- OdooBot *is* `base.partner_root`, a real `res.partner`/`res.users`.
-- `discuss.channel` (in `mail_bot/models/discuss_channel.py`) overrides
-  `_message_post_after_hook(message, msg_vals)` and calls
-  `self.env["mail.bot"]._apply_logic(self, msg_vals)`.
-- `mail.bot._apply_logic()` decides whether to answer, computes a reply body,
-  and calls `channel.sudo().message_post(author_id=odoobot_id, ...)`.
-
-`llm_discuss` reuses this exact hook point (`_message_post_after_hook`) and
-architecture, swapping the hand-written FAQ logic in `mail.bot` for a call
-into `llm.assistant.invoke()`.
-
-## 3. Design goals / non-goals
-
-Goals:
-- Any `llm.assistant` can be turned into a Discuss bot with one click, no
-  code changes.
-- No blocking of the HTTP request that posted the triggering message — LLM
-  calls can take several seconds, they must not stall `message_post`.
-- No changes required to `llm`, `llm_thread`, or `llm_assistant` — this is a
-  pure additive bridge module.
-- No hard dependency on `im_livechat` — Live Chat support is an optional
-  companion module (`llm_discuss_livechat`), since many installs use Discuss
-  without Live Chat.
-
-Non-goals (left for future iterations, see §8):
-- Streaming the assistant's reply token-by-token into the channel.
-- Multi-turn context: the current implementation feeds the *triggering
-  message's body* as the query; it does not replay channel history into the
-  LLM call. `llm.assistant.invoke()` already opens a dedicated `llm.thread`
-  per invocation, so *the assistant's own reasoning* can still use tools /
-  memory as configured — what's missing is "what did the human say 3 messages
-  ago in this Discuss channel", which is a reasonable v2 feature.
-- Access control nuances for portal/public users chatting with the bot (see
-  §7).
-
-## 4. Architecture
-
-```
-res.users (bot account) ──partner_id──> res.partner ──channel_member──> discuss.channel
-        ▲                                     │
-        │ discuss_user_id (M2O)               │ message_post(..., author_id=bot_partner)
-        │                                     ▼
-   llm.assistant  ───────────────────────────────────┐
-        │ discuss_enabled, discuss_trigger_mode       │
-        │                                              │
-        │ invoke(query, thread_vals, new_cursor=False) │
-        ▼                                              │
-   llm.thread (sub-conversation, res_model=discuss.channel) │
-        │                                              │
-        └──── mail.message (llm_role) ─────────────────┘
-                    (read back by the queue job as `result_html`)
+```text
+Composer / ChatWindow
+    -> Thread.post()
+    -> /mail/message/post
+    -> discuss.channel.message_post()
+    -> llm.discuss.reply.queue
+    -> llm.assistant (non-streaming)
+    -> discuss.channel.message_post(reply persona)
+    -> discuss.channel/new_message bus
+    -> Mail Store / Discuss / floating ChatWindow
 ```
 
-Message flow, end to end:
+Dedicated assistants use `mail.store.openChat({ userId: botUserId })` from the
+systray launcher. Odoo creates or reuses the canonical 1:1 channel and selects
+the correct native UI for desktop, Discuss, or mobile.
 
-1. A message is posted on a `discuss.channel` (comment from a real user, or
-   from the frontend controllers `/mail/message/post`, `/discuss/channel/*`).
-2. `mail.thread.message_post()` creates the `mail.message`, then calls
-   `discuss.channel._message_post_after_hook(message, msg_vals)`
-   (`addons/mail/models/mail_thread.py`).
-3. `llm_discuss` overrides that hook. It asks every `discuss_enabled`
-   assistant, through `discuss.channel._llm_discuss_should_trigger()`,
-   whether it should react to this message (see §5 — trigger rules).
-4. For each match, it creates an `llm.discuss.reply.queue` row (assistant,
-   channel, source message) and calls `ir.cron._trigger()` to wake the
-   processing cron **immediately**, without waiting for its normal polling
-   interval. This is the same "wake a cron on demand" idiom Odoo itself uses
-   (`ir.cron._trigger`), avoiding a hard dependency on `queue_job`.
-5. The cron method `llm.discuss.reply.queue._cron_process_pending()` picks up
-   pending rows and, **for each row separately**, calls
-   `assistant.invoke(query, thread_vals={"model": "discuss.channel",
-   "res_id": channel.id}, new_cursor=False)`. `new_cursor=False` is
-   intentional: the cron job already owns its own transaction/cursor, and
-   `invoke()` composes with that instead of opening a second one.
-6. On success, it posts the result back with
-   `channel.sudo().message_post(author_id=bot_partner.id, body=result_html,
-   message_type="comment", subtype_xmlid="mail.mt_comment")` — this is a
-   perfectly ordinary Discuss message, so it goes through the normal
-   `mail.message` → `bus.bus` → websocket pipeline and simply appears in the
-   channel like a message from any other user.
-7. Each queue row commits independently (`self.env.cr.commit()`) so one
-   failing job (LLM timeout, provider error) can never roll back or block
-   the others — mirroring how Odoo's own batch cron jobs are written.
+One assistant may instead use the existing `base.partner_root` OdooBot persona.
+No OdooBot user is assigned to the assistant and no core record is replaced.
 
-## 5. Trigger rules (`discuss_channel._llm_discuss_should_trigger`)
+## 2. Triggering, OdooBot takeover, and queueing
 
-An assistant is only ever considered if:
-- `assistant.discuss_enabled = True`, and
-- it has a `discuss_user_id` (bot account created), and
-- the triggering message's author is *not* the bot itself (loop guard,
-  same check `mail.bot` does against OdooBot), and
-- `msg_vals["message_type"] == "comment"` (ignores system/log/notification
-  messages, e.g. "X joined the channel").
+`discuss.channel._message_post_after_hook()` evaluates enabled dedicated bots.
+Base trigger modes are direct chat, explicit mention, or both. Bot-authored and
+non-comment messages are ignored.
 
-Given that, `assistant.discuss_trigger_mode` selects:
+For OdooBot, the hook captures takeover eligibility **before** calling
+`super()`. This matters because the last onboarding message changes the user's
+`odoobot_state` from `onboarding_canned` to `idle`; that message must receive
+only Odoo's final tutorial answer, not a duplicate LLM answer.
 
-| Mode | Condition |
-|---|---|
-| `direct_chat` | `channel.channel_type == "chat"` (1:1 DM) and the bot is a member |
-| `mention` | the bot's partner is in `msg_vals["partner_ids"]` (an `@mention`) |
-| `both` (default) | either of the above |
+The takeover requires all of the following:
 
-`_llm_discuss_should_trigger` is a plain overridable model method — this is
-the extension point `llm_discuss_livechat` overrides to add a Live-Chat-only
-rule (any message in a livechat session where the bot is the operator),
-without `llm_discuss` itself knowing anything about `im_livechat`.
+- one active assistant has **Use for OdooBot Private Chat** enabled;
+- the sender is an internal user allowed to use that assistant;
+- the sender's `odoobot_state` is `idle` or `disabled`;
+- the channel is a true 1:1 chat containing only that user and
+  `base.partner_root`;
+- the message is a user-authored comment.
 
-## 6. Why a custom queue model instead of `queue_job` or a raw thread
+An inherited `mail.bot._apply_logic()` suppresses only native idle/disabled
+canned replies when those conditions hold. It delegates all onboarding states,
+the plain-text `start the tour` restart, and explicit commands such as `/help`
+to core `mail_bot`. The message captured as pre-onboarding is never queued even
+if core changes the state to `idle` during the same hook.
 
-Three options were considered:
+A matching message creates one queue row per `(assistant, source message)`.
+`reply_partner_id` persists the visible author/typing persona independently of
+the execution user. The unique constraint is wrapped in a savepoint so a
+concurrent duplicate cannot abort the user's message transaction.
 
-1. **Synchronous call in the HTTP request** — rejected: an LLM call can take
-   5-30s; blocking `message_post` would make Discuss feel broken for the
-   human participants of the same channel.
-2. **OCA `queue_job`** — the natural production choice, but it is an optional
-   dependency not guaranteed to be installed, and `odoo_llm` deliberately
-   keeps its module graph dependency-light (see `llm_assistant`'s own
-   `invoke()` docstring, which already anticipates both `queue_job` and
-   plain-cron callers via the `new_cursor` flag).
-3. **A tiny queue table + `ir.cron._trigger()`** (chosen) — zero extra
-   dependencies, uses only core Odoo primitives, and the per-row `try/except`
-   + `cr.commit()` pattern gives the same failure isolation `queue_job` would.
-   If a site *does* have `queue_job` installed, swapping
-   `Queue.create(...)` + `cron._trigger()` for `assistant.with_delay().invoke(...)`
-   is a one-method change (`llm.assistant._llm_discuss_dispatch`), not a
-   redesign.
+The worker:
 
-The cron itself still runs every minute as a safety net (in case a
-`_trigger()` call is lost, e.g. server restart between create and trigger),
-so replies are near-real-time in the common case and eventually-consistent
-in the worst case.
+1. claims one pending row with `FOR UPDATE SKIP LOCKED`;
+2. assigns a random fencing token and commits the claim;
+3. publishes native typing for `reply_partner_id`;
+4. invokes the assistant with `stream=False`;
+5. locks the row and verifies the fencing token;
+6. posts one complete message as the persisted reply partner and marks done;
+7. commits state, then clears that persona's typing when no matching job remains.
 
-## 7. Security notes
+Jobs older than the processing timeout are fenced and marked failed. They are
+not replayed automatically because a tool may have an external side effect.
 
-- The bot's `res.users` is created with `share=False` and only
-  `base.group_user` — an ordinary internal user, deliberately **not** an
-  administrator. It only gets whatever access `llm.assistant`'s own ACLs
-  already grant plus normal Discuss member rights on channels it is added to.
-- `llm.discuss.reply.queue` is only ever created/read via `sudo()` from the
-  hook and the cron; direct ACL access is restricted to `llm.group_llm_manager`
-  (defined in the `llm` module) so regular users cannot see or tamper with
-  pending jobs from the UI/ORM.
-- The reply is posted with `channel.sudo().message_post(...)` — required
-  because the code path runs from inside a cron job (`env.user` is the cron's
-  runner, not the bot), mirroring how `mail.bot` also does
-  `channel.sudo().message_post(author_id=odoobot_id, ...)`.
-- **Portal/public visitors**: `llm.assistant.is_public` / `allowed_group_ids`
-  gate *interactive* use of an assistant (e.g. opening its chat UI). The
-  Discuss bridge bypasses that check by design — once an assistant is
-  `discuss_enabled` it will answer *any* member of a channel it belongs to,
-  including portal users if such a channel includes one. If this is not
-  desired, restrict which channels the bot account is added to, or add an
-  explicit ACL check in `_llm_discuss_should_trigger` before installing this
-  module in a portal-facing deployment.
-- No secrets are logged; queue rows only store the assistant/channel/message
-  ids, not API keys or raw provider payloads.
+## 3. Execution identity and sudo boundary
 
-## 8. Limitations / future work
+For internal users, the queue stores the sender, active company, and immutable
+`source_user` execution mode at post time, then binds the assistant with:
 
-- No conversation history is replayed into the assistant call (see §3).
-- No streaming — the whole answer appears at once when generation finishes.
-- No dedup/backoff if an assistant is added to a very high-traffic channel;
-  each qualifying message enqueues one job. For heavy use, point
-  `_llm_discuss_dispatch` at `queue_job` instead (see §6).
-- `discuss.channel.member` forbids public users
-  (`_contrains_no_public_member`), so the bot account can never be a member
-  through the public/guest path — only via being explicitly added as an
-  internal user, which is the expected setup.
-
-## 9. Module layout
-
+```python
+assistant.with_user(source_user).with_company(source_company)
 ```
+
+The hidden `llm.thread`, its messages, related-record reads, and all tools use
+the sender's ACLs, record rules, and company rules. The hidden thread owner is
+that execution user. `reply_partner_id` never participates in authorization;
+in particular, displaying `base.partner_root` does not grant root permissions.
+
+Provider/model credentials are read through a narrow sudo scope. The final
+native reply uses narrow `channel.sudo().message_post(author_id=reply_partner)`
+because cron must publish as another persona. Neither sudo recordset is passed
+to tools.
+
+The public `llm.assistant.invoke()` accepts neither an arbitrary execution user
+nor system-role background. Discuss uses a private server-side entry only after
+assistant availability is checked.
+
+For website guests, no internal source user exists; the Live Chat bridge
+persists an `assistant_user` mode and falls back to the assistant's dedicated
+low-privilege service user, never sudo. Service-user mode is rejected outside a
+Live Chat channel. If an internal source user is removed, deactivated, or loses
+internal status before processing, the job fails closed instead of changing
+execution principal.
+
+## 4. Page context
+
+Immediately before `/mail/message/post`, a patch of `Store.doMessagePost()`
+checks whether the channel contains a permitted dedicated bot or the OdooBot
+persona for a permitted takeover assistant, then captures the Action Controller:
+
+```json
+{
+  "version": 1,
+  "res_model": "sale.order",
+  "res_id": 42,
+  "view_type": "form",
+  "action_id": 123
+}
+```
+
+The snapshot is placed in `context.llm_discuss_page_context`, not `post_data`
+(which is restricted by the core mail route). It is captured for every send,
+so a floating window follows page changes. Non-form views omit `res_id`.
+
+The server validates model, ID, view type, and record read access when the job
+is created. The worker checks again under the final execution user/company.
+Only metadata and `display_name` enter the LLM background. JSON is marked as
+untrusted reference data and angle brackets are escaped in the system message.
+
+Do not add arbitrary action context, domains, or unrestricted record fields.
+Richer context must use an explicit allowlist and the same execution user.
+
+## 5. Non-streaming generation and native waiting
+
+Discuss passes `stream=False` through every assistant round, including rounds
+after tool calls. Independent `llm.thread` SSE usage keeps its existing default.
+The actual final assistant message becomes the channel reply; errors and tool
+messages are not mistaken for the answer.
+
+The queue calls the reply persona channel member's native
+`_notify_typing(True/False)`. This uses the standard indicator in Discuss and
+floating ChatWindow and creates no temporary “Thinking...” message.
+
+Typing is cleared only after queue state commits and no other active job exists
+for the same assistant, channel, and effective reply persona.
+
+## 6. Assistant availability and singleton configuration
+
+Dedicated launchers and ordinary channels respect `is_public` and
+`allowed_group_ids`. OdooBot takeover checks the same rules for each sender.
+The frontend receives only safe bot/user/partner IDs; provider details and
+credentials are not exposed.
+
+A hidden nullable key with a database unique constraint backs
+`odoobot_enabled`, so concurrent writes cannot configure two takeover
+assistants. Multiple disabled assistants keep a null key and remain valid.
+
+Queue rows are accessible only to `llm.group_llm_manager`. They retain page
+references and internal error details for seven days, then cron removes them.
+
+## 7. Current limitations
+
+- Each source message creates a separate hidden thread; channel history is not
+  replayed as multi-turn context.
+- Page context contains only record identity and display name by default.
+- Failed jobs require a new user message/manual retry; automatic replay is
+  deliberately disabled for tool safety.
+- Native typing expires client-side for unusually long calls.
+- OdooBot takeover is internal-user-only and does not replace Odoo's website
+  Live Chat chatbot framework.
+
+## 8. Layout
+
+```text
 llm_discuss/
-├── __manifest__.py
 ├── models/
-│   ├── llm_assistant.py        # discuss_user_id, discuss_enabled, dispatch
-│   ├── discuss_channel.py      # _message_post_after_hook, trigger rule
+│   ├── llm_assistant.py
+│   ├── discuss_channel.py
+│   ├── mail_bot.py
 │   └── llm_discuss_reply_queue.py
-├── data/ir_cron_data.xml       # safety-net cron (1 min)
+├── static/src/
+│   ├── services/llm_discuss_service.js
+│   ├── patches/message_post_context_patch.js
+│   └── systray/assistant_launcher.{js,xml}
+├── data/ir_cron_data.xml
 ├── security/ir.model.access.csv
-├── views/llm_assistant_views.xml   # "Discuss / Live Chat" tab on the assistant form
-└── DESIGN.md                   # this file
+└── views/llm_assistant_views.xml
 ```
-
-See `llm_discuss_livechat/DESIGN.md` for the Live Chat operator extension.

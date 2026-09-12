@@ -15,7 +15,7 @@ See ``DESIGN.md`` in this module for details, including how this interacts
 with human operators and with Odoo's native ``chatbot.script`` framework.
     """,
     "category": "Productivity, Discuss",
-    "version": "19.0.1.0.0",
+    "version": "19.0.3.0.0",
     "depends": [
         "llm_discuss",
         "im_livechat",

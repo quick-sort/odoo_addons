@@ -1,6 +1,6 @@
 # LLM Discuss Live Chat — Design Document
 
-Status: implemented (v19.0.1.0.0)
+Status: implemented (v19.0.3.0.0)
 Depends on: `llm_discuss` (see its `DESIGN.md` for the base architecture),
 `im_livechat`
 
@@ -33,8 +33,18 @@ Live-Chat-specific auto-reply rule.
    one visitor and one operator, so every visitor message is implicitly
    "addressed" to the operator.
 
-No other part of `llm_discuss`'s async/queue machinery changes: this module
-is a pure extension of the trigger rule plus operator bookkeeping.
+The module reuses `llm_discuss`'s fenced async queue, native bot typing,
+explicit `stream=False`, and one-message final reply. Because website guests do
+not have an internal execution identity, visitor jobs persist an
+`assistant_user` execution mode and run hidden threads/tools as the dedicated
+low-privilege bot user, never as sudo. The queue revalidates that this bot is
+still `livechat_operator_id` before generation and again before any final or
+failure post; assigning another operator therefore revokes pending work. Only
+explicitly safe tools should be enabled on visitor-facing assistants.
+
+Operator synchronization also removes the previous bot user when
+`discuss_user_id` is replaced or cleared, and removes memberships when the
+assistant is deleted.
 
 ## 3. Operator selection interaction
 

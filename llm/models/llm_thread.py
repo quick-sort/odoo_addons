@@ -464,13 +464,24 @@ class LLMThread(models.Model):
     # GENERATION FLOW - Refactored to use message_post with roles
     # ============================================================================
 
-    def generate(self, user_message_body=None, attachment_ids=None, **kwargs):
+    def generate(
+        self,
+        user_message_body=None,
+        attachment_ids=None,
+        use_streaming=None,
+        additional_messages=None,
+        **kwargs,
+    ):
         """Main generation method with PostgreSQL advisory locking.
 
         Args:
             user_message_body: Optional message body. If not provided, will use
                               the latest message in the thread to start generation.
             attachment_ids: Optional list of ir.attachment IDs to attach to user message.
+            use_streaming: Explicit provider streaming mode. ``None`` keeps the
+                           model default; callers such as Discuss pass ``False``.
+            additional_messages: Trusted caller-prepared messages prepended to
+                                 the provider conversation.
         """
         self.ensure_one()
 
@@ -500,7 +511,11 @@ class LLMThread(models.Model):
                         yield from self._handle_unsupported_attachments(unsupported)
                         return last_message
 
-            last_message = yield from self.generate_messages(last_message)
+            last_message = yield from self.generate_messages(
+                last_message,
+                use_streaming=use_streaming,
+                additional_messages=additional_messages,
+            )
             return last_message
 
     def _get_context_messages(self, limit=25):
@@ -554,8 +569,10 @@ class LLMThread(models.Model):
         if not messages_to_check:
             return []
 
-        provider_service = self.provider_id.service
-        is_multimodal = self.model_id.supports_image_input
+        provider = self.provider_id.sudo()
+        model = self.model_id.sudo()
+        provider_service = provider.service
+        is_multimodal = model.supports_image_input
 
         return messages_to_check._get_unsupported_attachments(
             provider_service=provider_service,
@@ -634,12 +651,19 @@ class LLMThread(models.Model):
         }
         return error_message, event
 
-    def generate_messages(self, last_message=None):
+    def generate_messages(
+        self,
+        last_message=None,
+        use_streaming=None,
+        additional_messages=None,
+    ):
         """Generate messages with actual AI intelligence.
 
         Drives the user → assistant → tool round-trip loop for a thread, using
         the assistant's prompt template (if any) and enforcing a cap on
         consecutive tool-call rounds via ``assistant_id.tool_calls_max``.
+        The explicit streaming mode and additional caller context are reused
+        for every assistant round, including rounds following tool calls.
         """
         self.ensure_one()
 
@@ -683,11 +707,14 @@ class LLMThread(models.Model):
         # Continue generation loop
         while self._should_continue(last_message):
             if last_message.llm_role in ("user", "tool"):
-                if self.model_id.model_use in ("image_generation", "generation"):
+                if self.model_id.sudo().model_use in ("image_generation", "generation"):
                     last_message = yield from self._generate_response(last_message)
                 else:
                     # Generate assistant response
-                    last_message = yield from self._generate_assistant_response()
+                    last_message = yield from self._generate_assistant_response(
+                        use_streaming=use_streaming,
+                        additional_messages=additional_messages,
+                    )
             elif last_message.llm_role == "assistant" and last_message.has_tool_calls():
                 # Execute ALL tool calls from assistant message
                 tool_calls = last_message.get_tool_calls()
@@ -735,38 +762,37 @@ class LLMThread(models.Model):
     def _generate_response(self, last_message):
         raise NotImplementedError
 
-    def _generate_assistant_response(self):
-        """Generate assistant response and handle tool calls.
+    def _generate_assistant_response(self, use_streaming=None, additional_messages=None):
+        """Generate an assistant response and handle tool calls.
 
-        Catches LLM API errors and posts them as error messages in the thread
-        so users can see what went wrong without checking server logs.
+        ``use_streaming`` is caller-controlled when not ``None``. API failures
+        remain visible in interactive LLM threads as error messages; programmatic
+        callers inspect ``is_error`` on the returned final message.
         """
-        # Flush any pending writes to ensure latest messages are visible
         self.env.flush_all()
-
-        # Use the new optimized method for LLM context
         message_history = self.get_llm_messages()
+        if use_streaming is None:
+            use_streaming = getattr(self.model_id.sudo(), "supports_streaming", True)
 
-        # Determine if we should use streaming
-        use_streaming = getattr(self.model_id, "supports_streaming", True)
-
-        chat_kwargs = self._prepare_chat_kwargs(message_history, use_streaming)
+        chat_kwargs = self._prepare_chat_kwargs(
+            message_history,
+            use_streaming,
+            additional_messages=additional_messages,
+        )
 
         try:
+            provider_model = self.sudo().model_id
             if use_streaming:
-                # Handle streaming response - process tool calls directly from stream
-                stream_response = self.sudo().model_id.chat(**chat_kwargs)
+                stream_response = provider_model.chat(**chat_kwargs)
                 assistant_message = yield from self._handle_streaming_response(
                     stream_response,
                 )
             else:
-                # Handle non-streaming response
-                response = self.sudo().model_id.chat(**chat_kwargs)
+                response = provider_model.chat(**chat_kwargs)
                 assistant_message = yield from self._handle_non_streaming_response(
                     response,
                 )
         except Exception as e:
-            # Post error message to thread so user can see it
             _logger.exception("LLM API error in thread %s", self.id)
             error_message, event = self._post_error_message(
                 e,
@@ -777,13 +803,20 @@ class LLMThread(models.Model):
 
         return assistant_message
 
-    def _prepare_chat_kwargs(self, message_history, use_streaming):
-        """Prepare chat kwargs for provider. Can be overridden by extensions."""
+    def _prepare_chat_kwargs(
+        self,
+        message_history,
+        use_streaming,
+        additional_messages=None,
+    ):
+        """Prepare provider kwargs while keeping caller context explicit."""
+        prepend_messages = list(self.get_prepend_messages())
+        prepend_messages.extend(additional_messages or [])
         return {
             "messages": message_history,
             "tools": self.tool_ids,
             "stream": use_streaming,
-            "prepend_messages": self.get_prepend_messages(),
+            "prepend_messages": prepend_messages,
         }
 
     def get_llm_messages(self, limit=25):
