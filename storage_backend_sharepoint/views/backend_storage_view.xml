@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+    <record id="storage_backend_view_form" model="ir.ui.view">
+        <field name="model">storage.backend</field>
+        <field name="inherit_id" ref="storage_backend.storage_backend_view_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//header" position="inside">
+                <field name="sharepoint_current_user_authorized" invisible="1" />
+                <button
+                    type="object"
+                    name="action_sharepoint_authorize"
+                    string="Connect Microsoft Account"
+                    icon="fa-sign-in"
+                    invisible="backend_type != 'sharepoint'"
+                />
+                <button
+                    type="object"
+                    name="action_sharepoint_disconnect"
+                    string="Disconnect Microsoft Account"
+                    icon="fa-sign-out"
+                    invisible="backend_type != 'sharepoint' or not sharepoint_current_user_authorized"
+                />
+            </xpath>
+            <group name="config" position="after">
+                <group
+                    name="sharepoint"
+                    string="Microsoft SharePoint"
+                    invisible="backend_type != 'sharepoint'"
+                >
+                    <group>
+                        <field
+                            name="sharepoint_tenant_id"
+                            required="backend_type == 'sharepoint'"
+                        />
+                        <field
+                            name="sharepoint_client_id"
+                            required="backend_type == 'sharepoint'"
+                        />
+                        <field name="sharepoint_client_secret" password="True" />
+                        <field
+                            name="sharepoint_scope"
+                            required="backend_type == 'sharepoint'"
+                        />
+                        <field name="sharepoint_read_only" />
+                        <field name="sharepoint_allow_user_authorization" />
+                    </group>
+                    <group>
+                        <field name="sharepoint_site_id" />
+                        <field
+                            name="sharepoint_drive_id"
+                            required="backend_type == 'sharepoint'"
+                        />
+                        <field name="sharepoint_root_item_id" />
+                        <field
+                            name="sharepoint_current_user_authorized"
+                            readonly="1"
+                        />
+                    </group>
+                </group>
+            </group>
+        </field>
+    </record>
+</odoo>
