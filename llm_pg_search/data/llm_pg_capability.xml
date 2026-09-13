@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo noupdate="1">
+    <record id="llm_pg_capability_pg_search" model="llm.pg.capability">
+        <field name="name">pg_search</field>
+        <field name="code">pg_search</field>
+        <field name="sequence">20</field>
+        <field name="component_usage">pg_search</field>
+        <field name="extension_names" eval="['pg_search']" />
+        <field name="dependency_codes" eval="[]" />
+        <field name="description">ParadeDB BM25 indexing over canonical record content.</field>
+    </record>
+</odoo>

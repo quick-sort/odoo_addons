@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo noupdate="1">
+    <record id="llm_pg_capability_pgvectorscale" model="llm.pg.capability">
+        <field name="name">pgvectorscale</field>
+        <field name="code">pgvectorscale</field>
+        <field name="sequence">40</field>
+        <field name="component_usage">pgvectorscale</field>
+        <field name="extension_names" eval="['vectorscale']" />
+        <field name="dependency_codes" eval="['pgvector']" />
+        <field name="description">StreamingDiskANN indexing for pgvector dense embeddings.</field>
+    </record>
+</odoo>

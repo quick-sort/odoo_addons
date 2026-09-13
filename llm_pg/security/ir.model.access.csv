@@ -1,0 +1,7 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_llm_pg_capability_user,llm.pg.capability.user,model_llm_pg_capability,base.group_user,1,0,0,0
+access_llm_pg_capability_manager,llm.pg.capability.manager,model_llm_pg_capability,llm.group_llm_manager,1,1,1,1
+access_llm_pg_database_capability_user,llm.pg.database.capability.user,model_llm_pg_database_capability,base.group_user,1,0,0,0
+access_llm_pg_database_capability_manager,llm.pg.database.capability.manager,model_llm_pg_database_capability,llm.group_llm_manager,1,1,1,1
+access_llm_pg_extension_status_user,llm.pg.extension.status.user,model_llm_pg_extension_status,base.group_user,1,0,0,0
+access_llm_pg_extension_status_manager,llm.pg.extension.status.manager,model_llm_pg_extension_status,llm.group_llm_manager,1,1,1,1

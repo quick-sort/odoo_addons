@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo noupdate="1">
+    <record id="llm_pg_capability_pgvector" model="llm.pg.capability">
+        <field name="name">pgvector</field>
+        <field name="code">pgvector</field>
+        <field name="component_usage">pgvector</field>
+        <field name="extension_names" eval="['vector']" />
+        <field name="dependency_codes" eval="[]" />
+        <field name="description">Dense and sparse PostgreSQL vector storage with exact, HNSW, and IVFFlat indexes.</field>
+    </record>
+</odoo>

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="view_llm_store_database_form_pg" model="ir.ui.view">
+        <field name="name">llm.store.database.form.postgresql</field>
+        <field name="model">llm.store.database</field>
+        <field name="inherit_id" ref="llm_knowledge.view_llm_store_database_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//form/header/button[@name='action_initialize']" position="attributes">
+                <attribute name="invisible">state in ('ready', 'awaiting_extensions')</attribute>
+            </xpath>
+            <xpath expr="//form/header/field[@name='state']" position="attributes">
+                <attribute name="statusbar_visible">draft,provisioning,awaiting_extensions,ready,error</attribute>
+            </xpath>
+            <xpath expr="//form/header" position="inside">
+                <button name="action_pg_probe_database" string="Probe Extensions" type="object" class="btn-secondary" invisible="store_id.service != 'postgresql'" />
+                <button name="action_pg_resume_provisioning" string="Resume Provisioning" type="object" class="oe_highlight" invisible="state != 'awaiting_extensions'" />
+            </xpath>
+            <xpath expr="//field[@name='isolation_mode']" position="after">
+                <field name="pg_resource_mode" invisible="store_id.service != 'postgresql'" />
+                <field name="pg_role_mode" invisible="store_id.service != 'postgresql'" />
+                <field name="pg_drop_policy" invisible="store_id.service != 'postgresql'" />
+                <field name="pg_template_database" invisible="store_id.service != 'postgresql' or pg_resource_mode != 'managed'" />
+                <field name="pg_partition_strategy" invisible="store_id.service != 'postgresql'" />
+                <field name="pg_partition_count" invisible="store_id.service != 'postgresql' or pg_partition_strategy != 'hash'" />
+            </xpath>
+            <xpath expr="//notebook" position="inside">
+                <page string="PostgreSQL Capabilities" invisible="store_id.service != 'postgresql'">
+                    <field name="pg_capability_ids" context="{'default_database_id': id}">
+                        <list editable="bottom">
+                            <field name="capability_id" />
+                            <field name="enabled" />
+                            <field name="configuration" widget="json_inline" />
+                            <field name="state" readonly="1" />
+                            <field name="installed_versions" readonly="1" />
+                            <field name="last_error" readonly="1" optional="hide" />
+                        </list>
+                    </field>
+                </page>
+                <page string="Extension Status" invisible="store_id.service != 'postgresql'">
+                    <field name="pg_extension_status_ids" readonly="1">
+                        <list>
+                            <field name="extension_name" />
+                            <field name="available_version" />
+                            <field name="installed_version" />
+                            <field name="state" />
+                            <field name="checked_at" />
+                        </list>
+                    </field>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>

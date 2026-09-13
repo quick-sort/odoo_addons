@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="llm_store_view_form_pg" model="ir.ui.view">
+        <field name="name">llm.store.view.form.postgresql</field>
+        <field name="model">llm.store</field>
+        <field name="inherit_id" ref="llm_knowledge.llm_store_view_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//form/sheet" position="before">
+                <header invisible="service != 'postgresql'">
+                    <button name="action_pg_probe_server" string="Probe Server" type="object" class="btn-secondary" />
+                </header>
+            </xpath>
+            <xpath expr="//group[field[@name='metadata']]" position="inside">
+                <group string="PostgreSQL" invisible="service != 'postgresql'">
+                    <field name="pg_maintenance_database" />
+                    <field name="pg_server_version" readonly="1" />
+                    <field name="pg_probe_state" readonly="1" />
+                    <field name="pg_can_create_database" readonly="1" />
+                    <field name="pg_can_create_role" readonly="1" />
+                    <field name="pg_last_probe_at" readonly="1" />
+                    <field name="pg_last_probe_error" readonly="1" invisible="not pg_last_probe_error" />
+                </group>
+            </xpath>
+            <xpath expr="//notebook" position="inside">
+                <page string="PostgreSQL Extensions" invisible="service != 'postgresql'">
+                    <field name="pg_extension_status_ids" readonly="1" domain="[('database_id', '=', False)]">
+                        <list>
+                            <field name="extension_name" />
+                            <field name="available_version" />
+                            <field name="installed_version" />
+                            <field name="state" />
+                            <field name="checked_at" />
+                        </list>
+                    </field>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>
