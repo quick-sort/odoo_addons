@@ -1,7 +1,10 @@
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 
-from odoo.addons.llm.models.llm_model import MODEL_USE_SELECTION
+from odoo.addons.llm.models.llm_model import (
+    EMBEDDING_TYPE_SELECTION,
+    MODEL_USE_SELECTION,
+)
 
 
 class ModelLine(models.TransientModel):
@@ -22,6 +25,10 @@ class ModelLine(models.TransientModel):
         selection=MODEL_USE_SELECTION,
         required=True,
         default="chat",
+    )
+    embedding_type = fields.Selection(
+        selection=EMBEDDING_TYPE_SELECTION,
+        string="Embedding Type",
     )
     supports_image_input = fields.Boolean(default=False)
     status = fields.Selection(
@@ -98,6 +105,9 @@ class FetchModelsWizard(models.TransientModel):
                 "name": line.name.strip(),
                 "provider_id": self.provider_id.id,
                 "model_use": line.model_use,
+                "embedding_type": line.embedding_type
+                if line.model_use == "embedding"
+                else False,
                 "supports_image_input": line.supports_image_input,
                 "details": line.details,
                 "active": True,

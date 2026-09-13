@@ -9,7 +9,7 @@
         <field name="name">Product Documentation (Demo)</field>
         <field name="description">Demo collection with one URL and a scannable source backend.</field>
         <field name="source_backend_id" ref="storage_backend_source_demo" />
-        <field name="cache_backend_id" ref="storage_backend_source_demo" />
+        <field name="artifact_backend_id" ref="storage_backend_source_demo" />
     </record>
     <record id="llm_document_url_demo" model="llm.document">
         <field name="name">Odoo 19 Documentation Portal</field>

@@ -36,6 +36,12 @@
                 force_save="1"
               />
                             <field
+                name="embedding_type"
+                readonly="1"
+                force_save="1"
+                invisible="model_use != 'embedding'"
+              />
+                            <field
                 name="supports_image_input"
                 readonly="1"
                 force_save="1"

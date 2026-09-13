@@ -324,6 +324,11 @@ class LLMProvider(models.Model):
             # Determine model use and capabilities
             capabilities = details.get("capabilities", ["chat"])
             model_use = self._determine_model_use(name, capabilities)
+            embedding_type = (
+                self._determine_embedding_type(name, capabilities, details)
+                if model_use == "embedding"
+                else False
+            )
             supports_image_input = any(
                 cap in capabilities for cap in ("multimodal", "vision")
             )
@@ -332,13 +337,20 @@ class LLMProvider(models.Model):
             existing = existing_models.get(name)
             status = "new"
             if existing:
-                status = "modified" if existing.details != details else "existing"
+                changed = (
+                    existing.details != details
+                    or existing.model_use != model_use
+                    or existing.embedding_type != embedding_type
+                    or existing.supports_image_input != supports_image_input
+                )
+                status = "modified" if changed else "existing"
 
             lines_to_create.append(
                 {
                     "wizard_id": wizard.id,
                     "name": name,
                     "model_use": model_use,
+                    "embedding_type": embedding_type,
                     "supports_image_input": supports_image_input,
                     "status": status,
                     "details": details,
@@ -436,35 +448,59 @@ class LLMProvider(models.Model):
         # Priority 5: Chat models (default for most LLMs)
         return "chat"
 
-    def get_model(self, model=None, model_use="chat"):
-        """Get a model to use for the given purpose
+    def _determine_embedding_type(self, name, capabilities, details=None):
+        """Classify an embedding model as dense or sparse.
 
-        Args:
-            model: Optional specific model to use
-            model_use: Type of model to get if no specific model provided
+        Providers can return an explicit ``embedding_type`` in model details or
+        override this method. Generic discovery recognizes common sparse
+        capability names and otherwise treats embedding models as dense for
+        backward compatibility.
+        """
+        details = details or {}
+        explicit_type = details.get("embedding_type")
+        if explicit_type in ("dense", "sparse"):
+            return explicit_type
 
-        Returns:
-            llm.model record to use
+        normalized_capabilities = {
+            str(capability).lower().replace("-", "_")
+            for capability in (capabilities or [])
+        }
+        if normalized_capabilities.intersection(
+            {"sparse", "sparse_embedding", "sparse_embeddings"}
+        ) or "sparse" in name.lower():
+            return "sparse"
+        return "dense"
+
+    def get_model(self, model=None, model_use="chat", embedding_type=None):
+        """Get a model for a usage and, for embeddings, a vector type.
+
+        Existing callers that request a generic embedding model resolve to a
+        dense model. Sparse callers must request ``embedding_type="sparse"``.
         """
         if model:
             return model
 
-        # Get models from provider
-        models = self.model_ids
+        if model_use == "embedding":
+            embedding_type = embedding_type or "dense"
+        else:
+            embedding_type = None
 
-        # Filter for default model of requested type
-        default_models = models.filtered(
-            lambda m: m.is_default and m.model_use == model_use,
-        )
+        def matches(record):
+            return record.model_use == model_use and (
+                embedding_type is None or record.embedding_type == embedding_type
+            )
 
-        if not default_models:
-            # Fallback to any model of requested type
-            default_models = models.filtered(lambda m: m.model_use == model_use)
+        models = self.model_ids.filtered(matches)
+        selected_models = models.filtered("is_default") or models
+        if not selected_models:
+            requested_type = (
+                f" {embedding_type}" if model_use == "embedding" else ""
+            )
+            raise ValueError(
+                f"No{requested_type} {model_use} model found for provider {self.name}"
+            )
 
-        if not default_models:
-            raise ValueError(f"No {model_use} model found for provider {self.name}")
-
-        return default_models[0]
+        return selected_models[0]
 
     @staticmethod
     def serialize_datetime(obj):

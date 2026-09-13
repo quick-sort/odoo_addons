@@ -5,7 +5,7 @@ import time
 from markupsafe import Markup
 
 from odoo import _, api, fields, models
-from odoo.exceptions import UserError
+from odoo.exceptions import UserError, ValidationError
 
 _logger = logging.getLogger(__name__)
 
@@ -36,6 +36,11 @@ MODEL_USE_SELECTION = [
     ("image_ocr", "Image OCR"),
 ]
 
+EMBEDDING_TYPE_SELECTION = [
+    ("dense", "Dense"),
+    ("sparse", "Sparse"),
+]
+
 
 class LLMModel(models.Model):
     _name = "llm.model"
@@ -56,6 +61,13 @@ class LLMModel(models.Model):
         selection=MODEL_USE_SELECTION,
         required=True,
         default="chat",
+    )
+    embedding_type = fields.Selection(
+        selection=EMBEDDING_TYPE_SELECTION,
+        string="Embedding Type",
+        help="Vector representation produced by an embedding model. Dense models "
+        "return fixed-dimension vectors; sparse models return weighted token or "
+        "feature entries.",
     )
     supports_image_input = fields.Boolean(
         string="Image Input",
@@ -98,19 +110,56 @@ class LLMModel(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
-        records = super().create(vals_list)
-        for record in records:
-            if record.is_default:
-                # Ensure only one default per provider/use combo
-                self.search(
-                    [
-                        ("provider_id", "=", record.provider_id.id),
-                        ("model_use", "=", record.model_use),
-                        ("is_default", "=", True),
-                        ("id", "!=", record.id),
-                    ]
-                ).write({"is_default": False})
+        normalized_vals_list = []
+        for vals in vals_list:
+            values = dict(vals)
+            if values.get("model_use", "chat") == "embedding":
+                values.setdefault("embedding_type", "dense")
+            normalized_vals_list.append(values)
+
+        records = super().create(normalized_vals_list)
+        records.filtered("is_default")._unset_other_defaults()
         return records
+
+    def write(self, vals):
+        values = dict(vals)
+        if "model_use" in values and "embedding_type" not in values:
+            values["embedding_type"] = (
+                "dense" if values["model_use"] == "embedding" else False
+            )
+        result = super().write(values)
+        self.filtered("is_default")._unset_other_defaults()
+        return result
+
+    def _unset_other_defaults(self):
+        """Keep one default model per provider, usage, and embedding type."""
+        for record in self:
+            domain = [
+                ("provider_id", "=", record.provider_id.id),
+                ("model_use", "=", record.model_use),
+                ("is_default", "=", True),
+                ("id", "!=", record.id),
+            ]
+            if record.model_use == "embedding":
+                domain.append(("embedding_type", "=", record.embedding_type))
+            self.search(domain).write({"is_default": False})
+
+    @api.constrains("model_use", "embedding_type")
+    def _check_embedding_type(self):
+        for record in self:
+            if record.model_use == "embedding" and not record.embedding_type:
+                raise ValidationError(
+                    _("Embedding model '%s' must define an embedding type.", record.name)
+                )
+            if record.model_use != "embedding" and record.embedding_type:
+                raise ValidationError(
+                    _(
+                        "Only embedding models can define an embedding type; model "
+                        "'%s' is used as '%s'.",
+                        record.name,
+                        record.model_use,
+                    )
+                )
 
     def chat(self, messages, stream=False, tools=None, tool_choice="auto", **kwargs):
         """Send chat messages using this model"""
@@ -313,15 +362,42 @@ class LLMModel(models.Model):
                 "detail": self._test_dump(response),
             }
 
+        if self.embedding_type == "sparse":
+            entries = self._test_sparse_embedding_size(vectors[0])
+            return {
+                "state": "success",
+                "message": _(
+                    "Embedding endpoint reached, sparse vector with %(entries)d "
+                    "entries returned.",
+                    entries=entries,
+                ),
+                "detail": self._test_dump(
+                    {"count": len(vectors), "nonzero_entries": entries}
+                ),
+            }
+
         dimensions = len(vectors[0]) if hasattr(vectors[0], "__len__") else 0
         return {
             "state": "success",
             "message": _(
-                "Embedding endpoint reached, %(dims)d-dimension vector returned.",
+                "Embedding endpoint reached, %(dims)d-dimension dense vector returned.",
                 dims=dimensions,
             ),
             "detail": self._test_dump({"count": len(vectors), "dimensions": dimensions}),
         }
+
+    @staticmethod
+    def _test_sparse_embedding_size(vector):
+        """Return a provider-neutral sparse vector entry count for diagnostics."""
+        if isinstance(vector, dict):
+            values = vector.get("values")
+            indices = vector.get("indices")
+            if isinstance(values, (list, tuple)):
+                return len(values)
+            if isinstance(indices, (list, tuple)):
+                return len(indices)
+            return len(vector)
+        return len(vector) if hasattr(vector, "__len__") else 0
 
     @staticmethod
     def _test_extract_embeddings(response):
@@ -335,6 +411,8 @@ class LLMModel(models.Model):
                     item.get("embedding") if isinstance(item, dict) else item
                     for item in data
                 ]
+            if "indices" in response or "values" in response:
+                return [response]
             return response.get("embeddings") or response.get("embedding") or []
         if isinstance(response, (list, tuple)):
             return list(response)

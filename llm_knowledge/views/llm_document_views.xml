@@ -73,10 +73,10 @@
                         <field name="etag" readonly="1" />
                         <field name="last_modified" readonly="1" />
                     </group>
-                    <group string="Cache and Processing">
+                    <group string="Artifacts and Processing">
                         <group>
-                            <field name="raw_cache_path" readonly="1" />
-                            <field name="markdown_cache_path" readonly="1" />
+                            <field name="raw_artifact_path" readonly="1" />
+                            <field name="markdown_artifact_path" readonly="1" />
                             <field name="processed_at" readonly="1" />
                         </group>
                         <group>

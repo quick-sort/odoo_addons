@@ -1,12 +1,13 @@
 import logging
 
 from odoo import _, api, fields, models
+from odoo.exceptions import UserError, ValidationError
 
 _logger = logging.getLogger(__name__)
 
 
 class LLMKnowledgeCollection(models.Model):
-    """A knowledge base owning documents and their cached artifacts."""
+    """A knowledge base owning source documents and stored processing artifacts."""
 
     _name = "llm.knowledge.collection"
     _description = "Knowledge Collection for RAG"
@@ -16,25 +17,26 @@ class LLMKnowledgeCollection(models.Model):
     name = fields.Char(required=True, tracking=True)
     description = fields.Text(tracking=True)
     active = fields.Boolean(default=True, tracking=True)
-    cache_backend_id = fields.Many2one(
+    artifact_backend_id = fields.Many2one(
         "storage.backend",
-        string="Cache Backend",
+        string="Artifact Storage",
         ondelete="restrict",
         tracking=True,
-        help="Storage for downloaded URL binaries, extracted Markdown, and future "
-        "processing artifacts. File documents continue to read their original bytes "
-        "directly from the source backend.",
+        help="Required before retrieval/extraction. Stores downloaded URL binaries, "
+        "processed Markdown, and later processing artifacts. Original file bytes "
+        "remain in Source Storage.",
     )
     source_backend_id = fields.Many2one(
         "storage.backend",
-        string="Source Backend",
+        string="Source Storage",
         ondelete="restrict",
         tracking=True,
-        help="Storage backend holding this collection's original files.",
+        help="Optional storage backend containing original files. URL-only collections "
+        "do not require Source Storage.",
     )
     source_path = fields.Char(
         string="Source Path",
-        help="Optional subfolder inside the Source Backend to scan.",
+        help="Optional relative subfolder inside Source Storage to scan.",
     )
     document_ids = fields.One2many(
         "llm.document",
@@ -49,6 +51,37 @@ class LLMKnowledgeCollection(models.Model):
         "when no collection mapping matches.",
     )
     document_count = fields.Integer(compute="_compute_document_count")
+
+    @api.constrains("source_backend_id", "source_path")
+    def _check_source_path(self):
+        for collection in self:
+            path = (collection.source_path or "").strip()
+            if not path:
+                continue
+            if not collection.source_backend_id:
+                raise ValidationError(_("Source Path requires Source Storage."))
+            if path.startswith("/") or ".." in path.split("/"):
+                raise ValidationError(
+                    _("Source Path must be a relative path without parent traversal.")
+                )
+
+    def write(self, vals):
+        artifact_changed = "artifact_backend_id" in vals and any(
+            collection.artifact_backend_id.id != (vals["artifact_backend_id"] or False)
+            for collection in self
+        )
+        if artifact_changed:
+            processed = self.mapped("document_ids").filtered(
+                lambda document: document.state in ("processed", "chunked", "ready")
+            )
+            if processed:
+                raise UserError(
+                    _(
+                        "Artifact Storage cannot change while processed documents exist. "
+                        "Reset or remove those documents first."
+                    )
+                )
+        return super().write(vals)
 
     @api.depends("document_ids")
     def _compute_document_count(self):

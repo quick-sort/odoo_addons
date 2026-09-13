@@ -264,10 +264,10 @@ class LLMDocumentHTTPRetriever(models.Model):
             if not vals["source_url"]:
                 raise UserError(_("A URL source requires a URL."))
             self._invalidate_indexed_content()
-            backend = self._cache_backend()
+            backend = self._artifact_backend()
             cached_artifacts = [
                 (backend, path)
-                for path in (self.raw_cache_path, self.markdown_cache_path)
+                for path in (self.raw_artifact_path, self.markdown_artifact_path)
                 if backend and path
             ]
             vals = dict(vals)

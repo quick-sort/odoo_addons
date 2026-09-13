@@ -23,6 +23,7 @@
         <field name="provider_id" ref="llm_provider_openai_demo" />
         <field name="publisher_id" ref="llm_openai.llm_publisher_openai" />
         <field name="model_use">embedding</field>
+        <field name="embedding_type">dense</field>
     </record>
 
 </odoo>

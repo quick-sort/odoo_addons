@@ -1,10 +1,11 @@
 {
     "name": "LLM Knowledge",
-    "summary": "Single-collection binary-to-Markdown knowledge documents",
+    "summary": "Knowledge ingestion, chunking, vector indexing, and retrieval",
     "description": """
-        Manages file and URL knowledge documents. Retrieval produces a binary
-        envelope, extraction produces Markdown, and collection cache backends
-        retain downloaded URL binaries and processed artifacts.
+        Manages source-backed knowledge collections, binary retrieval, Markdown
+        extraction, reusable chunksets, vector-store instances, logical vector
+        databases, provider record ownership, and configurable BM25/dense/sparse/
+        hybrid query interfaces.
     """,
     "category": "Technical",
     "version": "19.0.7.0.0",
@@ -23,8 +24,24 @@
         "wizards/upload_document_wizard_views.xml",
         "views/llm_document_menu.xml",
         "views/menu.xml",
+        "views/llm_store_views.xml",
+        "views/llm_store_database_record_views.xml",
+        "views/llm_store_database_query_views.xml",
+        "views/llm_store_database_views.xml",
+        "views/llm_store_menu_views.xml",
+        "views/llm_knowledge_splitter_views.xml",
+        "views/llm_knowledge_chunkset_views.xml",
+        "views/llm_knowledge_vector_views.xml",
+        "views/llm_store_chunk_views.xml",
+        "views/llm_knowledge_collection_store_views.xml",
+        "views/llm_document_store_views.xml",
+        "views/store_menu.xml",
     ],
-    "demo": ["data/llm_knowledge_demo.xml"],
+    "demo": [
+        "data/llm_knowledge_demo.xml",
+        "data/llm_knowledge_splitter_demo.xml",
+        "data/llm_knowledge_vector_demo.xml",
+    ],
     "images": ["static/description/banner.jpeg"],
     "license": "LGPL-3",
     "installable": True,

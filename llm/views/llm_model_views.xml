@@ -50,6 +50,11 @@
                             <field name="publisher_id" />
                             <field name="model_use" />
                             <field
+                name="embedding_type"
+                required="model_use == 'embedding'"
+                invisible="model_use != 'embedding'"
+              />
+                            <field
                 name="supports_image_input"
                 invisible="model_use != 'chat'"
               />
@@ -105,6 +110,7 @@
                 <field name="name" />
                 <field name="provider_id" />
                 <field name="model_use" />
+                <field name="embedding_type" optional="show" />
                 <field name="supports_image_input" optional="hide" />
                 <field name="supports_image_output" optional="hide" />
                 <field name="is_default" />
@@ -161,6 +167,11 @@
             string="Usage"
             name="group_by_use"
             context="{'group_by': 'model_use'}"
+          />
+                    <filter
+            string="Embedding Type"
+            name="group_by_embedding_type"
+            context="{'group_by': 'embedding_type'}"
           />
                     <filter
             string="Test Status"

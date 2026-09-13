@@ -1,22 +1,28 @@
 # LLM Knowledge
 
-`llm_knowledge` provides native file and URL documents for Odoo RAG workflows.
-Each `llm.document` belongs to exactly one collection and follows a binary retrieval
-→ Markdown extraction lifecycle. HTTP retrieval is built into the core addon; optional
-addons provide extraction, while `llm_store` and vector backends provide chunking,
-embedding, and vector search.
+`llm_knowledge` provides the complete Odoo knowledge and retrieval domain: source-backed file/URL documents, binary retrieval, Markdown extraction, reusable chunksets, logical vector databases, indexing, and provider-neutral query interfaces. Each `llm.document` belongs to exactly one collection and follows a binary retrieval → Markdown extraction lifecycle.
 
 ## Architecture
 
 ```text
-llm.knowledge.collection
-└── document_ids → llm.document
-    ├── file: source_backend_id + source_path
-    ├── URL: source_url + collection cache backend
-    ├── retrieve() → binary envelope
-    ├── extract() → Markdown
-    └── process_document() → retrieve + extract (+ downstream split/embed)
+storage.backend ── source/artifacts ──► llm.knowledge.collection
+                                      ├── N llm.document ──► Markdown
+                                      └── N llm.knowledge.chunkset
+                                                └── N llm.store.database
+                                                          ├── 1 llm.store instance
+                                                          ├── fixed dense/sparse models + dimension
+                                                          ├── N query interfaces
+                                                          └── N provider record mappings
 ```
+
+A chunkset can be indexed into several logical vector databases to compare providers,
+models, index settings, and query strategies. A database may be physically isolated or
+implemented as a namespace/provider tenant. Every indexed record carries chunk text in
+its payload so external clients can query the provider directly using database-level
+connection information.
+
+Query interfaces (`llm.store.database.query`) describe BM25, dense, sparse, and hybrid
+retrieval, including provider/client fusion and reranking placement.
 
 Core extractor configuration uses:
 
@@ -24,8 +30,8 @@ Core extractor configuration uses:
 - `llm.document.extractor.mapping` — collection-specific or global MIME/extension routing;
 - `llm.document.extractor.component` — component contract returning Markdown `str`.
 
-Cache artifacts use `collections/<collection_id>/documents/<document_id>/`. No legacy
-model alias or cache-path fallback is provided.
+Artifact objects use `collections/<collection_id>/documents/<document_id>/`. No legacy
+model alias or artifact-path fallback is provided.
 
 ## Installation
 
@@ -93,7 +99,7 @@ wildcard, then blank-default priority.
 ## Upload and storage scan
 
 The upload wizard creates native file/URL documents. Uploaded files are copied to the
-collection's Source Backend. URL documents require a cache backend. Collections can
+collection's Source Backend. URL documents require a Artifact Storage. Collections can
 scan their source backend recursively: new files create documents, missing files are
 flagged `to_delete`, and reappearing files clear that flag.
 
@@ -110,5 +116,5 @@ An extractor addon should:
 5. document the MIME/extension mappings required to select it.
 
 This development branch intentionally provides no database migration, old model alias,
-old cache fallback, or old vector payload compatibility. Reindex vector collections
+old artifact fallback, or old vector payload compatibility. Reindex vector collections
 after deployment.

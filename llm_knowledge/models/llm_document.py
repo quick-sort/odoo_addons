@@ -45,7 +45,7 @@ class LLMDocument(models.Model):
     )
     source_backend_id = fields.Many2one(
         "storage.backend",
-        string="Source Backend",
+        string="Source Storage",
         ondelete="restrict",
         index=True,
     )
@@ -61,22 +61,25 @@ class LLMDocument(models.Model):
     last_modified = fields.Char(readonly=True)
     retrieved_at = fields.Datetime(readonly=True)
 
-    raw_cache_path = fields.Char(
-        compute="_compute_cache_paths",
+    raw_artifact_path = fields.Char(
+        compute="_compute_artifact_paths",
         store=True,
         readonly=True,
-        help="URL source binary path in the collection cache backend.",
+        copy=False,
+        help="URL source binary path in the collection Artifact Storage.",
     )
-    markdown_cache_path = fields.Char(
-        compute="_compute_cache_paths",
+    markdown_artifact_path = fields.Char(
+        compute="_compute_artifact_paths",
         store=True,
         readonly=True,
-        help="Processed Markdown path in the collection cache backend.",
+        copy=False,
+        help="Processed Markdown path in the collection Artifact Storage.",
     )
     markdown = fields.Text(
         string="Processed Markdown",
-        help="Inline copy of the processed Markdown; the cache backend copy is "
-        "authoritative when configured.",
+        readonly=True,
+        copy=False,
+        help="Read-only inline copy; the Artifact Storage object is authoritative.",
     )
     processed_size = fields.Integer(readonly=True)
     processed_checksum = fields.Char(string="Markdown SHA-256", readonly=True)
@@ -88,10 +91,11 @@ class LLMDocument(models.Model):
         [("draft", "Draft"), ("retrieved", "Retrieved"), ("processed", "Processed")],
         default="draft",
         required=True,
+        copy=False,
         tracking=True,
     )
     lock_date = fields.Datetime(
-        tracking=True,
+        copy=False,
         help="Date when the document was locked for processing.",
     )
     to_delete = fields.Boolean(
@@ -105,20 +109,20 @@ class LLMDocument(models.Model):
     )
 
     @api.depends("collection_id", "source_type")
-    def _compute_cache_paths(self):
+    def _compute_artifact_paths(self):
         for document in self:
             if not document.id or not document.collection_id:
-                document.raw_cache_path = False
-                document.markdown_cache_path = False
+                document.raw_artifact_path = False
+                document.markdown_artifact_path = False
                 continue
             prefix = "collections/%s/documents/%s" % (
                 document.collection_id.id,
                 document.id,
             )
-            document.raw_cache_path = (
+            document.raw_artifact_path = (
                 "%s/source.bin" % prefix if document.source_type == "url" else False
             )
-            document.markdown_cache_path = "%s/content.md" % prefix
+            document.markdown_artifact_path = "%s/content.md" % prefix
 
     @api.constrains(
         "source_type", "source_backend_id", "source_path", "source_url", "collection_id"
@@ -139,11 +143,11 @@ class LLMDocument(models.Model):
                     raise UserError(
                         _("Document '%s': a URL source requires a URL.", document.name)
                     )
-                if not document.collection_id.cache_backend_id:
+                if not document.collection_id.artifact_backend_id:
                     raise UserError(
                         _(
-                            "Collection '%s' needs a cache backend before URL documents "
-                            "can be retrieved.",
+                            "Collection '%s' needs Artifact Storage before URL "
+                            "documents can be retrieved.",
                             document.collection_id.name,
                         )
                     )
@@ -153,9 +157,9 @@ class LLMDocument(models.Model):
         for document in self:
             document.kanban_state = "blocked" if document.lock_date else "normal"
 
-    def _cache_backend(self):
+    def _artifact_backend(self):
         self.ensure_one()
-        return self.collection_id.cache_backend_id
+        return self.collection_id.artifact_backend_id
 
     def _source_uri(self):
         self.ensure_one()
@@ -230,17 +234,17 @@ class LLMDocument(models.Model):
 
     def _read_cached_url_binary(self):
         self.ensure_one()
-        backend = self._cache_backend()
-        if not backend or not self.raw_cache_path:
+        backend = self._artifact_backend()
+        if not backend or not self.raw_artifact_path:
             return None
-        if not backend.file_exists(self.raw_cache_path):
+        if not backend.file_exists(self.raw_artifact_path):
             return None
-        with backend.open(self.raw_cache_path, "rb") as stream:
+        with backend.open(self.raw_artifact_path, "rb") as stream:
             return stream.read()
 
     def _retrieve_url_binary(self, force_refresh=False):
         self.ensure_one()
-        backend = self._cache_backend()
+        backend = self._artifact_backend()
         cached = self._read_cached_url_binary()
         if cached is not None and not force_refresh:
             return self._make_envelope(
@@ -268,7 +272,7 @@ class LLMDocument(models.Model):
         downloaded = dict(downloaded)
         content = downloaded.pop("content", None)
         envelope = self._make_envelope(content, **downloaded)
-        with backend.open(self.raw_cache_path, "wb") as stream:
+        with backend.open(self.raw_artifact_path, "wb") as stream:
             stream.write(content)
         return envelope
 
@@ -331,10 +335,18 @@ class LLMDocument(models.Model):
                 )
             )
         data = markdown_text.encode("utf-8")
-        backend = self._cache_backend()
-        if backend and self.markdown_cache_path:
-            with backend.open(self.markdown_cache_path, "wb") as stream:
-                stream.write(data)
+        backend = self._artifact_backend()
+        if not backend:
+            raise UserError(
+                _(
+                    "Collection '%s' needs Artifact Storage before extraction.",
+                    self.collection_id.name,
+                )
+            )
+        if not self.markdown_artifact_path:
+            raise UserError(_("The document has no processed artifact path."))
+        with backend.open(self.markdown_artifact_path, "wb") as stream:
+            stream.write(data)
         metadata = {
             "document_id": self.id,
             "document_name": self.name,
@@ -360,14 +372,19 @@ class LLMDocument(models.Model):
 
     def _read_processed_markdown(self):
         self.ensure_one()
-        backend = self._cache_backend()
-        if (
-            backend
-            and self.markdown_cache_path
-            and backend.file_exists(self.markdown_cache_path)
-        ):
-            with backend.open(self.markdown_cache_path, "rb") as stream:
-                return stream.read().decode("utf-8")
+        backend = self._artifact_backend()
+        if backend and self.markdown_artifact_path:
+            if backend.file_exists(self.markdown_artifact_path):
+                with backend.open(self.markdown_artifact_path, "rb") as stream:
+                    return stream.read().decode("utf-8")
+            if self.state in ("processed", "chunked", "ready"):
+                raise UserError(
+                    _(
+                        "Processed artifact is missing for '%s'. Reset and process "
+                        "the document again.",
+                        self.name,
+                    )
+                )
         return self.markdown or ""
 
     def get_processed_document(self):
@@ -493,10 +510,61 @@ class LLMDocument(models.Model):
         return True
 
     def write(self, vals):
+        source_fields = {
+            "source_type",
+            "source_backend_id",
+            "source_path",
+            "collection_id",
+        }
+        if source_fields.intersection(vals) and len(self) > 1:
+            return all(document.write(vals) for document in self)
+
         old_collections = {}
         if "collection_id" in vals:
             old_collections = {document.id: document.collection_id for document in self}
+
+        source_changed = bool(source_fields.intersection(vals)) and any(
+            document.state != "draft" for document in self
+        )
+        artifact_entries = []
+        if source_changed:
+            self._invalidate_indexed_content()
+            for document in self:
+                backend = document._artifact_backend()
+                artifact_entries.extend(
+                    (backend, path)
+                    for path in (
+                        document.raw_artifact_path,
+                        document.markdown_artifact_path,
+                    )
+                    if backend and path
+                )
+            vals = dict(vals)
+            vals.update(
+                {
+                    "state": "draft",
+                    "filename": False,
+                    "mimetype": False,
+                    "size": 0,
+                    "checksum": False,
+                    "final_url": False,
+                    "etag": False,
+                    "last_modified": False,
+                    "retrieved_at": False,
+                    "processed_at": False,
+                    "processed_size": 0,
+                    "processed_checksum": False,
+                    "processed_metadata": False,
+                    "markdown": False,
+                    "processing_error": False,
+                    "lock_date": False,
+                }
+            )
+
         result = super().write(vals)
+        for backend, path in artifact_entries:
+            if backend.file_exists(path):
+                backend.delete(path)
         if "collection_id" in vals:
             for document in self:
                 old_collection = old_collections.get(document.id)

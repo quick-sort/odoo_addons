@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="view_llm_store_database_form" model="ir.ui.view">
+        <field name="name">llm.store.database.form</field>
+        <field name="model">llm.store.database</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_initialize" string="Initialize" type="object" class="btn-secondary" invisible="state != 'draft'" />
+                    <button name="action_build" string="Build" type="object" class="oe_highlight" invisible="state not in ('draft', 'maintenance')" />
+                    <button name="action_rebuild" string="Rebuild" type="object" class="btn-secondary" invisible="state not in ('ready', 'error')" confirm="This takes the database offline, drops it, and rebuilds it. Continue?" />
+                    <button name="action_drop" string="Drop Provider Scope" type="object" class="btn-secondary" invisible="state in ('draft', 'provisioning', 'building', 'maintenance')" confirm="This takes the database offline and deletes the provider resource or isolated tenant scope and all vectors in it. Continue?" />
+                    <field name="state" widget="statusbar" statusbar_visible="draft,provisioning,building,maintenance,ready,error" />
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_records" type="object" class="oe_stat_button" icon="fa-link">
+                            <field name="record_count" widget="statinfo" string="Provider Records" />
+                        </button>
+                    </div>
+                    <div class="oe_title">
+                        <h1><field name="name" placeholder="Database Variant Name" /></h1>
+                    </div>
+                    <group>
+                        <group string="Ownership">
+                            <field name="store_id" options="{'no_create': True}" />
+                            <field name="knowledge_collection_id" options="{'no_create': True}" />
+                            <field name="chunkset_id" options="{'no_create': True}" />
+                            <field name="dense_embedding_model_id" options="{'no_create': True}" />
+                            <field name="sparse_embedding_model_id" options="{'no_create': True}" />
+                            <field name="dimension" />
+                        </group>
+                        <group string="Provider Resource">
+                            <field name="uuid" readonly="1" />
+                            <field name="backend_key" readonly="1" />
+                            <field name="database_name" required="isolation_mode != 'database'" />
+                            <field name="isolation_mode" />
+                            <field name="tenant_key" required="isolation_mode != 'database'" invisible="isolation_mode == 'database'" />
+                            <field name="connection_uri" />
+                            <field name="database_user" />
+                            <field name="database_secret" password="True" />
+                            <field name="active" widget="boolean_toggle" />
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Query Interfaces">
+                            <field name="query_ids" nolabel="1" context="{'default_database_id': id}">
+                                <list>
+                                    <field name="sequence" widget="handle" />
+                                    <field name="name" />
+                                    <field name="query_mode" />
+                                    <field name="fusion_execution" optional="show" />
+                                    <field name="fusion_method" optional="show" />
+                                    <field name="rerank_execution" />
+                                    <field name="is_default" />
+                                    <field name="active" />
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Backend Configuration">
+                            <group>
+                                <field name="index_configuration" widget="json_inline" />
+                                <field name="query_contract" widget="json_inline" />
+                                <field name="metadata" widget="json_inline" />
+                            </group>
+                        </page>
+                        <page string="Build">
+                            <field name="vector_ids" nolabel="1" readonly="1">
+                                <list>
+                                    <field name="name" />
+                                    <field name="chunkset_id" />
+                                    <field name="dense_embedding_model_id" />
+                <field name="sparse_embedding_model_id" />
+                                    <field name="dimension" />
+                                    <field name="state" />
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Provider Records">
+                            <field name="record_ids" nolabel="1" readonly="1">
+                                <list>
+                                    <field name="chunk_id" />
+                                    <field name="logical_id" />
+                                    <field name="backend_id" />
+                                    <field name="state" />
+                                    <field name="active" />
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Diagnostics" invisible="not last_error">
+                            <field name="last_error" readonly="1" nolabel="1" />
+                        </page>
+                        <page string="Description">
+                            <field name="description" nolabel="1" />
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter />
+            </form>
+        </field>
+    </record>
+
+    <record id="view_llm_store_database_tree" model="ir.ui.view">
+        <field name="name">llm.store.database.list</field>
+        <field name="model">llm.store.database</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name" />
+                <field name="store_id" />
+                <field name="knowledge_collection_id" />
+                <field name="chunkset_id" />
+                <field name="dense_embedding_model_id" />
+                <field name="sparse_embedding_model_id" />
+                <field name="dimension" />
+                <field name="state" />
+            </list>
+        </field>
+    </record>
+
+    <record id="view_llm_store_database_search" model="ir.ui.view">
+        <field name="name">llm.store.database.search</field>
+        <field name="model">llm.store.database</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name" />
+                <field name="store_id" />
+                <field name="knowledge_collection_id" />
+                <field name="dense_embedding_model_id" />
+                <field name="sparse_embedding_model_id" />
+                <filter string="Store Instance" name="group_by_store" context="{'group_by': 'store_id'}" />
+                <filter string="Knowledge Collection" name="group_by_collection" context="{'group_by': 'knowledge_collection_id'}" />
+                <filter string="State" name="group_by_state" context="{'group_by': 'state'}" />
+            </search>
+        </field>
+    </record>
+
+    <record id="action_llm_store_database" model="ir.actions.act_window">
+        <field name="name">Store Databases</field>
+        <field name="res_model">llm.store.database</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Create a logical vector database.</p>
+            <p>A chunkset can be indexed into multiple databases with fixed dense/sparse models, dimensions, isolation, and query interfaces.</p>
+        </field>
+    </record>
+</odoo>

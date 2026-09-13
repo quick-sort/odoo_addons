@@ -8,7 +8,7 @@
                 <field name="state" invisible="1" />
                 <sheet>
                     <div invisible="state != 'confirm'">
-                        <div class="alert alert-info" role="alert">Upload local files and/or URLs into one collection. URL retrieval requires a collection cache backend.</div>
+                        <div class="alert alert-info" role="alert">Upload local files and/or URLs into one collection. URL retrieval requires a Artifact Storage.</div>
                         <group><field name="collection_id" options="{'no_create': True}" /><field name="document_name_template" /></group>
                         <notebook>
                             <page string="Local Files"><field name="file_ids" widget="many2many_binary" nolabel="1" /></page>

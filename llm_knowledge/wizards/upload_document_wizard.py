@@ -119,10 +119,10 @@ class UploadDocumentWizard(models.TransientModel):
             for url in (self.external_urls or "").splitlines()
             if url.strip()
         ]
-        if urls and not collection.cache_backend_id:
+        if urls and not collection.artifact_backend_id:
             raise UserError(
                 _(
-                    "Collection '%s' needs a cache backend before URL documents "
+                    "Collection '%s' needs Artifact Storage before URL documents "
                     "can be uploaded.",
                     collection.name,
                 )

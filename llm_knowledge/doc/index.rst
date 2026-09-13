@@ -100,7 +100,8 @@ unique ``_usage``, and implement ``extract(envelope)`` returning Markdown
 ``str``. They extend the extractor host's ``extractor_type`` selection and
 provide mapping guidance for their supported MIME types or extensions.
 
-Chunking, embedding, and vector search are provided by downstream addons such
-as ``llm_store`` and ``llm_knowledge_pgvector``. This development branch does
-not provide database migration, old aliases, old cache fallback, or old vector
-payload compatibility; rebuild vector indexes after deployment.
+Chunking, embedding, and the provider-neutral vector-store domain are provided
+by this addon. Concrete provider adapters are supplied by downstream addons
+such as ``llm_knowledge_pgvector``. This development branch does not provide
+database migration, old aliases, old cache fallback, or old vector payload
+compatibility; rebuild vector indexes after deployment.

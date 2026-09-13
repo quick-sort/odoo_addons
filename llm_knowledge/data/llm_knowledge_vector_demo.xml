@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo noupdate="1">
+
+    <!-- These records demonstrate configuration relationships only. The demo
+         service intentionally has no runtime adapter and never calls an
+         external provider during installation. -->
+    <record id="llm_provider_knowledge_config_demo" model="llm.provider">
+        <field name="name">Knowledge Configuration Demo Provider</field>
+        <field name="service">knowledge_demo</field>
+    </record>
+
+    <record id="llm_model_dense_config_demo" model="llm.model">
+        <field name="name">demo-dense-embedding</field>
+        <field name="provider_id" ref="llm_provider_knowledge_config_demo" />
+        <field name="model_use">embedding</field>
+        <field name="embedding_type">dense</field>
+        <field name="details" eval="{'demo_only': True, 'dimension': 1536}" />
+    </record>
+
+    <record id="llm_model_sparse_config_demo" model="llm.model">
+        <field name="name">demo-sparse-embedding</field>
+        <field name="provider_id" ref="llm_provider_knowledge_config_demo" />
+        <field name="model_use">embedding</field>
+        <field name="embedding_type">sparse</field>
+        <field name="details" eval="{'demo_only': True, 'format': 'indices-values'}" />
+    </record>
+
+    <record id="llm_store_knowledge_config_demo" model="llm.store">
+        <field name="name">Knowledge Vector Store (Configuration Demo)</field>
+        <field name="service">knowledge_demo</field>
+        <field name="metadata" eval="{'demo_only': True, 'runtime_adapter': False}" />
+    </record>
+
+    <!-- One chunkset is deliberately indexed three ways to demonstrate that
+         chunking and vector database configuration are independent layers. -->
+    <record id="llm_knowledge_chunkset_retrieval_modes_demo" model="llm.knowledge.chunkset">
+        <field name="name">Recursive Retrieval Comparison (Demo)</field>
+        <field name="collection_id" ref="llm_knowledge_collection_demo" />
+        <field name="splitter_id" ref="llm_splitter_recursive_demo" />
+        <field name="is_default" eval="True" />
+    </record>
+
+    <record id="llm_store_database_dense_demo" model="llm.store.database">
+        <field name="name">Dense Retrieval (Demo)</field>
+        <field name="store_id" ref="llm_store_knowledge_config_demo" />
+        <field name="knowledge_collection_id" ref="llm_knowledge_collection_demo" />
+        <field name="chunkset_id" ref="llm_knowledge_chunkset_retrieval_modes_demo" />
+        <field name="dense_embedding_model_id" ref="llm_model_dense_config_demo" />
+        <field name="dimension">1536</field>
+    </record>
+
+    <record id="llm_store_database_sparse_demo" model="llm.store.database">
+        <field name="name">Sparse Retrieval (Demo)</field>
+        <field name="store_id" ref="llm_store_knowledge_config_demo" />
+        <field name="knowledge_collection_id" ref="llm_knowledge_collection_demo" />
+        <field name="chunkset_id" ref="llm_knowledge_chunkset_retrieval_modes_demo" />
+        <field name="sparse_embedding_model_id" ref="llm_model_sparse_config_demo" />
+    </record>
+
+    <record id="llm_store_database_hybrid_demo" model="llm.store.database">
+        <field name="name">Hybrid Retrieval (Demo)</field>
+        <field name="store_id" ref="llm_store_knowledge_config_demo" />
+        <field name="knowledge_collection_id" ref="llm_knowledge_collection_demo" />
+        <field name="chunkset_id" ref="llm_knowledge_chunkset_retrieval_modes_demo" />
+        <field name="dense_embedding_model_id" ref="llm_model_dense_config_demo" />
+        <field name="sparse_embedding_model_id" ref="llm_model_sparse_config_demo" />
+        <field name="dimension">1536</field>
+    </record>
+
+    <record id="llm_store_database_query_dense_demo" model="llm.store.database.query">
+        <field name="name">Dense Vector</field>
+        <field name="database_id" ref="llm_store_database_dense_demo" />
+        <field name="query_mode">dense</field>
+        <field name="is_default" eval="True" />
+    </record>
+
+    <record id="llm_store_database_query_sparse_demo" model="llm.store.database.query">
+        <field name="name">Sparse Vector</field>
+        <field name="database_id" ref="llm_store_database_sparse_demo" />
+        <field name="query_mode">sparse</field>
+        <field name="is_default" eval="True" />
+    </record>
+
+    <!-- The hybrid database exposes every supported query mode. -->
+    <record id="llm_store_database_query_hybrid_bm25_demo" model="llm.store.database.query">
+        <field name="name">BM25 / Full Text</field>
+        <field name="database_id" ref="llm_store_database_hybrid_demo" />
+        <field name="sequence">10</field>
+        <field name="query_mode">bm25</field>
+    </record>
+
+    <record id="llm_store_database_query_hybrid_dense_demo" model="llm.store.database.query">
+        <field name="name">Dense Vector</field>
+        <field name="database_id" ref="llm_store_database_hybrid_demo" />
+        <field name="sequence">20</field>
+        <field name="query_mode">dense</field>
+    </record>
+
+    <record id="llm_store_database_query_hybrid_sparse_demo" model="llm.store.database.query">
+        <field name="name">Sparse Vector</field>
+        <field name="database_id" ref="llm_store_database_hybrid_demo" />
+        <field name="sequence">30</field>
+        <field name="query_mode">sparse</field>
+    </record>
+
+    <record id="llm_store_database_query_hybrid_demo" model="llm.store.database.query">
+        <field name="name">BM25 + Dense + Sparse (RRF)</field>
+        <field name="database_id" ref="llm_store_database_hybrid_demo" />
+        <field name="sequence">40</field>
+        <field name="query_mode">hybrid</field>
+        <field name="hybrid_bm25" eval="True" />
+        <field name="hybrid_dense" eval="True" />
+        <field name="hybrid_sparse" eval="True" />
+        <field name="fusion_execution">provider</field>
+        <field name="fusion_method">rrf</field>
+        <field name="is_default" eval="True" />
+    </record>
+
+    <record id="llm_knowledge_collection_demo" model="llm.knowledge.collection">
+        <field name="description">Demo collection with one URL, one shared chunkset, and dense-only, sparse-only, and hybrid vector database configurations for retrieval comparison.</field>
+        <field name="default_database_id" ref="llm_store_database_hybrid_demo" />
+    </record>
+
+</odoo>

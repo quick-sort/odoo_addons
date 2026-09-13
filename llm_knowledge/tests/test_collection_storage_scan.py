@@ -26,7 +26,7 @@ class TestCollectionStorageScan(TransactionComponentCase):
             {
                 "name": "Scan KB",
                 "source_backend_id": cls.backend.id,
-                "cache_backend_id": cls.backend.id,
+                "artifact_backend_id": cls.backend.id,
             }
         )
 
@@ -80,7 +80,7 @@ class TestCollectionStorageScan(TransactionComponentCase):
             {
                 "name": "Other KB",
                 "source_backend_id": self.backend.id,
-                "cache_backend_id": self.backend.id,
+                "artifact_backend_id": self.backend.id,
             }
         )
         other.scan_storage()
