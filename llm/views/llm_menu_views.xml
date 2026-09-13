@@ -17,12 +17,20 @@
     sequence="100"
   />
 
+    <!-- LLM Configuration Group -->
+    <menuitem
+    id="llm_assistant_configuration_menu"
+    name="LLM"
+    parent="menu_llm_config"
+    sequence="5"
+  />
+
     <!-- Provider Menu -->
     <menuitem
     id="menu_llm_provider"
     name="Providers"
     action="llm_provider_action"
-    parent="menu_llm_config"
+    parent="llm_assistant_configuration_menu"
     sequence="10"
   />
 
@@ -40,8 +48,8 @@
     id="menu_llm_publisher"
     name="Publishers"
     action="llm_publisher_action"
-    parent="menu_llm_config"
-    sequence="15"
+    parent="llm_assistant_configuration_menu"
+    sequence="20"
   />
 
     <!-- Model Menu -->
@@ -49,43 +57,26 @@
     id="menu_llm_model"
     name="Models"
     action="llm_model_action"
-    parent="menu_llm_config"
-    sequence="20"
-  />
-
-    <!-- Thread Menu -->
-    <menuitem
-    id="menu_llm_thread"
-    name="Threads"
-    action="llm_thread_action"
-    parent="menu_llm_config"
-    sequence="27"
+    parent="llm_assistant_configuration_menu"
+    sequence="30"
   />
 
     <!-- Assistant Menu -->
     <menuitem
     id="menu_llm_assistant"
     name="Assistants"
-    parent="menu_llm_config"
+    parent="llm_assistant_configuration_menu"
     action="action_llm_assistant"
-    sequence="26"
+    sequence="40"
   />
 
-    <!-- Assistants Configuration Menu -->
-    <menuitem
-    id="llm_assistant_configuration_menu"
-    name="Assistants Configuration"
-    parent="menu_llm_config"
-    sequence="30"
-  />
-
-    <!-- Assistants Configuration Sub-menus -->
+    <!-- Assistant Configuration Menus -->
     <menuitem
     id="llm_assistant_category_menu"
     name="Categories"
     parent="llm_assistant_configuration_menu"
     action="llm_assistant_category_action"
-    sequence="10"
+    sequence="50"
   />
 
     <menuitem
@@ -93,33 +84,42 @@
     name="Tags"
     parent="llm_assistant_configuration_menu"
     action="llm_assistant_tag_action"
-    sequence="20"
+    sequence="60"
+  />
+
+    <!-- Thread Menu -->
+    <menuitem
+    id="menu_llm_thread"
+    name="Threads"
+    action="llm_thread_action"
+    parent="llm_assistant_configuration_menu"
+    sequence="70"
   />
 
     <!-- Tool Menu -->
     <menuitem
     id="menu_llm_tool"
     name="Tools"
-    parent="menu_llm_config"
+    parent="llm_assistant_configuration_menu"
     action="action_llm_tool"
-    sequence="20"
+    sequence="80"
   />
 
     <!-- Tool Consent Config Menu -->
     <menuitem
     id="menu_llm_tool_consent_config"
     name="Tool Consent"
-    parent="menu_llm_config"
+    parent="llm_assistant_configuration_menu"
     action="action_llm_tool_consent_config"
-    sequence="25"
+    sequence="90"
   />
 
     <!-- MCP Services Menu -->
     <menuitem
     id="menu_llm_mcp_client"
     name="MCP Services"
-    parent="menu_llm_config"
+    parent="llm_assistant_configuration_menu"
     action="action_llm_mcp_client"
-    sequence="30"
+    sequence="100"
   />
 </odoo>
