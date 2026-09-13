@@ -1,24 +1,21 @@
-"""Qdrant as an ``llm.store`` service.
+"""Qdrant implementation of the database-scoped ``llm.store`` contract."""
 
-Implements the ``llm.store.adapter`` contract for ``service == "qdrant"``.
-
-Every method takes the ``llm.store`` record as its first argument instead of
-reading ``self.collection``, which keeps the pure payload/filter/id logic
-testable without a database or a running Qdrant server.
-
-Consistency: writes do not participate in the Odoo transaction, so an Odoo
-rollback after a successful upsert can leave orphan points -- the same property
-the external pgvector adapter has.
-"""
-
+import base64
+import hashlib
+import hmac
+import json
 import logging
+import re
+import uuid
+from datetime import timedelta, timezone
 
 from qdrant_client import QdrantClient
 from qdrant_client import models as qdrant_models
 from qdrant_client.http.exceptions import UnexpectedResponse
 
 from odoo import _
-from odoo.exceptions import UserError
+from odoo.exceptions import UserError, ValidationError
+from odoo.fields import Datetime
 
 from odoo.addons.component.core import Component
 
@@ -27,13 +24,26 @@ _logger = logging.getLogger(__name__)
 DEFAULT_HOST = "localhost"
 DEFAULT_PORT = 6333
 DELETE_TIMEOUT = 30
+DEFAULT_DENSE_VECTOR = "dense"
+DEFAULT_SPARSE_VECTOR = "sparse"
 
-PAYLOAD_SCHEMA_TYPES = {
-    "keyword": qdrant_models.PayloadSchemaType.KEYWORD,
-    "integer": qdrant_models.PayloadSchemaType.INTEGER,
-    "float": qdrant_models.PayloadSchemaType.FLOAT,
-    "geo": qdrant_models.PayloadSchemaType.GEO,
-    "text": qdrant_models.PayloadSchemaType.TEXT,
+_PAYLOAD_SCHEMA_NAMES = {
+    "keyword": "KEYWORD",
+    "integer": "INTEGER",
+    "float": "FLOAT",
+    "geo": "GEO",
+    "text": "TEXT",
+    "bool": "BOOL",
+    "datetime": "DATETIME",
+    "uuid": "UUID",
+}
+
+_DISTANCE_NAMES = {
+    "cosine": qdrant_models.Distance.COSINE,
+    "dot": qdrant_models.Distance.DOT,
+    "euclid": qdrant_models.Distance.EUCLID,
+    "euclidean": qdrant_models.Distance.EUCLID,
+    "manhattan": qdrant_models.Distance.MANHATTAN,
 }
 
 
@@ -43,488 +53,947 @@ class QdrantStoreAdapter(Component):
     _usage = "qdrant"
 
     # ------------------------------------------------------------------
-    # Client
+    # Client and provider identity
     # ------------------------------------------------------------------
-
     def _client(self, store):
-        """Build a Qdrant client from the store configuration."""
         kwargs = {}
         if store.connection_uri:
             kwargs["url"] = store.connection_uri
         else:
-            kwargs["host"] = DEFAULT_HOST
-            kwargs["port"] = DEFAULT_PORT
-
+            kwargs.update(host=DEFAULT_HOST, port=DEFAULT_PORT)
         if store.api_key:
             kwargs["api_key"] = store.api_key
-
         try:
             return QdrantClient(**kwargs)
-        except Exception as err:
-            _logger.error(
-                "Failed to connect to Qdrant server at %s: %s",
-                kwargs.get("url") or kwargs.get("host"),
-                err,
-            )
+        except Exception as error:  # noqa: BLE001
             raise UserError(
                 _(
-                    "Could not connect to the Qdrant vector database server.\n\n"
-                    "Please check:\n"
-                    "• The server is running at the configured address\n"
-                    "• The API key (if required) is correct\n"
-                    "• Network/firewall allows the connection\n\n"
-                    "Technical details: %(error)s",
-                    error=err,
-                ),
-            ) from err
-
-    # ------------------------------------------------------------------
-    # Collections
-    # ------------------------------------------------------------------
-
-    def sanitize_collection_name(self, store, name):
-        """Qdrant accepts the generic naming rules of ``llm.store``."""
-        return store._default_sanitize_collection_name(name)
-
-    def collection_exists(self, store, name, **kwargs):
-        return self._client(store).collection_exists(
-            collection_name=store.get_santized_collection_name(name),
-        )
-
-    def create_collection(
-        self,
-        store,
-        collection_id,
-        dimension=None,
-        metadata=None,
-        **kwargs,
-    ):
-        """Create a cosine-distance collection, sized from ``dimension``.
-
-        When no dimension is given, it is probed from the knowledge
-        collection's embedding model. That lookup is optional: the adapter
-        stays usable without ``llm_knowledge`` installed, in which case an
-        explicit ``dimension`` is required.
-        """
-        client = self._client(store)
-        name = store.get_santized_collection_name(collection_id)
-
-        if not dimension:
-            dimension = self._probe_dimension(store, collection_id)
-        if not dimension:
-            raise UserError(
-                _(
-                    "A vector dimension is required to create Qdrant collection "
-                    "'%(name)s' and it could not be derived from the collection's "
-                    "embedding model.",
-                    name=name,
-                ),
-            )
-
-        if client.collection_exists(collection_name=name):
-            # Pre-existing collection: left untouched. A dimension mismatch is
-            # not detected here, upserts would fail later.
-            return True
-
-        try:
-            client.create_collection(
-                collection_name=name,
-                vectors_config=qdrant_models.VectorParams(
-                    size=dimension,
-                    distance=qdrant_models.Distance.COSINE,
-                ),
-            )
-            return True
-        except UnexpectedResponse as err:
-            _logger.exception(
-                "Could not create collection %s: %s - %s",
-                name,
-                err.status_code,
-                err.content.decode(),
-            )
-            return False
+                    "Could not initialize the Qdrant client for '%(store)s': "
+                    "%(error)s",
+                    store=store.name,
+                    error=error,
+                )
+            ) from error
 
     @staticmethod
-    def _probe_dimension(store, collection_id):
-        """Derive the vector size from the knowledge collection, if available.
+    def _sanitize_name(name):
+        value = re.sub(r"[^a-zA-Z0-9._-]+", "-", str(name or "").strip())
+        value = re.sub(r"[-_.]{2,}", "-", value).strip("-_.")
+        return value[:200] or "odoo-vectors"
 
-        Returns ``None`` when ``llm_knowledge`` is not installed, the record is
-        gone, or it has no embedding model -- the caller then requires an
-        explicit dimension.
-        """
-        env = store.env
-        if "llm.knowledge.collection" not in env:
-            return None
-
-        record = env["llm.knowledge.collection"].browse(collection_id)
-        if not record.exists() or not record.embedding_model_id:
-            return None
-
-        # One throwaway embedding is the only reliable way to learn the size.
-        sample = record.embedding_model_id.embedding("")
-        return len(sample[0]) if sample and sample[0] else None
-
-    def delete_collection(self, store, collection_id, **kwargs):
-        client = self._client(store)
-        name = store.get_santized_collection_name(collection_id)
-
-        if not client.collection_exists(collection_name=name):
-            return True
-
-        result = client.delete_collection(
-            collection_name=name,
-            timeout=DELETE_TIMEOUT,
+    def _database_name(self, store, database, persist=False):
+        name = database.database_name or self._sanitize_name(
+            f"odoo-{store.env.cr.dbname}-{database.uuid}"
         )
-        if result is not True:
-            _logger.warning(
-                "Qdrant delete_collection for %s returned %s. "
-                "Assuming success since no exception was raised.",
-                name,
-                result,
+        if persist and not database.database_name:
+            database.with_context(allow_provider_resource_write=True).write(
+                {"database_name": name}
+            )
+        return name
+
+    @staticmethod
+    def _configuration(database):
+        return dict(database.index_configuration or {})
+
+    def _dense_vector_name(self, database):
+        return self._configuration(database).get(
+            "dense_vector_name", DEFAULT_DENSE_VECTOR
+        )
+
+    def _sparse_vector_name(self, database):
+        return self._configuration(database).get(
+            "sparse_vector_name", DEFAULT_SPARSE_VECTOR
+        )
+
+    @staticmethod
+    def _ensure_dedicated(database):
+        if database.isolation_mode != "database":
+            raise UserError(
+                _(
+                    "Qdrant currently requires dedicated provider resources for "
+                    "database '%s'. Shared namespace/tenant resources cannot be "
+                    "safely granted to direct clients.",
+                    database.name,
+                )
+            )
+
+    @staticmethod
+    def _collection_metadata_from_info(info):
+        return dict(getattr(getattr(info, "config", None), "metadata", None) or {})
+
+    def _assert_collection_owner(self, client, name, database):
+        metadata = self._collection_metadata_from_info(
+            client.get_collection(collection_name=name)
+        )
+        if (
+            metadata.get("managed_by") != "odoo"
+            or metadata.get("resource_type") != "llm.store.database"
+            or metadata.get("store_instance_uuid")
+            != database.store_id.qdrant_instance_uuid
+            or metadata.get("database_uuid") != database.uuid
+        ):
+            raise UserError(
+                _(
+                    "Qdrant collection '%(collection)s' is not owned by database "
+                    "'%(database)s'. Choose a unique collection name instead of "
+                    "adopting or deleting an unrelated collection.",
+                    collection=name,
+                    database=database.name,
+                )
             )
         return True
 
-    def list_collections(self, store, **kwargs):
-        return [c.name for c in self._client(store).get_collections().collections]
+    def _assert_registry_owner(self, client, name, store):
+        metadata = self._collection_metadata_from_info(
+            client.get_collection(collection_name=name)
+        )
+        if (
+            metadata.get("managed_by") != "odoo"
+            or metadata.get("resource_type") != "qdrant.credential.registry"
+            or metadata.get("store_instance_uuid") != store.qdrant_instance_uuid
+        ):
+            raise UserError(
+                _(
+                    "Qdrant collection '%s' is not this store's credential "
+                    "registry. Configure a unique registry collection name.",
+                    name,
+                )
+            )
+        return True
 
     # ------------------------------------------------------------------
-    # Vectors
+    # Collection schema
     # ------------------------------------------------------------------
+    @staticmethod
+    def _memory(value):
+        if not value:
+            return None
+        enum = getattr(qdrant_models, "Memory", None)
+        if not enum:
+            return None
+        return getattr(enum, str(value).upper(), None)
 
-    def insert_vectors(
+    @staticmethod
+    def _datatype(value):
+        if not value:
+            return None
+        enum = getattr(qdrant_models, "Datatype", None)
+        if not enum:
+            return None
+        return getattr(enum, str(value).upper(), None)
+
+    def _dense_config(self, database):
+        config = self._configuration(database)
+        if not database.dense_embedding_model_id:
+            return None
+        if not database.dimension:
+            raise UserError(
+                _("Set the dense dimension before provisioning '%s'.", database.name)
+            )
+        distance_name = str(config.get("distance", "cosine")).lower()
+        distance = _DISTANCE_NAMES.get(distance_name)
+        if not distance:
+            raise UserError(_("Unsupported Qdrant distance '%s'.", distance_name))
+
+        values = {"size": database.dimension, "distance": distance}
+        memory = self._memory(config.get("vector_memory"))
+        datatype = self._datatype(config.get("datatype"))
+        if memory is not None:
+            values["memory"] = memory
+        if datatype is not None:
+            values["datatype"] = datatype
+        if config.get("vector_hnsw_config"):
+            values["hnsw_config"] = qdrant_models.HnswConfigDiff(
+                **config["vector_hnsw_config"]
+            )
+        if config.get("vector_quantization_config"):
+            values["quantization_config"] = self._quantization(
+                config["vector_quantization_config"]
+            )
+        return qdrant_models.VectorParams(**values)
+
+    def _sparse_config(self, database):
+        if not database.sparse_embedding_model_id:
+            return None
+        config = self._configuration(database)
+        values = {}
+        sparse_index = config.get("sparse_index_config")
+        if sparse_index:
+            values["index"] = qdrant_models.SparseIndexParams(**sparse_index)
+        modifier = str(config.get("sparse_modifier", "idf")).lower()
+        if modifier == "idf":
+            values["modifier"] = qdrant_models.Modifier.IDF
+        elif modifier not in ("", "none"):
+            raise UserError(_("Unsupported Qdrant sparse modifier '%s'.", modifier))
+        return qdrant_models.SparseVectorParams(**values)
+
+    @staticmethod
+    def _model(model_name, value):
+        if not value:
+            return None
+        model = getattr(qdrant_models, model_name, None)
+        return model(**value) if model else value
+
+    @staticmethod
+    def _quantization(value):
+        if not value:
+            return None
+        if "scalar" in value:
+            return qdrant_models.ScalarQuantization(
+                scalar=qdrant_models.ScalarQuantizationConfig(**value["scalar"])
+            )
+        if "product" in value:
+            return qdrant_models.ProductQuantization(
+                product=qdrant_models.ProductQuantizationConfig(**value["product"])
+            )
+        if "binary" in value:
+            return qdrant_models.BinaryQuantization(
+                binary=qdrant_models.BinaryQuantizationConfig(**value["binary"])
+            )
+        raise UserError(
+            _("Qdrant quantization must define scalar, product, or binary settings.")
+        )
+
+    def _collection_metadata(self, store, database):
+        return {
+            "managed_by": "odoo",
+            "resource_type": "llm.store.database",
+            "schema_version": 1,
+            "store_uuid": store.env.cr.dbname,
+            "store_instance_uuid": store.qdrant_instance_uuid,
+            "database_uuid": database.uuid,
+            "knowledge_collection_id": database.knowledge_collection_id.id,
+            "text_field": "text",
+            "dense_vector": (
+                self._dense_vector_name(database)
+                if database.dense_embedding_model_id
+                else None
+            ),
+            "sparse_vector": (
+                self._sparse_vector_name(database)
+                if database.sparse_embedding_model_id
+                else None
+            ),
+        }
+
+    def _create_collection_kwargs(self, store, database):
+        config = self._configuration(database)
+        dense = self._dense_config(database)
+        sparse = self._sparse_config(database)
+        values = {
+            "vectors_config": (
+                {self._dense_vector_name(database): dense} if dense else {}
+            ),
+            "sparse_vectors_config": (
+                {self._sparse_vector_name(database): sparse} if sparse else None
+            ),
+            "shard_number": config.get("shard_number"),
+            "replication_factor": config.get("replication_factor"),
+            "write_consistency_factor": config.get("write_consistency_factor"),
+            "hnsw_config": self._model("HnswConfigDiff", config.get("hnsw_config")),
+            "optimizers_config": self._model(
+                "OptimizersConfigDiff", config.get("optimizers_config")
+            ),
+            "wal_config": self._model("WalConfigDiff", config.get("wal_config")),
+            "quantization_config": self._quantization(
+                config.get("quantization_config")
+            ),
+            "strict_mode_config": self._model(
+                "StrictModeConfig", config.get("strict_mode_config")
+            ),
+            "payload": self._model(
+                "PayloadStorageParams", config.get("payload_config")
+            ),
+            "metadata": self._collection_metadata(store, database),
+        }
+        sharding_method = config.get("sharding_method")
+        if sharding_method:
+            values["sharding_method"] = getattr(
+                qdrant_models.ShardingMethod, str(sharding_method).upper()
+            )
+        return {key: value for key, value in values.items() if value is not None}
+
+    # ------------------------------------------------------------------
+    # Required database contract
+    # ------------------------------------------------------------------
+    def database_exists(self, store, database, **kwargs):
+        self._ensure_dedicated(database)
+        client = self._client(store)
+        name = self._database_name(store, database)
+        exists = client.collection_exists(collection_name=name)
+        if exists:
+            self._assert_collection_owner(client, name, database)
+        return exists
+
+    def provision_database(self, store, database, **kwargs):
+        self._ensure_dedicated(database)
+        client = self._client(store)
+        name = self._database_name(store, database, persist=True)
+        if client.collection_exists(collection_name=name):
+            self._assert_collection_owner(client, name, database)
+        else:
+            try:
+                client.create_collection(
+                    collection_name=name,
+                    **self._create_collection_kwargs(store, database),
+                )
+            except Exception as error:  # noqa: BLE001
+                raise UserError(
+                    _("Could not create Qdrant collection '%(name)s': %(error)s", name=name, error=error)
+                ) from error
+        self._ensure_payload_indexes(client, name, database)
+        contract = dict(database.query_contract or {})
+        contract.update(
+            {
+                "version": 1,
+                "provider": "qdrant",
+                "collection": name,
+                "dense_vector": (
+                    self._dense_vector_name(database)
+                    if database.dense_embedding_model_id
+                    else None
+                ),
+                "sparse_vector": (
+                    self._sparse_vector_name(database)
+                    if database.sparse_embedding_model_id
+                    else None
+                ),
+                "text_field": "text",
+                "embedding_dimension": database.dimension or None,
+            }
+        )
+        database.write({"query_contract": contract})
+        return True
+
+    def drop_database(self, store, database, **kwargs):
+        self._ensure_dedicated(database)
+        client = self._client(store)
+        name = self._database_name(store, database)
+        if not client.collection_exists(collection_name=name):
+            return True
+        self._assert_collection_owner(client, name, database)
+        result = client.delete_collection(collection_name=name, timeout=DELETE_TIMEOUT)
+        if result is False:
+            raise UserError(_("Qdrant did not confirm deletion of '%s'.", name))
+        return True
+
+    def insert_database_vectors(
         self,
         store,
-        collection_id,
-        vectors,
+        database,
+        vectors=None,
+        sparse_vectors=None,
         metadata=None,
         ids=None,
         **kwargs,
     ):
-        """Upsert points. ``ids`` must line up with ``vectors``."""
+        self._ensure_dedicated(database)
         client = self._client(store)
-        name = store.get_santized_collection_name(collection_id)
-
-        points = self._build_points(vectors, metadata, ids)
-
-        response = client.upsert(collection_name=name, points=points, wait=True)
+        name = self._database_name(store, database)
+        self._assert_collection_owner(client, name, database)
+        points = self._build_points(database, vectors, sparse_vectors, metadata, ids)
+        response = client.upsert(
+            collection_name=name,
+            points=points,
+            wait=True,
+        )
         if response.status != qdrant_models.UpdateStatus.COMPLETED:
-            _logger.warning(
-                "Qdrant upsert status for collection %s: %s",
-                name,
-                response.status,
-            )
-        return ids
-
-    def _build_points(self, vectors, metadata, ids):
-        """Turn parallel lists into ``PointStruct`` objects.
-
-        Kept separate from the client call so the id and payload rules can be
-        tested without a server.
-        """
-        vectors = list(vectors or [])
-        if not ids or len(ids) != len(vectors):
             raise UserError(
-                _("Must provide unique IDs matching the number of vectors."),
+                _("Qdrant did not complete the upsert for '%s'.", database.name)
             )
+        return list(ids or [])
+
+    def _build_points(self, database, vectors, sparse_vectors, metadata, ids):
+        ids = list(ids or [])
+        dense = list(vectors) if vectors is not None else None
+        sparse = list(sparse_vectors) if sparse_vectors is not None else None
+        count = len(ids)
+        if not count:
+            raise UserError(_("Qdrant upserts require provider record IDs."))
+        if dense is not None and len(dense) != count:
+            raise UserError(_("Dense vector and provider ID counts must match."))
+        if sparse is not None and len(sparse) != count:
+            raise UserError(_("Sparse vector and provider ID counts must match."))
+        payloads = list(metadata or [{} for _item in ids])
+        if len(payloads) != count:
+            raise UserError(_("Payload and provider ID counts must match."))
 
         points = []
-        for index, vec_id in enumerate(ids):
-            point_id = self._point_id(vec_id)
-            payload = metadata[index] if metadata and index < len(metadata) else {}
+        for index, provider_id in enumerate(ids):
+            named_vectors = {}
+            if dense is not None:
+                named_vectors[self._dense_vector_name(database)] = dense[index]
+            if sparse is not None:
+                value = sparse[index]
+                if not isinstance(value, dict) or not {"indices", "values"}.issubset(value):
+                    raise UserError(
+                        _("Sparse vectors must contain 'indices' and 'values'.")
+                    )
+                named_vectors[self._sparse_vector_name(database)] = (
+                    qdrant_models.SparseVector(
+                        indices=value["indices"], values=value["values"]
+                    )
+                )
             points.append(
                 qdrant_models.PointStruct(
-                    id=point_id,
-                    vector=vectors[index],
-                    payload=self._sanitize_payload(payload),
-                ),
+                    id=self._point_id(provider_id),
+                    vector=named_vectors,
+                    payload=self._sanitize_payload(payloads[index]),
+                )
             )
         return points
 
     @staticmethod
-    def _point_id(vec_id):
-        """Coerce an id to a non-negative integer, as Qdrant requires."""
+    def _point_id(value):
+        if isinstance(value, int):
+            if value < 0:
+                raise UserError(_("Qdrant numeric point IDs cannot be negative."))
+            return value
+        text = str(value)
         try:
-            point_id = int(vec_id)
-        except (TypeError, ValueError) as err:
+            return str(uuid.UUID(text))
+        except (ValueError, TypeError, AttributeError) as error:
             raise UserError(
-                _(
-                    "Qdrant vector IDs must be non-negative integers or UUIDs. "
-                    "Received: %(value)s",
-                    value=vec_id,
-                ),
-            ) from err
-        if point_id < 0:
-            raise UserError(
-                _(
-                    "Qdrant vector IDs must be non-negative integers or UUIDs. "
-                    "Received: %(value)s",
-                    value=vec_id,
-                ),
-            )
-        return point_id
+                _("Qdrant point IDs must be non-negative integers or UUIDs: %s", value)
+            ) from error
 
-    @staticmethod
-    def _sanitize_payload(payload):
-        """Reduce a payload to JSON-serializable scalars, lists and None.
-
-        Anything else is stringified rather than dropped, so information is
-        preserved even when it cannot be filtered on.
-        """
+    @classmethod
+    def _sanitize_payload(cls, payload):
         if not isinstance(payload, dict):
             return {}
+        return {str(key): cls._sanitize_value(value) for key, value in payload.items()}
 
-        clean = {}
-        for key, value in payload.items():
-            if value is None or isinstance(value, (str, int, float, bool)):
-                clean[key] = value
-            elif isinstance(value, list):
-                scalar_only = all(
-                    item is None or isinstance(item, (str, int, float, bool))
-                    for item in value
-                )
-                clean[key] = value if scalar_only else str(value)
-            else:
-                clean[key] = str(value)
-        return clean
+    @classmethod
+    def _sanitize_value(cls, value):
+        if value is None or isinstance(value, (str, int, float, bool)):
+            return value
+        if isinstance(value, dict):
+            return {str(key): cls._sanitize_value(item) for key, item in value.items()}
+        if isinstance(value, (list, tuple)):
+            return [cls._sanitize_value(item) for item in value]
+        return str(value)
 
-    def delete_vectors(self, store, collection_id, ids, **kwargs):
-        if not ids:
-            return False
-
-        point_ids = self._usable_point_ids(ids)
+    def delete_database_vectors(self, store, database, ids, **kwargs):
+        self._ensure_dedicated(database)
+        point_ids = [self._point_id(value) for value in (ids or [])]
         if not point_ids:
-            return False
-
+            return True
         client = self._client(store)
-        name = store.get_santized_collection_name(collection_id)
-
+        name = self._database_name(store, database)
+        self._assert_collection_owner(client, name, database)
         response = client.delete(
             collection_name=name,
             points_selector=qdrant_models.PointIdsList(points=point_ids),
             wait=True,
         )
         if response.status != qdrant_models.UpdateStatus.COMPLETED:
-            _logger.warning(
-                "Qdrant delete status for collection %s: %s",
-                name,
-                response.status,
+            raise UserError(
+                _("Qdrant did not complete record deletion for '%s'.", database.name)
             )
-            return False
         return True
 
-    @staticmethod
-    def _usable_point_ids(ids):
-        """Keep only the ids Qdrant can address, warning about the rest.
-
-        Deletion is best-effort on purpose: an unusable id means there is
-        nothing to delete, which should not abort the whole call.
-        """
-        usable = [
-            int(vid) for vid in ids if str(vid).isdigit() and int(vid) >= 0
-        ]
-        if len(usable) != len(ids):
-            _logger.warning(
-                "Some provided IDs for deletion were invalid "
-                "(non-integer or negative), skipping them.",
-            )
-        return usable
-
-    def search_vectors(
-        self,
-        store,
-        collection_id,
-        query_vector,
-        limit=10,
-        filter=None,  # noqa: A002 - name kept for the llm.store contract
-        min_similarity=0.5,
-        **kwargs,
+    def search_database_vectors(
+        self, store, database, query_vector=None, limit=10, filter=None, **kwargs
     ):
-        """Similarity search, returning ``id`` / ``score`` / ``metadata`` dicts."""
+        self._ensure_dedicated(database)
+        query_filter = self._convert_filter(filter)
+        query_mode = kwargs.get("query_mode") or "dense"
+        sparse_vector = kwargs.get("sparse_query_vector")
         client = self._client(store)
-        name = store.get_santized_collection_name(collection_id)
+        name = self._database_name(store, database)
+        self._assert_collection_owner(client, name, database)
+        common = {
+            "collection_name": name,
+            "limit": limit or 10,
+            "with_payload": True,
+            "with_vectors": False,
+            "score_threshold": kwargs.get("min_similarity")
+            or kwargs.get("score_threshold"),
+        }
+        common = {key: value for key, value in common.items() if value is not None}
 
-        result = client.query_points(
-            collection_name=name,
-            query=query_vector,
-            query_filter=self._convert_filter(filter) if filter else None,
-            limit=limit,
-            score_threshold=min_similarity,
-            with_payload=True,
-            with_vectors=False,
-        )
+        if query_mode == "dense":
+            if query_vector is None:
+                raise UserError(_("Dense Qdrant search requires a query vector."))
+            result = client.query_points(
+                query=query_vector,
+                using=self._dense_vector_name(database),
+                query_filter=query_filter,
+                **common,
+            )
+        elif query_mode == "sparse":
+            result = client.query_points(
+                query=self._sparse_query(sparse_vector),
+                using=self._sparse_vector_name(database),
+                query_filter=query_filter,
+                **common,
+            )
+        elif query_mode == "hybrid":
+            result = self._hybrid_query(
+                client,
+                database,
+                query_vector,
+                sparse_vector,
+                query_filter,
+                common,
+                kwargs,
+            )
+        else:
+            raise UserError(
+                _(
+                    "Qdrant query mode '%s' is not configured. Use dense, sparse, "
+                    "or provider-side hybrid search.",
+                    query_mode,
+                )
+            )
 
         return [
             {
-                "id": hit.id,
+                "id": str(hit.id),
                 "score": hit.score,
+                "payload": hit.payload or {},
                 "metadata": hit.payload or {},
             }
             for hit in result.points
         ]
 
-    def _convert_filter(self, odoo_filter):
-        """Translate a Mongo-style filter dict into a Qdrant ``Filter``.
+    @staticmethod
+    def _sparse_query(value):
+        if not isinstance(value, dict) or not {"indices", "values"}.issubset(value):
+            raise UserError(_("Sparse Qdrant search requires indices and values."))
+        return qdrant_models.SparseVector(
+            indices=value["indices"], values=value["values"]
+        )
 
-        Supports ``$and`` plus the per-field operators ``$eq``, ``$ne``,
-        ``$gt``, ``$gte``, ``$lt``, ``$lte``, ``$in``, ``$nin``, and bare
-        scalars as equality. ``$or`` is not supported: Qdrant expresses it with
-        ``should``, which does not compose with the ``must``/``must_not``
-        accumulation used here.
+    def _hybrid_query(
+        self,
+        client,
+        database,
+        dense_vector,
+        sparse_vector,
+        query_filter,
+        common,
+        options,
+    ):
+        channels = options.get("hybrid_channels") or {}
+        prefetch = []
+        prefetch_limit = max((common.get("limit") or 10) * 3, 30)
+        if channels.get("dense"):
+            if dense_vector is None:
+                raise UserError(_("Hybrid dense search requires a dense vector."))
+            prefetch.append(
+                qdrant_models.Prefetch(
+                    query=dense_vector,
+                    using=self._dense_vector_name(database),
+                    filter=query_filter,
+                    limit=prefetch_limit,
+                )
+            )
+        if channels.get("sparse"):
+            prefetch.append(
+                qdrant_models.Prefetch(
+                    query=self._sparse_query(sparse_vector),
+                    using=self._sparse_vector_name(database),
+                    filter=query_filter,
+                    limit=prefetch_limit,
+                )
+            )
+        if len(prefetch) < 2:
+            raise UserError(_("Qdrant hybrid search requires two vector channels."))
+        fusion_method = options.get("fusion_method") or "rrf"
+        if fusion_method != "rrf":
+            raise UserError(
+                _("Qdrant currently supports RRF for this hybrid query contract.")
+            )
+        return client.query_points(
+            prefetch=prefetch,
+            query=qdrant_models.FusionQuery(fusion=qdrant_models.Fusion.RRF),
+            query_filter=query_filter,
+            **common,
+        )
 
-        Returns ``None`` when nothing usable was produced, which the caller
-        treats as "no filter".
-        """
-        if not odoo_filter or not isinstance(odoo_filter, dict):
+    # ------------------------------------------------------------------
+    # Filters and indexes
+    # ------------------------------------------------------------------
+    def _convert_filter(self, value):
+        if not value:
             return None
+        if isinstance(value, list):
+            if not all(isinstance(item, (list, tuple)) and len(item) == 3 for item in value):
+                raise UserError(_("Complex Odoo-domain filters are not supported by Qdrant."))
+            value = {
+                "$and": [
+                    {field: self._domain_operator(operator, operand)}
+                    for field, operator, operand in value
+                ]
+            }
+        if not isinstance(value, dict):
+            raise UserError(_("Qdrant filters must be mappings or flat Odoo domains."))
 
-        must, must_not = [], []
-
-        for key, value in odoo_filter.items():
-            if key == "$and" and isinstance(value, list):
-                for condition in value:
-                    sub = self._convert_filter(condition)
-                    if not sub:
-                        continue
-                    must.extend(sub.must or [])
-                    must_not.extend(sub.must_not or [])
-            elif key == "$or":
-                _logger.warning(
-                    "'$or' operator in filters is not supported yet for Qdrant.",
-                )
-            elif isinstance(value, dict):
-                self._add_field_conditions(f"payload.{key}", key, value, must, must_not)
-            elif isinstance(value, (str, int, float, bool)):
-                must.append(
-                    qdrant_models.FieldCondition(
-                        key=f"payload.{key}",
-                        match=qdrant_models.MatchValue(value=value),
-                    ),
-                )
-            else:
-                _logger.warning(
-                    "Unsupported filter value type for key '%s': %s",
-                    key,
-                    type(value),
-                )
-
-        if not must and not must_not:
+        must, should, must_not = [], [], []
+        for key, operand in value.items():
+            if key in ("$and", "$or"):
+                if not isinstance(operand, list):
+                    raise UserError(_("Filter operator '%s' requires a list.", key))
+                children = [self._convert_filter(item) for item in operand]
+                children = [item for item in children if item]
+                target = must if key == "$and" else should
+                target.extend(children)
+                continue
+            self._add_field_conditions(str(key), operand, must, must_not)
+        if not must and not should and not must_not:
             return None
-
         return qdrant_models.Filter(
-            must=must or None,
-            must_not=must_not or None,
+            must=must or None, should=should or None, must_not=must_not or None
         )
 
     @staticmethod
-    def _add_field_conditions(field_key, key, operators, must, must_not):
-        """Append the conditions for one field's operator dict, in place."""
-        ranges = {"$gt": "gt", "$gte": "gte", "$lt": "lt", "$lte": "lte"}
+    def _domain_operator(operator, operand):
+        mapping = {
+            "=": "$eq",
+            "!=": "$ne",
+            ">": "$gt",
+            ">=": "$gte",
+            "<": "$lt",
+            "<=": "$lte",
+            "in": "$in",
+            "not in": "$nin",
+        }
+        if operator not in mapping:
+            raise UserError(_("Unsupported Qdrant domain operator '%s'.", operator))
+        return {mapping[operator]: operand}
 
-        for operator, operand in operators.items():
-            if operator == "$eq":
+    @staticmethod
+    def _add_field_conditions(key, operand, must, must_not):
+        if not isinstance(operand, dict):
+            operand = {"$eq": operand}
+        range_names = {"$gt": "gt", "$gte": "gte", "$lt": "lt", "$lte": "lte"}
+        for operator, value in operand.items():
+            if operator in ("$eq", "$ne"):
+                condition = qdrant_models.FieldCondition(
+                    key=key, match=qdrant_models.MatchValue(value=value)
+                )
+                (must if operator == "$eq" else must_not).append(condition)
+            elif operator in range_names:
                 must.append(
                     qdrant_models.FieldCondition(
-                        key=field_key,
-                        match=qdrant_models.MatchValue(value=operand),
-                    ),
+                        key=key,
+                        range=qdrant_models.Range(**{range_names[operator]: value}),
+                    )
                 )
-            elif operator == "$ne":
-                must_not.append(
-                    qdrant_models.FieldCondition(
-                        key=field_key,
-                        match=qdrant_models.MatchValue(value=operand),
-                    ),
+            elif operator in ("$in", "$nin") and isinstance(value, list):
+                condition = qdrant_models.FieldCondition(
+                    key=key, match=qdrant_models.MatchAny(any=value)
                 )
-            elif operator in ranges:
-                must.append(
-                    qdrant_models.FieldCondition(
-                        key=field_key,
-                        range=qdrant_models.Range(**{ranges[operator]: operand}),
-                    ),
-                )
-            elif operator == "$in" and isinstance(operand, list):
-                must.append(
-                    qdrant_models.FieldCondition(
-                        key=field_key,
-                        match=qdrant_models.MatchAny(any=operand),
-                    ),
-                )
-            elif operator == "$nin" and isinstance(operand, list):
-                must_not.append(
-                    qdrant_models.FieldCondition(
-                        key=field_key,
-                        match=qdrant_models.MatchAny(any=operand),
-                    ),
-                )
+                (must if operator == "$in" else must_not).append(condition)
             else:
-                _logger.warning(
-                    "Unsupported filter operator '%s' for key '%s'",
-                    operator,
-                    key,
+                raise UserError(
+                    _("Unsupported Qdrant filter operator '%(operator)s' for '%(key)s'.", operator=operator, key=key)
                 )
 
-    # ------------------------------------------------------------------
-    # Indexes
-    # ------------------------------------------------------------------
-
-    def create_index(self, store, collection_id, index_type=None, **kwargs):
-        """Create a payload index on one field.
-
-        Qdrant indexes vectors automatically, so this only covers *payload*
-        indexes, which speed up filtered search. Without ``field_name`` and
-        ``field_schema`` there is nothing to do and the call succeeds.
-        """
+    def create_database_index(self, store, database, index_type=None, **kwargs):
+        self._ensure_dedicated(database)
         field_name = kwargs.get("field_name")
-        field_schema = kwargs.get("field_schema")
+        field_schema = kwargs.get("field_schema") or index_type
         if not field_name or not field_schema:
             return True
-
-        schema_type = PAYLOAD_SCHEMA_TYPES.get(str(field_schema).lower())
-        if not schema_type:
-            raise UserError(
-                _(
-                    "Unsupported field_schema '%(schema)s'. Must be one of: %(known)s",
-                    schema=field_schema,
-                    known=", ".join(sorted(PAYLOAD_SCHEMA_TYPES)),
-                ),
-            )
-
         client = self._client(store)
-        name = store.get_santized_collection_name(collection_id)
+        name = self._database_name(store, database)
+        self._assert_collection_owner(client, name, database)
+        return self._create_payload_index(
+            client,
+            name,
+            field_name,
+            field_schema,
+            kwargs.get("field_options"),
+        )
 
+    def _payload_schema(self, schema, options=None):
+        schema_name = str(schema).lower()
+        enum_name = _PAYLOAD_SCHEMA_NAMES.get(schema_name)
+        enum = getattr(qdrant_models.PayloadSchemaType, enum_name, None) if enum_name else None
+        if not enum:
+            raise UserError(_("Unsupported Qdrant payload schema '%s'.", schema))
+        if not options:
+            return enum
+        model_names = {
+            "keyword": "KeywordIndexParams",
+            "integer": "IntegerIndexParams",
+            "float": "FloatIndexParams",
+            "geo": "GeoIndexParams",
+            "text": "TextIndexParams",
+            "bool": "BoolIndexParams",
+            "datetime": "DatetimeIndexParams",
+            "uuid": "UuidIndexParams",
+        }
+        model = getattr(qdrant_models, model_names[schema_name])
+        return model(type=enum, **options)
+
+    def _create_payload_index(self, client, name, field_name, schema, options=None):
         try:
             response = client.create_payload_index(
                 collection_name=name,
                 field_name=field_name,
-                field_schema=schema_type,
+                field_schema=self._payload_schema(schema, options),
                 wait=True,
             )
-            if response.status != qdrant_models.UpdateStatus.COMPLETED:
-                _logger.warning(
-                    "Qdrant create_payload_index status for %s.%s: %s",
-                    name,
-                    field_name,
-                    response.status,
-                )
-                return False
-            return True
-        except UnexpectedResponse as err:
-            body = err.content.decode()
-            _logger.error(
-                "Error creating payload index on %s.%s: %s - %s",
+        except UnexpectedResponse as error:
+            body = error.content.decode() if isinstance(error.content, bytes) else str(error.content)
+            if "already exists" in body.lower():
+                return True
+            raise
+        if response.status != qdrant_models.UpdateStatus.COMPLETED:
+            raise UserError(_("Qdrant did not create index '%(field)s' on '%(name)s'.", field=field_name, name=name))
+        return True
+
+    def _ensure_payload_indexes(self, client, name, database):
+        defaults = [
+            {"field_name": "store_database_id", "field_schema": "integer"},
+            {"field_name": "document_id", "field_schema": "integer"},
+            {"field_name": "chunk_id", "field_schema": "integer"},
+            {"field_name": "logical_id", "field_schema": "uuid"},
+        ]
+        configured = self._configuration(database).get("payload_indexes") or []
+        by_name = {item["field_name"]: item for item in defaults}
+        by_name.update(
+            {item["field_name"]: item for item in configured if item.get("field_name")}
+        )
+        for item in by_name.values():
+            self._create_payload_index(
+                client,
                 name,
-                field_name,
-                err.status_code,
-                body,
+                item["field_name"],
+                item.get("field_schema", "keyword"),
+                item.get("field_options"),
             )
-            # An already-existing index is the desired end state, not a failure.
-            return "already exists" in body.lower()
+
+    def sync_database_contract(self, store, database, **kwargs):
+        """Publish the current non-secret direct-client query contract."""
+        self._ensure_dedicated(database)
+        client = self._client(store)
+        name = self._database_name(store, database)
+        if not client.collection_exists(collection_name=name):
+            return False
+        self._assert_collection_owner(client, name, database)
+        contract = dict(database.query_contract or {})
+        contract.update(
+            {
+                "version": 1,
+                "provider": "qdrant",
+                "collection": name,
+                "dense_vector": (
+                    self._dense_vector_name(database)
+                    if database.dense_embedding_model_id
+                    else None
+                ),
+                "sparse_vector": (
+                    self._sparse_vector_name(database)
+                    if database.sparse_embedding_model_id
+                    else None
+                ),
+                "text_field": "text",
+                "embedding_dimension": database.dimension or None,
+            }
+        )
+        database.write({"query_contract": contract})
+        client.update_collection(
+            collection_name=name,
+            metadata=self._collection_metadata(store, database),
+        )
+        return True
 
     # ------------------------------------------------------------------
-    # Connectivity
+    # Optional access-control capability used by llm.store principals
     # ------------------------------------------------------------------
+    def access_capabilities(self, store):
+        return {
+            "credential_type": "qdrant_jwt",
+            "grant_scope": "database",
+            "supports_immediate_revocation": True,
+            "requires_dedicated_database": True,
+        }
+
+    def _auth_collection_name(self, store):
+        return store._qdrant_registry_name()
+
+    def _ensure_auth_registry(self, store):
+        client = self._client(store)
+        name = self._auth_collection_name(store)
+        if client.collection_exists(collection_name=name):
+            self._assert_registry_owner(client, name, store)
+        else:
+            client.create_collection(
+                collection_name=name,
+                vectors_config={},
+                metadata={
+                    "managed_by": "odoo",
+                    "resource_type": "qdrant.credential.registry",
+                    "store_uuid": store.env.cr.dbname,
+                    "store_instance_uuid": store.qdrant_instance_uuid,
+                },
+            )
+        self._create_payload_index(client, name, "credential_key", "keyword")
+        return client, name
+
+    @staticmethod
+    def _b64url(value):
+        return base64.urlsafe_b64encode(value).rstrip(b"=").decode("ascii")
+
+    def _encode_jwt(self, secret, claims):
+        header = {"alg": "HS256", "typ": "JWT"}
+        encoded_header = self._b64url(
+            json.dumps(header, separators=(",", ":")).encode("utf-8")
+        )
+        encoded_claims = self._b64url(
+            json.dumps(claims, separators=(",", ":")).encode("utf-8")
+        )
+        signing_input = f"{encoded_header}.{encoded_claims}".encode("ascii")
+        signature = hmac.new(
+            secret.encode("utf-8"), signing_input, hashlib.sha256
+        ).digest()
+        return f"{encoded_header}.{encoded_claims}.{self._b64url(signature)}"
+
+    def issue_principal_credential(
+        self, store, principal, grants, expires_in=None, **kwargs
+    ):
+        if not principal.active or principal.state != "active":
+            raise ValidationError(
+                _("Only active Qdrant principals can receive credentials.")
+            )
+        if principal.store_id != store:
+            raise ValidationError(
+                _("The Qdrant principal belongs to a different store instance.")
+            )
+        if not store.qdrant_jwt_rbac:
+            raise UserError(
+                _("Enable JWT RBAC on this Qdrant store before issuing credentials.")
+            )
+        if not store.api_key:
+            raise UserError(_("The Qdrant administrator secret is required to sign JWTs."))
+        now = Datetime.now()
+        grants = grants.filtered(
+            lambda grant: grant.active
+            and (not grant.valid_from or grant.valid_from <= now)
+            and (not grant.valid_until or grant.valid_until > now)
+        )
+        if not grants:
+            raise ValidationError(_("The principal has no currently valid database grants."))
+        if any(grant.database_id.store_id != store for grant in grants):
+            raise ValidationError(_("Every grant must belong to the principal's store."))
+        if any(grant.database_id.isolation_mode != "database" for grant in grants):
+            raise ValidationError(
+                _("Direct Qdrant credentials require dedicated database isolation.")
+            )
+        if any(grant.database_id.state != "ready" for grant in grants):
+            raise ValidationError(_("Every granted database must be ready."))
+
+        ttl = int(expires_in or store.qdrant_default_token_ttl or 86400)
+        if ttl <= 0:
+            raise ValidationError(_("Credential lifetime must be positive."))
+        expires_at = now + timedelta(seconds=ttl)
+        grant_expirations = [
+            grant.valid_until for grant in grants if grant.valid_until
+        ]
+        if grant_expirations:
+            expires_at = min(expires_at, min(grant_expirations))
+        credential_id = str(uuid.uuid4())
+        credential_key = f"{principal.subject}:{principal.token_version}:{credential_id}"
+        client = self._client(store)
+        access = []
+        scope = []
+        for grant in grants:
+            collection = self._database_name(store, grant.database_id)
+            if not client.collection_exists(collection_name=collection):
+                raise ValidationError(
+                    _("Granted Qdrant collection '%s' does not exist.", collection)
+                )
+            self._assert_collection_owner(client, collection, grant.database_id)
+            permission = "rw" if grant.permission == "read_write" else "r"
+            access.append({"collection": collection, "access": permission})
+            scope.append(
+                {
+                    "database_id": grant.database_id.id,
+                    "database_uuid": grant.database_id.uuid,
+                    "collection": collection,
+                    "access": permission,
+                    "query_contract": dict(grant.database_id.query_contract or {}),
+                }
+            )
+
+        client, registry = self._ensure_auth_registry(store)
+        response = client.upsert(
+            collection_name=registry,
+            points=[
+                qdrant_models.PointStruct(
+                    id=credential_id,
+                    vector={},
+                    payload={
+                        "credential_key": credential_key,
+                        "subject": principal.subject,
+                        "token_version": principal.token_version,
+                        "expires_at": Datetime.to_string(expires_at),
+                    },
+                )
+            ],
+            wait=True,
+        )
+        if response.status != qdrant_models.UpdateStatus.COMPLETED:
+            raise UserError(_("Qdrant did not activate the credential registry entry."))
+
+        claims = {
+            "sub": principal.subject,
+            "jti": credential_id,
+            "iat": int(now.replace(tzinfo=timezone.utc).timestamp()),
+            "exp": int(expires_at.replace(tzinfo=timezone.utc).timestamp()),
+            "access": access,
+            "value_exists": {
+                "collection": registry,
+                "matches": [{"key": "credential_key", "value": credential_key}],
+            },
+        }
+        token = self._encode_jwt(store.api_key, claims)
+        return {
+            "secret": token,
+            "credential_type": "qdrant_jwt",
+            "provider_credential_id": credential_id,
+            "credential_key": credential_key,
+            "issued_at": now,
+            "expires_at": expires_at,
+            "access_snapshot": scope,
+            "provider_metadata": {
+                "registry_collection": registry,
+                "store_instance_uuid": store.qdrant_instance_uuid,
+            },
+        }
+
+    def revoke_principal_credential(self, store, credential, **kwargs):
+        provider_id = credential.provider_credential_id
+        if not provider_id:
+            return True
+        client = self._client(store)
+        provider_metadata = credential.provider_metadata or {}
+        owner_uuid = provider_metadata.get("store_instance_uuid")
+        if owner_uuid and owner_uuid != store.qdrant_instance_uuid:
+            raise ValidationError(
+                _("The credential was issued by a different Qdrant store instance.")
+            )
+        registry = provider_metadata.get(
+            "registry_collection"
+        ) or self._auth_collection_name(store)
+        if not client.collection_exists(collection_name=registry):
+            return True
+        self._assert_registry_owner(client, registry, store)
+        response = client.delete(
+            collection_name=registry,
+            points_selector=qdrant_models.PointIdsList(
+                points=[self._point_id(provider_id)]
+            ),
+            wait=True,
+        )
+        if response.status != qdrant_models.UpdateStatus.COMPLETED:
+            raise UserError(_("Qdrant did not revoke the credential registry entry."))
+        return True
 
     def validate_config(self, store):
-        """Check the server answers, for the store's Test Connection button."""
         collections = self._client(store).get_collections().collections
-        return {"collections": len(collections)}
+        return {"collections": len(collections), "service": "qdrant"}

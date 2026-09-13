@@ -1,0 +1,5 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_llm_qdrant_principal_manager,llm.qdrant.principal.manager,model_llm_qdrant_principal,llm.group_llm_manager,1,1,1,1
+access_llm_qdrant_grant_manager,llm.qdrant.grant.manager,model_llm_qdrant_grant,llm.group_llm_manager,1,1,1,1
+access_llm_qdrant_credential_manager,llm.qdrant.credential.manager,model_llm_qdrant_credential,llm.group_llm_manager,1,1,1,1
+access_llm_qdrant_credential_issue_wizard_manager,llm.qdrant.credential.issue.wizard.manager,model_llm_qdrant_credential_issue_wizard,llm.group_llm_manager,1,1,1,1

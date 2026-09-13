@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="view_llm_qdrant_principal_form" model="ir.ui.view">
+        <field name="name">llm.qdrant.principal.form</field>
+        <field name="model">llm.qdrant.principal</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_issue_credential" string="Issue Credential" type="object" class="oe_highlight" invisible="not active or state != 'active'" />
+                    <button name="action_revoke_all_credentials" string="Revoke Credentials" type="object" class="btn-secondary" confirm="Revoke every active credential for this principal?" />
+                    <field name="state" widget="statusbar" statusbar_visible="draft,active,error,revoked" />
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_credentials" type="object" class="oe_stat_button" icon="fa-key"><field name="credential_count" widget="statinfo" string="Credentials" /></button>
+                    </div>
+                    <div class="oe_title"><h1><field name="name" /></h1></div>
+                    <group>
+                        <group string="Identity"><field name="store_id" options="{'no_create': True}" /><field name="subject" /><field name="principal_type" /><field name="uuid" readonly="1" /><field name="active" widget="boolean_toggle" /></group>
+                        <group string="Credential State"><field name="token_version" /><field name="last_error" invisible="not last_error" /></group>
+                    </group>
+                    <notebook>
+                        <page string="Collection Grants">
+                            <field name="grant_ids" context="{'default_principal_id': id}">
+                                <list editable="bottom"><field name="store_id" column_invisible="True" /><field name="database_id" options="{'no_create': True}" /><field name="permission" /><field name="valid_from" optional="hide" /><field name="valid_until" optional="show" /><field name="active" /></list>
+                            </field>
+                        </page>
+                        <page string="Credentials"><field name="credential_ids" readonly="1"><list><field name="name" /><field name="secret_prefix" /><field name="issued_at" /><field name="expires_at" /><field name="state" /></list></field></page>
+                        <page string="Metadata"><field name="metadata" widget="json_inline" /></page>
+                    </notebook>
+                </sheet>
+                <chatter />
+            </form>
+        </field>
+    </record>
+
+    <record id="view_llm_qdrant_principal_list" model="ir.ui.view">
+        <field name="name">llm.qdrant.principal.list</field>
+        <field name="model">llm.qdrant.principal</field>
+        <field name="arch" type="xml"><list><field name="name" /><field name="store_id" /><field name="subject" /><field name="principal_type" /><field name="grant_count" /><field name="credential_count" /><field name="state" /><field name="active" /></list></field>
+    </record>
+
+    <record id="action_llm_qdrant_principal" model="ir.actions.act_window">
+        <field name="name">Qdrant Principals</field><field name="res_model">llm.qdrant.principal</field><field name="view_mode">list,form</field>
+    </record>
+
+    <record id="view_llm_qdrant_credential_form" model="ir.ui.view">
+        <field name="name">llm.qdrant.credential.form</field>
+        <field name="model">llm.qdrant.credential</field>
+        <field name="arch" type="xml">
+            <form create="false" edit="false">
+                <header><button name="action_revoke" string="Revoke" type="object" class="btn-secondary" invisible="state != 'active'" /><field name="state" widget="statusbar" /></header>
+                <sheet><div class="oe_title"><h1><field name="name" /></h1></div><group><group><field name="principal_id" /><field name="store_id" /><field name="provider_credential_id" /><field name="secret_prefix" /><field name="secret_fingerprint" /></group><group><field name="token_version" /><field name="issued_at" /><field name="expires_at" /><field name="revoked_at" /><field name="last_error" invisible="not last_error" /></group></group><notebook><page string="Access Snapshot"><field name="access_snapshot" widget="json_inline" /></page><page string="Provider Metadata"><field name="provider_metadata" widget="json_inline" /></page></notebook></sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_llm_qdrant_credential_list" model="ir.ui.view">
+        <field name="name">llm.qdrant.credential.list</field><field name="model">llm.qdrant.credential</field><field name="arch" type="xml"><list create="false"><field name="name" /><field name="principal_id" /><field name="store_id" /><field name="secret_prefix" /><field name="issued_at" /><field name="expires_at" /><field name="state" /></list></field>
+    </record>
+
+    <record id="action_llm_qdrant_credential" model="ir.actions.act_window">
+        <field name="name">Qdrant Credentials</field><field name="res_model">llm.qdrant.credential</field><field name="view_mode">list,form</field>
+    </record>
+
+    <record id="view_llm_qdrant_credential_issue_wizard_form" model="ir.ui.view">
+        <field name="name">llm.qdrant.credential.issue.wizard.form</field>
+        <field name="model">llm.qdrant.credential.issue.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Issue Direct Qdrant Credential">
+                <field name="state" invisible="1" />
+                <sheet><div invisible="state != 'confirm'" class="alert alert-warning" role="alert">The token grants direct Qdrant access to every active collection grant and is shown only once.</div><group invisible="state != 'confirm'"><field name="principal_id" /><field name="store_id" /><field name="expires_in" /></group><div invisible="state != 'done'" class="alert alert-success" role="alert">Copy this token now. Only its fingerprint is persisted.</div><group invisible="state != 'done'"><field name="endpoint" /><field name="credential_id" /><field name="secret" widget="text" /><field name="access_snapshot" widget="json_inline" /></group></sheet>
+                <footer><button name="action_issue" string="Issue Credential" type="object" class="btn-primary" invisible="state != 'confirm'" /><button special="cancel" string="Close" class="btn-secondary" /></footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="llm_store_view_form_qdrant" model="ir.ui.view">
+        <field name="name">llm.store.view.form.qdrant</field>
+        <field name="model">llm.store</field>
+        <field name="inherit_id" ref="llm_knowledge.llm_store_view_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//div[@name='button_box']" position="inside"><button name="action_view_qdrant_principals" type="object" class="oe_stat_button" icon="fa-users" groups="llm.group_llm_manager" invisible="service != 'qdrant'"><field name="qdrant_principal_count" widget="statinfo" string="Principals" /></button></xpath>
+            <xpath expr="//field[@name='metadata']/.." position="inside"><group string="Qdrant Access Control" groups="llm.group_llm_manager" invisible="service != 'qdrant'"><field name="qdrant_jwt_rbac" /><field name="qdrant_auth_collection" placeholder="Auto-generated when empty" /><field name="qdrant_default_token_ttl" /></group></xpath>
+            <xpath expr="//notebook" position="inside"><page string="Qdrant Principals" groups="llm.group_llm_manager" invisible="service != 'qdrant'"><field name="qdrant_principal_ids" context="{'default_store_id': id}"><list><field name="name" /><field name="subject" /><field name="principal_type" /><field name="grant_count" /><field name="credential_count" /><field name="state" /></list></field></page></xpath>
+        </field>
+    </record>
+
+    <record id="view_llm_store_database_form_qdrant_access" model="ir.ui.view">
+        <field name="name">llm.store.database.form.qdrant.access</field>
+        <field name="model">llm.store.database</field>
+        <field name="inherit_id" ref="llm_knowledge.view_llm_store_database_form" />
+        <field name="arch" type="xml"><xpath expr="//notebook" position="inside"><page string="Qdrant Access Grants" groups="llm.group_llm_manager" invisible="store_id.service != 'qdrant'"><field name="qdrant_grant_ids" readonly="1"><list><field name="principal_id" /><field name="permission" /><field name="valid_from" optional="hide" /><field name="valid_until" optional="show" /><field name="active" /></list></field></page></xpath></field>
+    </record>
+
+    <menuitem id="menu_llm_qdrant_principal" name="Qdrant Principals" action="action_llm_qdrant_principal" parent="llm.menu_llm_config" sequence="52" groups="llm.group_llm_manager" />
+    <menuitem id="menu_llm_qdrant_credential" name="Qdrant Credentials" action="action_llm_qdrant_credential" parent="llm.menu_llm_config" sequence="53" groups="llm.group_llm_manager" />
+</odoo>
