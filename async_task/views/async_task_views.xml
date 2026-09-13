@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="view_async_task_list" model="ir.ui.view">
+        <field name="name">async.task.list</field>
+        <field name="model">async.task</field>
+        <field name="arch" type="xml">
+            <list decoration-success="state == 'succeeded'" decoration-warning="state in ('waiting', 'partially_succeeded', 'cancel_pending')" decoration-danger="state in ('failed', 'expired', 'blocked')" decoration-muted="state == 'cancelled'">
+                <field name="name" />
+                <field name="task_type" />
+                <field name="adapter_usage" />
+                <field name="state" widget="badge" />
+                <field name="progress" widget="progressbar" />
+                <field name="external_task_id" optional="show" />
+                <field name="user_id" optional="show" />
+                <field name="company_id" groups="base.group_multi_company" optional="hide" />
+                <field name="next_poll_at" optional="show" />
+                <field name="create_date" optional="show" />
+            </list>
+        </field>
+    </record>
+
+    <record id="view_async_task_form" model="ir.ui.view">
+        <field name="name">async.task.form</field>
+        <field name="model">async.task</field>
+        <field name="arch" type="xml">
+            <form string="Asynchronous Task">
+                <header>
+                    <button name="action_queue" type="object" string="Queue" class="btn-primary" groups="async_task.group_async_task_manager" invisible="state not in ('draft', 'blocked', 'waiting_dependencies')" />
+                    <button name="action_poll_now" type="object" string="Poll Now" groups="async_task.group_async_task_manager" invisible="state not in ('waiting', 'cancel_pending')" />
+                    <button name="action_cancel" type="object" string="Cancel" invisible="state in ('succeeded', 'partially_succeeded', 'cancelled')" />
+                    <button name="action_retry" type="object" string="Retry" class="btn-primary" groups="async_task.group_async_task_manager" invisible="state not in ('failed', 'partially_succeeded', 'blocked', 'cancelled', 'expired')" />
+                    <field name="state" widget="statusbar" statusbar_visible="draft,waiting_dependencies,queued,submitting,running,waiting,succeeded,failed,cancelled" />
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name" />
+                        <h1><field name="name" /></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="task_type" readonly="state != 'draft'" />
+                            <field name="adapter_usage" readonly="state != 'draft'" />
+                            <field name="handler_usage" readonly="state != 'draft'" />
+                            <field name="dependency_policy" readonly="state != 'draft'" />
+                            <field name="dependency_ids" widget="many2many_tags" readonly="state != 'draft'" />
+                        </group>
+                        <group>
+                            <field name="user_id" readonly="state != 'draft'" />
+                            <field name="company_id" groups="base.group_multi_company" readonly="state != 'draft'" />
+                            <field name="priority" readonly="state != 'draft'" />
+                            <field name="queue_channel" readonly="state != 'draft'" />
+                            <field name="progress" widget="progressbar" />
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Execution" name="execution">
+                            <group>
+                                <group>
+                                    <field name="idempotency_key" />
+                                    <field name="generation" />
+                                    <field name="wait_mode" />
+                                    <field name="external_task_id" />
+                                    <field name="external_status" />
+                                    <field name="webhook_token" password="True" />
+                                </group>
+                                <group>
+                                    <field name="attempt_count" />
+                                    <field name="poll_count" />
+                                    <field name="max_poll_count" readonly="state != 'draft'" />
+                                    <field name="poll_interval" readonly="state != 'draft'" />
+                                    <field name="next_poll_at" />
+                                    <field name="timeout_at" readonly="state != 'draft'" />
+                                </group>
+                            </group>
+                            <group>
+                                <field name="submitted_at" />
+                                <field name="started_at" />
+                                <field name="completed_at" />
+                            </group>
+                            <group string="Error" invisible="not error_message">
+                                <field name="error_type" />
+                                <field name="error_message" />
+                            </group>
+                        </page>
+                        <page string="Items" name="items">
+                            <field name="item_ids" readonly="state != 'draft'">
+                                <list editable="bottom" decoration-success="state == 'succeeded'" decoration-danger="state == 'failed'" decoration-muted="state == 'cancelled'">
+                                    <field name="sequence" widget="handle" />
+                                    <field name="name" />
+                                    <field name="correlation_key" />
+                                    <field name="state" widget="badge" />
+                                    <field name="progress" widget="progressbar" />
+                                    <field name="external_item_id" optional="show" />
+                                    <field name="resource_model" optional="hide" />
+                                    <field name="resource_id" optional="hide" />
+                                    <field name="error_message" optional="show" />
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Payloads" name="payloads">
+                            <group>
+                                <field name="resource_model" />
+                                <field name="resource_id" />
+                                <field name="resource_version" />
+                            </group>
+                            <group string="Input">
+                                <field name="input_payload" widget="json" nolabel="1" />
+                            </group>
+                            <group string="Output">
+                                <field name="output_payload" widget="json" nolabel="1" />
+                            </group>
+                            <group string="Adapter Metadata">
+                                <field name="adapter_metadata" widget="json" nolabel="1" />
+                            </group>
+                        </page>
+                        <page string="Webhook Events" name="events">
+                            <field name="event_ids" readonly="1">
+                                <list decoration-success="state == 'processed'" decoration-danger="state == 'failed'" decoration-muted="state == 'ignored'">
+                                    <field name="received_at" />
+                                    <field name="event_key" />
+                                    <field name="state" widget="badge" />
+                                    <field name="processed_at" />
+                                    <field name="error_message" optional="show" />
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Dependent Tasks" name="dependents">
+                            <field name="dependent_ids" readonly="1">
+                                <list>
+                                    <field name="name" />
+                                    <field name="task_type" />
+                                    <field name="state" widget="badge" />
+                                    <field name="progress" widget="progressbar" />
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_async_task_search" model="ir.ui.view">
+        <field name="name">async.task.search</field>
+        <field name="model">async.task</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name" />
+                <field name="task_type" />
+                <field name="adapter_usage" />
+                <field name="external_task_id" />
+                <field name="idempotency_key" />
+                <field name="user_id" />
+                <filter name="active_tasks" string="Active" domain="[('state', 'in', ('queued', 'submitting', 'running', 'waiting', 'cancel_pending'))]" />
+                <filter name="waiting_tasks" string="Waiting" domain="[('state', '=', 'waiting')]" />
+                <filter name="failed_tasks" string="Failed" domain="[('state', 'in', ('failed', 'expired', 'blocked'))]" />
+                <separator />
+                <filter name="group_state" string="State" context="{'group_by': 'state'}" />
+                <filter name="group_type" string="Task Type" context="{'group_by': 'task_type'}" />
+                <filter name="group_adapter" string="Adapter" context="{'group_by': 'adapter_usage'}" />
+                <filter name="group_user" string="Owner" context="{'group_by': 'user_id'}" />
+            </search>
+        </field>
+    </record>
+
+    <record id="action_async_task" model="ir.actions.act_window">
+        <field name="name">Async Tasks</field>
+        <field name="res_model">async.task</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_async_task_search" />
+        <field name="context">{'search_default_active_tasks': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Create an asynchronous task</p>
+            <p>Task adapters implement transport protocols while handlers apply normalized results to business records.</p>
+        </field>
+    </record>
+</odoo>

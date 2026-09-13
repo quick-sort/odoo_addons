@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <menuitem
+        id="menu_async_task_root"
+        name="Async Tasks"
+        sequence="90"
+        groups="group_async_task_user"
+    />
+    <menuitem
+        id="menu_async_task"
+        name="Tasks"
+        parent="menu_async_task_root"
+        action="action_async_task"
+        sequence="10"
+    />
+</odoo>

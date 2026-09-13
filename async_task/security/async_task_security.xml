@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="res_groups_privilege_async_task" model="res.groups.privilege">
+        <field name="name">Async Task</field>
+        <field name="sequence">40</field>
+        <field name="category_id" ref="base.module_category_administration" />
+    </record>
+
+    <record id="group_async_task_user" model="res.groups">
+        <field name="name">User</field>
+        <field name="comment">Can create and manage owned asynchronous tasks.</field>
+        <field name="sequence">10</field>
+        <field name="privilege_id" ref="res_groups_privilege_async_task" />
+        <field name="implied_ids" eval="[(4, ref('base.group_user'))]" />
+    </record>
+
+    <record id="group_async_task_manager" model="res.groups">
+        <field name="name">Manager</field>
+        <field name="comment">Can manage asynchronous tasks for all users.</field>
+        <field name="sequence">20</field>
+        <field name="privilege_id" ref="res_groups_privilege_async_task" />
+        <field name="implied_ids" eval="[(4, ref('async_task.group_async_task_user'))]" />
+        <field name="user_ids" eval="[(4, ref('base.user_admin'))]" />
+    </record>
+
+    <record id="async_task_user_rule" model="ir.rule">
+        <field name="name">Async tasks owned by the current user</field>
+        <field name="model_id" ref="model_async_task" />
+        <field name="groups" eval="[(4, ref('group_async_task_user'))]" />
+        <field name="domain_force">[('user_id', '=', user.id), ('company_id', 'in', company_ids)]</field>
+    </record>
+
+    <record id="async_task_manager_rule" model="ir.rule">
+        <field name="name">Async tasks in allowed companies</field>
+        <field name="model_id" ref="model_async_task" />
+        <field name="groups" eval="[(4, ref('group_async_task_manager'))]" />
+        <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+    </record>
+
+    <record id="async_task_item_user_rule" model="ir.rule">
+        <field name="name">Items of owned async tasks</field>
+        <field name="model_id" ref="model_async_task_item" />
+        <field name="groups" eval="[(4, ref('group_async_task_user'))]" />
+        <field name="domain_force">[('task_id.user_id', '=', user.id), ('task_id.company_id', 'in', company_ids)]</field>
+    </record>
+
+    <record id="async_task_item_manager_rule" model="ir.rule">
+        <field name="name">Async task items in allowed companies</field>
+        <field name="model_id" ref="model_async_task_item" />
+        <field name="groups" eval="[(4, ref('group_async_task_manager'))]" />
+        <field name="domain_force">[('task_id.company_id', 'in', company_ids)]</field>
+    </record>
+
+    <record id="async_task_event_user_rule" model="ir.rule">
+        <field name="name">Events of owned async tasks</field>
+        <field name="model_id" ref="model_async_task_event" />
+        <field name="groups" eval="[(4, ref('group_async_task_user'))]" />
+        <field name="domain_force">[('task_id.user_id', '=', user.id), ('task_id.company_id', 'in', company_ids)]</field>
+    </record>
+
+    <record id="async_task_event_manager_rule" model="ir.rule">
+        <field name="name">Async task events in allowed companies</field>
+        <field name="model_id" ref="model_async_task_event" />
+        <field name="groups" eval="[(4, ref('group_async_task_manager'))]" />
+        <field name="domain_force">[('task_id.company_id', 'in', company_ids)]</field>
+    </record>
+</odoo>

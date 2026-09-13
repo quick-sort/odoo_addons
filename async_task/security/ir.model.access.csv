@@ -1,0 +1,7 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_async_task_user,async.task user,model_async_task,group_async_task_user,1,0,0,0
+access_async_task_manager,async.task manager,model_async_task,group_async_task_manager,1,1,1,1
+access_async_task_item_user,async.task.item user,model_async_task_item,group_async_task_user,1,0,0,0
+access_async_task_item_manager,async.task.item manager,model_async_task_item,group_async_task_manager,1,1,1,1
+access_async_task_event_user,async.task.event user,model_async_task_event,group_async_task_user,1,0,0,0
+access_async_task_event_manager,async.task.event manager,model_async_task_event,group_async_task_manager,1,1,1,1
