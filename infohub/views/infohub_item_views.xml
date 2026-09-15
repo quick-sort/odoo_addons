@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="view_infohub_item_list" model="ir.ui.view">
+        <field name="name">infohub.item.list</field>
+        <field name="model">infohub.item</field>
+        <field name="arch" type="xml">
+            <list string="Items" decoration-muted="state == 'rejected'">
+                <field name="published_at" />
+                <field name="title" />
+                <field name="source_id" />
+                <field name="channel_id" />
+                <field name="channel_type" column_invisible="1" />
+                <field name="state" widget="badge" />
+            </list>
+        </field>
+    </record>
+
+    <record id="view_infohub_item_form" model="ir.ui.view">
+        <field name="name">infohub.item.form</field>
+        <field name="model">infohub.item</field>
+        <field name="arch" type="xml">
+            <form string="Item">
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button
+                            name="action_open_url"
+                            type="object"
+                            class="oe_stat_button"
+                            icon="fa-external-link"
+                            invisible="not url"
+                        >
+                            <div class="o_stat_info">
+                                <span class="o_stat_text">Open</span>
+                            </div>
+                        </button>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="title" />
+                            <field name="url" widget="url" />
+                            <field name="published_at" />
+                        </group>
+                        <group>
+                            <field name="source_id" />
+                            <field name="channel_id" />
+                            <field name="state" />
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Content" name="content">
+                            <field name="content" />
+                        </page>
+                        <page string="Raw Data" name="raw">
+                            <field name="raw_data" widget="json" />
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_infohub_item_search" model="ir.ui.view">
+        <field name="name">infohub.item.search</field>
+        <field name="model">infohub.item</field>
+        <field name="arch" type="xml">
+            <search string="Items">
+                <field name="title" />
+                <field name="source_id" />
+                <field name="url" />
+                <filter name="state_new" string="New" domain="[('state', '=', 'new')]" />
+                <filter
+                    name="state_accepted"
+                    string="Accepted"
+                    domain="[('state', '=', 'accepted')]"
+                />
+                <separator />
+                <filter
+                    name="group_source"
+                    string="Source"
+                    context="{'group_by': 'source_id'}"
+                />
+                <filter
+                    name="group_channel"
+                    string="Channel"
+                    context="{'group_by': 'channel_id'}"
+                />
+                <filter
+                    name="group_type"
+                    string="Channel Type"
+                    context="{'group_by': 'channel_type'}"
+                />
+            </search>
+        </field>
+    </record>
+
+    <record id="action_infohub_item" model="ir.actions.act_window">
+        <field name="name">Items</field>
+        <field name="res_model">infohub.item</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_infohub_item_search" />
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No items yet</p>
+            <p>Configure a channel and run a fetch to fill the pool.</p>
+        </field>
+    </record>
+</odoo>

@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="view_infohub_source_list" model="ir.ui.view">
+        <field name="name">infohub.source.list</field>
+        <field name="model">infohub.source</field>
+        <field name="arch" type="xml">
+            <list string="Sources" decoration-muted="not active">
+                <field name="name" />
+                <field name="url" widget="url" />
+                <field name="item_count" />
+                <field name="active" column_invisible="1" />
+            </list>
+        </field>
+    </record>
+
+    <record id="view_infohub_source_form" model="ir.ui.view">
+        <field name="name">infohub.source.form</field>
+        <field name="model">infohub.source</field>
+        <field name="arch" type="xml">
+            <form string="Source">
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button
+                            name="action_open_items"
+                            type="object"
+                            class="oe_stat_button"
+                            icon="fa-newspaper-o"
+                        >
+                            <field name="item_count" widget="statinfo" string="Items" />
+                        </button>
+                    </div>
+                    <div class="oe_title">
+                        <h1><field name="name" placeholder="e.g. Nature" /></h1>
+                    </div>
+                    <group>
+                        <field name="url" widget="url" placeholder="https://..." />
+                        <field name="active" />
+                    </group>
+                    <group string="Recognition">
+                        <field
+                            name="description"
+                            placeholder="nature.com / newsletters@nature.com"
+                        />
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_infohub_source_search" model="ir.ui.view">
+        <field name="name">infohub.source.search</field>
+        <field name="model">infohub.source</field>
+        <field name="arch" type="xml">
+            <search string="Sources">
+                <field name="name" />
+                <field name="url" />
+            </search>
+        </field>
+    </record>
+
+    <record id="action_infohub_source" model="ir.actions.act_window">
+        <field name="name">Sources</field>
+        <field name="res_model">infohub.source</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_infohub_source_search" />
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Add a source</p>
+            <p>The publisher an item belongs to, e.g. a journal or a news site.</p>
+        </field>
+    </record>
+</odoo>

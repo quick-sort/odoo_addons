@@ -1,0 +1,7 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_infohub_item_user,infohub.item user,model_infohub_item,group_infohub_user,1,0,0,0
+access_infohub_item_manager,infohub.item manager,model_infohub_item,group_infohub_manager,1,1,1,1
+access_infohub_source_user,infohub.source user,model_infohub_source,group_infohub_user,1,0,0,0
+access_infohub_source_manager,infohub.source manager,model_infohub_source,group_infohub_manager,1,1,1,1
+access_infohub_channel_user,infohub.channel user,model_infohub_channel,group_infohub_user,1,0,0,0
+access_infohub_channel_manager,infohub.channel manager,model_infohub_channel,group_infohub_manager,1,1,1,1

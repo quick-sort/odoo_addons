@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="view_infohub_channel_list" model="ir.ui.view">
+        <field name="name">infohub.channel.list</field>
+        <field name="model">infohub.channel</field>
+        <field name="arch" type="xml">
+            <list string="Channels" decoration-muted="not active">
+                <field name="name" />
+                <field name="channel_type" />
+                <field name="item_count" />
+                <field name="enable_cron" />
+                <field name="last_run_at" />
+                <field name="error_count" />
+                <field name="active" column_invisible="1" />
+            </list>
+        </field>
+    </record>
+
+    <record id="view_infohub_channel_form" model="ir.ui.view">
+        <field name="name">infohub.channel.form</field>
+        <field name="model">infohub.channel</field>
+        <field name="arch" type="xml">
+            <form string="Channel">
+                <header>
+                    <button
+                        name="action_fetch"
+                        string="Fetch Now"
+                        type="object"
+                        class="btn-primary"
+                    />
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button
+                            name="action_open_items"
+                            type="object"
+                            class="oe_stat_button"
+                            icon="fa-newspaper-o"
+                        >
+                            <field name="item_count" widget="statinfo" string="Items" />
+                        </button>
+                    </div>
+                    <div class="oe_title">
+                        <h1><field name="name" placeholder="e.g. Nature Research" /></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="channel_type" />
+                            <field name="enable_cron" />
+                            <field name="active" />
+                        </group>
+                        <group>
+                            <field name="last_run_at" />
+                            <field name="error_count" />
+                        </group>
+                    </group>
+                    <!-- Channel addons inject their own configuration fields here. -->
+                    <notebook>
+                        <page string="Items" name="items">
+                            <field name="item_ids" readonly="1">
+                                <list>
+                                    <field name="published_at" />
+                                    <field name="title" />
+                                    <field name="source_id" />
+                                    <field name="state" />
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Filter" name="filter">
+                            <field
+                                name="filter_domain"
+                                widget="domain"
+                                options="{'model': 'infohub.item'}"
+                            />
+                        </page>
+                        <page
+                            string="Last Error"
+                            name="error"
+                            invisible="not last_error"
+                        >
+                            <field name="last_error" readonly="1" />
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_infohub_channel_search" model="ir.ui.view">
+        <field name="name">infohub.channel.search</field>
+        <field name="model">infohub.channel</field>
+        <field name="arch" type="xml">
+            <search string="Channels">
+                <field name="name" />
+                <filter name="filter_active" string="Active" domain="[('active', '=', True)]" />
+                <separator />
+                <filter
+                    name="group_type"
+                    string="Channel Type"
+                    context="{'group_by': 'channel_type'}"
+                />
+            </search>
+        </field>
+    </record>
+
+    <record id="action_infohub_channel" model="ir.actions.act_window">
+        <field name="name">Channels</field>
+        <field name="res_model">infohub.channel</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_infohub_channel_search" />
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Add a channel</p>
+            <p>Each channel describes how news is obtained — RSS, email, or an API.</p>
+        </field>
+    </record>
+</odoo>

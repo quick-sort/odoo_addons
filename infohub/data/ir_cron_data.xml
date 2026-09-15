@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo noupdate="1">
+    <!-- Dispatch only: the cron enqueues one job per due channel and never
+         fetches inline, so a slow upstream cannot stall the scheduler. -->
+    <record id="ir_cron_infohub_fetch" model="ir.cron">
+        <field name="name">InfoHub: Fetch due channels</field>
+        <field name="model_id" ref="model_infohub_channel" />
+        <field name="state">code</field>
+        <field name="code">model._cron_fetch_channels()</field>
+        <field name="interval_number">15</field>
+        <field name="interval_type">minutes</field>
+        <field name="active">True</field>
+    </record>
+</odoo>

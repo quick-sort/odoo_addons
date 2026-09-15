@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <menuitem
+        id="menu_infohub_root"
+        name="InfoHub"
+        sequence="85"
+        groups="group_infohub_user"
+    />
+    <menuitem
+        id="menu_infohub_item"
+        name="Items"
+        parent="menu_infohub_root"
+        action="action_infohub_item"
+        sequence="10"
+    />
+    <menuitem
+        id="menu_infohub_channel"
+        name="Channels"
+        parent="menu_infohub_root"
+        action="action_infohub_channel"
+        sequence="20"
+        groups="group_infohub_manager"
+    />
+    <menuitem
+        id="menu_infohub_source"
+        name="Sources"
+        parent="menu_infohub_root"
+        action="action_infohub_source"
+        sequence="30"
+        groups="group_infohub_manager"
+    />
+</odoo>
