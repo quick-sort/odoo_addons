@@ -40,7 +40,6 @@ Use a scratch database (e.g. `test_infohub`) for tests, not the main `odoo` db. 
 2. **Unit tests pass**: run the touched addon's tests with `--test-tags /<addon>` (command above). If you changed shared code in a core addon (`llm`, `llm_knowledge`, `llm_store`, `component`, …), run the tests of the dependent addons too.
 3. **XML is well-formed**: `python3 -c "import xml.dom.minidom as m; m.parse('<file>')"` for every view/security/data XML you touched (cheap, no container needed).
 4. **No real network calls in tests**: mock provider adapters/endpoints. Unit tests must pass on a machine with no API keys configured.
-5. For `infohub*/` changes: additionally run the shell test scripts listed in `.kiro/specs/infohub/progress.md` and `python3 .kiro/specs/infohub/check_refs.py`.
 
 ## Testing conventions
 
@@ -61,12 +60,11 @@ Three in-house stacks plus vendored OCA addons:
 - Vector adapters: `llm_pgvector` (external Postgres), `llm_qdrant`, `llm_knowledge_pgvector` (embeddings inside Odoo's own DB via `base_pgvector` field type).
 - `llm_knowledge` — knowledge collections + native `llm.document` lifecycle (`draft→retrieved→processed`, then downstream `chunked`/`ready` states), built-in safe HTTP/HTTPS binary retrieval, and the extractor API. Extraction libraries remain in optional satellite addons (`llm_knowledge_extractor_{markitdown,trafilatura,mineru}`). New extractor addons follow the extension API in `llm_knowledge/README.md` (component with unique `_usage`; `selection_add` on `extractor_type` with ondelete policy; declare only own pip deps; never auto_install).
 - `llm_mcp_server` — exposes Odoo tools to external AI clients via MCP. `llm_discuss`/`llm_discuss_livechat` — chat UI.
-- Design context for the knowledge/store merge: `.kiro/specs/knowledge-merge/design.md` (chunk text in vector payload, multi-chunkset/vector model, `md_backend_id` per collection).
 
 **InfoHub stack** — online info aggregation (RSS/blogs/papers/social):
 - `infohub` core + satellites (`infohub_rss`, `infohub_arxiv`, `infohub_web`, `infohub_website`, `infohub_fulltext`, `infohub_paper`, `infohub_filter`, `infohub_digest`, `infohub_llm`).
-- Three-axis model: `infohub.source = medium × transport × provider`, orthogonal axes, no cross-axis inheritance, no `if source.provider == ...` branches in callers — add a component instead. Full constraints in `.kiro/steering/infohub.md` (read before touching `infohub*/`), rejected-alternatives in `.kiro/specs/infohub/decisions.md` (read before changing design).
-- Shell-based test scripts live in `.kiro/specs/infohub/*_test.py`; run them per the commands in `.kiro/specs/infohub/progress.md`.
+- Three-axis model: `infohub.source = medium × transport × provider`, orthogonal axes, no cross-axis inheritance, no `if source.provider == ...` branches in callers — add a component instead.
+- **Slated for redesign.** The current three-axis design is being replaced; treat the existing `infohub*/` code as prior art to draw from, not a constraint to preserve. Its design docs under `.kiro/` were removed as stale.
 
 **Storage/cloud stack**:
 - `storage_backend` (OCA) + `storage_backend_{s3,sftp,ftp}` adapters; `one_storage` — VFS layer over storage backends (see `one_storage/README.rst`); `one_cloud*` — cloud account/firewall integrations.
@@ -102,4 +100,3 @@ Three in-house stacks plus vendored OCA addons:
 - `.claude/skills/odoo-19/references/` — 18 Odoo 19 guides (views, decorators, testing, security, …). Consult these when writing Odoo XML/Python.
 - `llm/DECORATOR.md` — `@llm_tool` decorator guide; `llm/OPENAI_SCHEMA_COMPATIBILITY.md` — schema notes.
 - Per-addon `README.md`/`README.rst` — install matrices and extension APIs, especially `llm_knowledge/README.md`.
-- `.kiro/specs/*/` — design docs, requirements, and ADR-style decisions; `.kiro/steering/infohub.md` — infohub constraints (auto-scoped to `infohub*/`).

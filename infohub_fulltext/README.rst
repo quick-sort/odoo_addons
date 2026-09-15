@@ -68,9 +68,3 @@ trafilatura 本身会去掉脚本，但提取结果仍然过一遍 ``html_saniti
 ====
 
 ``trafilatura``。本项目的容器镜像 ``odoo:19.0`` 已自带（2.2.0），无需额外安装。
-
-测试
-====
-
-见 ``.kiro/specs/infohub/stage4_test.py`` 第 7–8 节：候选筛选、成功回写、四类失败
-分支、失败后不重试、手工重试。用注入的假 HTTP 响应，不联网。

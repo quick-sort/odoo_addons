@@ -88,9 +88,3 @@ related。论文场景本来就更常按论文维度浏览（按作者、按期�
 
 学科的 ``code`` 直接用 arXiv 的分类码：它天然稳定、全球唯一，比自造编码好。
 ``infohub.topic_academic`` 这个根节点的 xmlid 是核心的对外契约，不要改名。
-
-测试
-====
-
-见 ``.kiro/specs/infohub/stage5_test.py`` 第 1–4 节：学科树与映射、DOI/arXiv ID
-归一化的 20 个边界用例、身份计算的 10 种情形、载荷落库与作者/期刊解析。

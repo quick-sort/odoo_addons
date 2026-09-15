@@ -74,9 +74,3 @@ InfoHub 规则引擎
 
 ``infohub.group_moderator`` 可增删改规则，``infohub.group_user`` 只读。规则会改变
 portal 读者能看到什么，所以不开放给普通内部用户。
-
-测试
-====
-
-见 ``.kiro/specs/infohub/stage4_test.py`` 第 1–6、9 节：条件组合、五种动作、终结型
-与标注型、``stop_after``、求值顺序、保存期校验、试运行、核心独立性。

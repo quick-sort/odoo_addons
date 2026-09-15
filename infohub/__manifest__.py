@@ -31,8 +31,6 @@ InfoHub
 
 三个维度各自由卫星模块用 ``_selection_add`` 扩展，互不继承。核心不含任何
 来源判断分支。
-
-设计文档见 ``.kiro/specs/infohub/``。
     """,
     "author": "quick-sort@outlook.com",
     "website": "quick-sort@outlook.com",

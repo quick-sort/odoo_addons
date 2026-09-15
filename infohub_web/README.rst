@@ -82,10 +82,3 @@ InfoHub 网页采集
 
 注意 ``external_dependencies`` 里要写 **PyPI 包名**而不是 import 名：写 ``dateutil``
 会让 Odoo 报"不是有效的 PyPI 包名"（它优先用 ``importlib.metadata.version()`` 查）。
-
-测试
-====
-
-见 ``.kiro/specs/infohub/stage6_test.py``（56 项）：选择器保存期校验、三种分页、
-两阶段抓取与字段提取、只抓新链接、同域限制、噪声剔除顺序、``list_only`` 模式、
-``render_js`` 报错、与论文介质组合的 DOI 收敛、**零代码接入验收**。

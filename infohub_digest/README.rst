@@ -63,9 +63,3 @@ InfoHub 摘要推送
 只依赖 ``infohub``。邮件里的"在网站上查看"和"订阅管理"链接指向 ``/infohub`` 与
 ``/infohub/subscriptions``，那两个路由由 ``infohub_website`` 提供——没装的话链接会
 404，但邮件本身是自足的（条目标题直接链向原文）。实际部署建议两个一起装。
-
-测试
-====
-
-见 ``.kiro/specs/infohub/stage7_test.py`` 第 1–3 节（30 项）：内容筛选的六个维度、
-按 (用户,周期) 分组、幂等、三种状态语义、邮件渲染、cron 重跑安全。
