@@ -8,10 +8,4 @@
 
 # Declared in __manifest__.py external_dependencies.
 mcp
-
-# Not declared in __manifest__.py. Each line says why it is here
-# anyway; the '# undeclared' ones belong in the manifest so Odoo
-# checks them too.
-Jinja2  # undeclared
-pydantic  # undeclared
-Werkzeug  # undeclared
+pydantic

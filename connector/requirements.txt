@@ -6,7 +6,4 @@
 #
 # Install with:  pip install -r connector/requirements.txt
 
-# Not declared in __manifest__.py. Each line says why it is here
-# anyway; the '# undeclared' ones belong in the manifest so Odoo
-# checks them too.
-psycopg2  # undeclared
+# No runtime dependencies beyond the Odoo base image.

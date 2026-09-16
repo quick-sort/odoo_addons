@@ -31,7 +31,11 @@
     "license": "LGPL-3",
     "depends": ["base", "llm", "web_json_editor"],
     "external_dependencies": {
-        "python": ["mcp"],
+        # `pydantic` is imported directly by controllers/mcp_controller.py
+        # (`from pydantic import BaseModel`). It arrives transitively with `mcp`,
+        # but the import is our own and a dependency we import directly should
+        # be one we declare.
+        "python": ["mcp", "pydantic"],
     },
     "data": [
         "security/ir.model.access.csv",

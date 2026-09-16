@@ -32,6 +32,11 @@ It registers on ``llm.store`` as the ``pgvector_local`` service. Managing a
     "author": "quick-sort@outlook.com",
     "website": "quick-sort@outlook.com",
     "depends": ["base_pgvector", "llm_store"],
+    # Imported at module level by components/pgvector_local_store_adapter.py
+    # (`from pgvector import Vector`). The pgvector Python package is what
+    # registers the adapter with psycopg2 and must be installed separately from
+    # the database extension of the same name.
+    "external_dependencies": {"python": ["pgvector"]},
     "data": [
         "security/ir.model.access.csv",
         "views/llm_knowledge_chunk_embedding_views.xml",

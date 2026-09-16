@@ -8,8 +8,3 @@
 
 # Declared in __manifest__.py external_dependencies.
 wechatpy
-
-# Not declared in __manifest__.py. Each line says why it is here
-# anyway; the '# undeclared' ones belong in the manifest so Odoo
-# checks them too.
-Werkzeug  # undeclared
