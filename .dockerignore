@@ -1,0 +1,32 @@
+# Keep the build context to what Odoo actually loads.
+#
+# The repository is copied wholesale into the image, so anything excluded here
+# is a straight saving in image size and a smaller surface to leak secrets from.
+
+# Version control — 21 MB, and it would ship the entire history.
+.git
+.gitignore
+
+# Python bytecode and build artefacts (also regenerated at runtime).
+__pycache__/
+*.py[codz]
+*.so
+build/
+dist/
+*.egg-info/
+
+# Local development state that must never reach an image.
+.env
+.env.*
+*.log
+.venv/
+venv/
+node_modules/
+
+# Editor / tooling state.
+.idea/
+.vscode/
+.playwright-mcp/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
