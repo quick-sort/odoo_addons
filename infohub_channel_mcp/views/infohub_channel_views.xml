@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="view_infohub_channel_form_mcp" model="ir.ui.view">
+        <field name="name">infohub.channel.form.mcp</field>
+        <field name="model">infohub.channel</field>
+        <field name="inherit_id" ref="infohub.view_infohub_channel_form" />
+        <field name="arch" type="xml">
+            <field name="channel_type" position="after">
+                <field
+                    name="mcp_client_id"
+                    invisible="channel_type != 'mcp'"
+                    required="channel_type == 'mcp'"
+                />
+                <field
+                    name="mcp_tool_name"
+                    placeholder="search_news"
+                    invisible="channel_type != 'mcp'"
+                    required="channel_type == 'mcp'"
+                />
+            </field>
+        </field>
+    </record>
+</odoo>
