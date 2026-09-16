@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <!-- Inject the RSS-specific field into the core channel form. The core
+         keeps no channel-specific columns; each channel addon adds its own. -->
+    <record id="view_infohub_channel_form_rss" model="ir.ui.view">
+        <field name="name">infohub.channel.form.rss</field>
+        <field name="model">infohub.channel</field>
+        <field name="inherit_id" ref="infohub.view_infohub_channel_form" />
+        <field name="arch" type="xml">
+            <field name="channel_type" position="after">
+                <field
+                    name="rss_url"
+                    widget="url"
+                    placeholder="https://example.com/feed.xml"
+                    invisible="channel_type != 'rss'"
+                    required="channel_type == 'rss'"
+                />
+            </field>
+        </field>
+    </record>
+</odoo>

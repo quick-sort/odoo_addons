@@ -106,6 +106,11 @@ class InfohubChannel(models.Model):
         self.ensure_one()
         return self._component("infohub.content").source(raw_data)
 
+    def url(self, raw_data):
+        """A link to the original item, as carried in the raw item."""
+        self.ensure_one()
+        return self._component("infohub.content").url(raw_data)
+
     # ------------------------------------------------------------------
     # Item filtering
     # ------------------------------------------------------------------
@@ -189,7 +194,11 @@ class InfohubChannel(models.Model):
         created = skipped = 0
 
         for entry in items:
-            raw_data = entry.get("raw_data") or {}
+            # A channel may hand back its payload either nested under
+            # ``raw_data`` or spread across the entry dict itself (the RSS
+            # parser does the latter). Normalise so the content component always
+            # sees the channel's real payload shape.
+            raw_data = entry.get("raw_data") or entry
             external_id = self._external_id(entry, raw_data)
             if not self._keep(entry):
                 skipped += 1
@@ -199,6 +208,10 @@ class InfohubChannel(models.Model):
             if not title:
                 skipped += 1
                 continue
+
+            # The link lives in each channel's own payload shape, so it is read
+            # through the content component rather than off the entry dict.
+            url = entry.get("url") or self.url(raw_data) or ""
 
             if external_id and Item.search_count(
                 [("channel_id", "=", self.id), ("external_id", "=", external_id)]
@@ -211,7 +224,7 @@ class InfohubChannel(models.Model):
                     "channel_id": self.id,
                     "source_id": self._resolve_source(entry, raw_data),
                     "title": title[:255],
-                    "url": entry.get("url") or "",
+                    "url": url,
                     "published_at": self._published_at(entry, raw_data),
                     "raw_data": raw_data,
                     "external_id": external_id,
@@ -337,12 +350,40 @@ class InfohubChannel(models.Model):
                     skipped,
                 )
             except Exception as exc:  # noqa: BLE001 — surfaced to the user below
-                channel.write(
-                    {
-                        "last_run_at": fields.Datetime.now(),
-                        "error_count": channel.error_count + 1,
-                        "last_error": str(exc),
-                    }
-                )
+                channel._register_failure(exc)
                 raise
         return True
+
+    def _register_failure(self, exc):
+        """Record a failed run so the counters survive a rollback.
+
+        Writing in the caller's transaction would be pointless in production:
+        a queue_job failure rolls that transaction back, taking the counter and
+        the message with it, so ``error_count`` would stay at 0 forever and the
+        auto-disable would never trip. Odoo's test ``assertRaises`` rolls back
+        the same way, which is how this was caught.
+
+        The write happens on a fresh cursor, which commits on clean exit and is
+        closed either way. The row must already exist there; a channel created
+        but not yet committed by the caller simply cannot be updated this way,
+        and is skipped rather than raising.
+        """
+        self.ensure_one()
+        values = {
+            "last_run_at": fields.Datetime.now(),
+            "error_count": self.error_count + 1,
+            "last_error": str(exc),
+        }
+        channel_id = self.id
+        try:
+            with self.pool.cursor() as cr:
+                channel = self.env["infohub.channel"].with_env(self.env(cr=cr)).browse(
+                    channel_id
+                )
+                if channel.exists():
+                    channel.write(values)
+        except Exception:  # noqa: BLE001 — bookkeeping must never mask the cause
+            _logger.exception(
+                "infohub: could not record fetch failure for channel %s", channel_id
+            )
+        self.invalidate_recordset()

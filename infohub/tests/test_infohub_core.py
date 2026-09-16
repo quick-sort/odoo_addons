@@ -48,10 +48,20 @@ class TestInfohubCore(TransactionComponentCase):
         self.assertTrue(fields_required["title"]["required"])
         self.assertTrue(fields_required["channel_id"]["required"])
 
-    def test_channel_type_selection_starts_empty(self):
-        """The core defines the extension point but no channel values."""
-        selection = self.env["infohub.channel"]._fields["channel_type"].selection
-        self.assertEqual(selection, [])
+    def test_channel_type_is_extended_by_channel_addons(self):
+        """The core ships the extension point; channel addons fill it in.
+
+        With only the core installed the selection is empty; each channel addon
+        contributes its own value via ``selection_add``. Either way the field
+        itself must exist and be required, which is what the core guarantees.
+        """
+        field = self.env["infohub.channel"]._fields["channel_type"]
+        self.assertTrue(field.required)
+        self.assertIsInstance(field.selection, list)
+        # Any installed channel addon's values must be well-formed pairs.
+        for value, label in field.selection:
+            self.assertIsInstance(value, str)
+            self.assertIsInstance(label, str)
 
     def test_core_does_not_depend_on_llm(self):
         """Hard constraint: the core must stay free of the LLM stack."""

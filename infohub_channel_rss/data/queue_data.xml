@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo noupdate="1">
+    <!-- RSS feeds are polled politely; the parent channel is declared by
+         infohub. See infohub/data/queue_data.xml for the odoo.conf note. -->
+    <record id="channel_infohub_rss" model="queue.job.channel">
+        <field name="name">rss</field>
+        <field name="parent_id" ref="infohub.channel_infohub" />
+    </record>
+</odoo>
