@@ -37,11 +37,11 @@ is needed.
 Available channels
 ------------------
 
-======================  =====================================================
-``infohub_channel_rss`` RSS / Atom feeds, polled on a schedule
-``infohub_channel_email``  Inbound newsletter mail, via a ``mail.alias``
-``infohub_channel_mcp``   A tool on a third-party MCP server
-======================  =====================================================
+==========================  =================================================
+``infohub_channel_rss``     RSS / Atom feeds, polled on a schedule
+``infohub_channel_email``   Inbound newsletter mail, via a ``mail.alias``
+``infohub_channel_mcp``     A tool on a third-party MCP server
+==========================  =================================================
 
 Only ``infohub_channel_mcp`` depends on ``llm``. The core does not, so a
 deployment that wants only RSS or email never installs the LLM stack.
