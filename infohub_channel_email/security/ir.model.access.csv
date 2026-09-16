@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_infohub_email_message_user,infohub.email.message user,model_infohub_email_message,infohub.group_infohub_user,1,0,0,0
+access_infohub_email_message_manager,infohub.email.message manager,model_infohub_email_message,infohub.group_infohub_manager,1,1,1,1

@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="view_infohub_email_message_list" model="ir.ui.view">
+        <field name="name">infohub.email.message.list</field>
+        <field name="model">infohub.email.message</field>
+        <field name="arch" type="xml">
+            <list string="Inbound Email" decoration-danger="state == 'error'">
+                <field name="date" />
+                <field name="subject" />
+                <field name="email_from" />
+                <field name="channel_id" />
+                <field name="state" widget="badge" />
+            </list>
+        </field>
+    </record>
+
+    <record id="view_infohub_email_message_form" model="ir.ui.view">
+        <field name="name">infohub.email.message.form</field>
+        <field name="model">infohub.email.message</field>
+        <field name="arch" type="xml">
+            <form string="Inbound Email">
+                <header>
+                    <button
+                        name="action_reprocess"
+                        string="Reprocess"
+                        type="object"
+                        invisible="state != 'error'"
+                    />
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="subject" />
+                            <field name="email_from" />
+                            <field name="date" />
+                        </group>
+                        <group>
+                            <field name="channel_id" />
+                            <field name="item_id" />
+                            <field name="state" />
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Body" name="body">
+                            <field name="body" />
+                        </page>
+                        <page string="Error" name="error" invisible="not error_message">
+                            <field name="error_message" readonly="1" />
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter />
+            </form>
+        </field>
+    </record>
+
+    <record id="view_infohub_email_message_search" model="ir.ui.view">
+        <field name="name">infohub.email.message.search</field>
+        <field name="model">infohub.email.message</field>
+        <field name="arch" type="xml">
+            <search string="Inbound Email">
+                <field name="subject" />
+                <field name="email_from" />
+                <filter name="filter_error" string="Errors" domain="[('state', '=', 'error')]" />
+                <separator />
+                <filter
+                    name="group_channel"
+                    string="Channel"
+                    context="{'group_by': 'channel_id'}"
+                />
+            </search>
+        </field>
+    </record>
+
+    <record id="action_infohub_email_message" model="ir.actions.act_window">
+        <field name="name">Inbound Email</field>
+        <field name="res_model">infohub.email.message</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_infohub_email_message_search" />
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No inbound email yet</p>
+            <p>Newsletter email delivered to the alias shows up here.</p>
+        </field>
+    </record>
+
+    <record id="menu_infohub_email_message" model="ir.ui.menu">
+        <field name="name">Inbound Email</field>
+        <field name="parent_id" ref="infohub.menu_infohub_root" />
+        <field name="action" ref="action_infohub_email_message" />
+        <field name="sequence">40</field>
+        <field name="group_ids" eval="[(4, ref('infohub.group_infohub_manager'))]" />
+    </record>
+</odoo>

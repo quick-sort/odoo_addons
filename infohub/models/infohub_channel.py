@@ -225,6 +225,7 @@ class InfohubChannel(models.Model):
                     "source_id": self._resolve_source(entry, raw_data),
                     "title": title[:255],
                     "url": url,
+                    "content": entry.get("content") or self._content_html(raw_data),
                     "published_at": self._published_at(entry, raw_data),
                     "raw_data": raw_data,
                     "external_id": external_id,
@@ -233,6 +234,27 @@ class InfohubChannel(models.Model):
             created += 1
 
         return created, skipped
+
+    def _content_html(self, raw_data):
+        """Render the item body as HTML via the channel's content component.
+
+        ``infohub.item.content`` is an HTML field (sanitised on write), while
+        ``build_content`` returns readable plain text — every channel's payload
+        shape differs, and that method is where the knowledge of it lives. The
+        text is escaped and paragraph breaks preserved so it renders as
+        intended instead of collapsing to one line.
+        """
+        from odoo.tools import html_escape
+
+        text = self.build_content(raw_data)
+        if not text:
+            return False
+        paragraphs = [
+            f"<p>{html_escape(block)}</p>"
+            for block in text.split("\n\n")
+            if block.strip()
+        ]
+        return "".join(paragraphs)
 
     @staticmethod
     def _external_id(entry, raw_data):

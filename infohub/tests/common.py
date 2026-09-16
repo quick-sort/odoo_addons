@@ -72,4 +72,7 @@ def stub_channel_components(channel_type, items_ref):
         def date(self, raw_data):
             return (raw_data or {}).get("published", "")
 
+        def build_content(self, raw_data):
+            return (raw_data or {}).get("body", "")
+
     return StubFetch, StubContent

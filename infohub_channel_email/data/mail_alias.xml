@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo noupdate="1">
+    <!-- One static alias for the whole email channel. Which channel an email
+         belongs to is decided by its recipient address
+         (infohub.channel.email_to), so adding a newsletter does not require a
+         new alias.
+
+         Delivery also needs a fetchmail.server in state 'done' pointing at the
+         mailbox; the mail module's own fetch cron is inactive until such a
+         server exists. -->
+    <record id="mail_alias_infohub" model="mail.alias">
+        <field name="alias_name">infohub</field>
+        <field name="alias_model_id" ref="model_infohub_email_message" />
+        <field name="alias_contact">everyone</field>
+    </record>
+</odoo>
