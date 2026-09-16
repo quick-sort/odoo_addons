@@ -61,10 +61,14 @@ Three in-house stacks plus vendored OCA addons:
 - `llm_knowledge` — knowledge collections + native `llm.document` lifecycle (`draft→retrieved→processed`, then downstream `chunked`/`ready` states), built-in safe HTTP/HTTPS binary retrieval, and the extractor API. Extraction libraries remain in optional satellite addons (`llm_knowledge_extractor_{markitdown,trafilatura,mineru}`). New extractor addons follow the extension API in `llm_knowledge/README.md` (component with unique `_usage`; `selection_add` on `extractor_type` with ondelete policy; declare only own pip deps; never auto_install).
 - `llm_mcp_server` — exposes Odoo tools to external AI clients via MCP. `llm_discuss`/`llm_discuss_livechat` — chat UI.
 
-**InfoHub stack** — online info aggregation (RSS/blogs/papers/social):
-- `infohub` core + satellites (`infohub_rss`, `infohub_arxiv`, `infohub_web`, `infohub_website`, `infohub_fulltext`, `infohub_paper`, `infohub_filter`, `infohub_digest`, `infohub_llm`).
-- Three-axis model: `infohub.source = medium × transport × provider`, orthogonal axes, no cross-axis inheritance, no `if source.provider == ...` branches in callers — add a component instead.
-- **Slated for redesign.** The current three-axis design is being replaced; treat the existing `infohub*/` code as prior art to draw from, not a constraint to preserve. Its design docs under `.kiro/` were removed as stale.
+**InfoHub stack** — news aggregation into one pool:
+- `infohub` core + channel addons (`infohub_channel_rss`, `infohub_channel_email`, `infohub_channel_mcp`).
+- **Two orthogonal dimensions, not one.** A *source* is whose the news is (a publisher: `name` + `url`); a *channel* is how it is obtained (RSS / inbound email / a third-party API). The same publisher may be reachable through several channels, so an item carries both: `source_id` says who it belongs to, `channel_id` says how it arrived.
+- Channels are `component` collections. A channel addon contributes a `selection_add` value on `channel_type`, its own config fields via `_inherit` (the core keeps no channel-specific columns), and `infohub.fetch.<type>` / `infohub.content.<type>` components. Components resolve by **usage suffix** (`usage=f"infohub.fetch.{channel_type}"`) rather than `_component_match` disambiguation, so usages stay unique by construction.
+- **The core never depends on `llm`.** Only `infohub_channel_mcp` does. A test asserts the core's dependency list, and the split is verified by installing core + rss + email in a database with no `llm`.
+- Inbound email routes through the `infohub.email.message` relay (it inherits `mail.thread`), never through `infohub.item` — that keeps chatter tables from growing with the number of pooled items.
+- Failure bookkeeping (`error_count` / `last_error`) is written on a **separate cursor**, because a queue_job failure rolls the caller's transaction back and would otherwise discard it. Odoo's test `assertRaises` rolls back the same way.
+- The previous three-axis design (`medium × transport × provider`) is retired; its 10 modules are kept under `legacy/` for reference and are not loaded by Odoo (`legacy/` has no root `__manifest__.py`, and the addons scan is a non-recursive `os.listdir`).
 
 **Storage/cloud stack**:
 - `storage_backend` (OCA) + `storage_backend_{s3,sftp,ftp}` adapters; `one_storage` — VFS layer over storage backends (see `one_storage/README.rst`); `one_cloud*` — cloud account/firewall integrations.
@@ -73,9 +77,9 @@ Three in-house stacks plus vendored OCA addons:
 
 ### Cross-cutting patterns
 
-- **Multi-provider integrations use the component framework with layered addons**: a core addon defines abstract components + a polymorphic host model; each provider gets its own small addon registering a component (unique `_usage`) and extending the host's Selection field via `selection_add`. Do not grow a single big addon with provider `if/else` branches. Examples: `llm_knowledge` + extractor addons; `llm_store` + vector adapters; `infohub` three-axis.
-- **queue_job** for anything slow (fetch, sync, batch): `record.with_delay(channel="root.<family>", description=..., identity_key="<unique-per-record>")` with channel capacity set in `odoo.conf` `[queue_job] channels` — missing channel config fails silently (e.g. `root.infohub.arxiv:1` exists for rate limiting).
-- **SSRF**: server-side outbound HTTP to user-supplied URLs must go through the shared HTTP component base class (scheme allowlist, private-range/loopback/link-local blocking, per-hop redirect rechecks, timeouts + response size caps). No direct `requests.get`.
+- **Multi-provider integrations use the component framework with layered addons**: a core addon defines abstract components + a polymorphic host model; each provider gets its own small addon registering a component (unique `_usage`) and extending the host's Selection field via `selection_add`. Do not grow a single big addon with provider `if/else` branches. Examples: `llm_knowledge` + extractor addons; `llm_store` + vector adapters; `infohub_channel_*`.
+- **queue_job** for anything slow (fetch, sync, batch): `record.with_delay(channel="root.<family>", description=..., identity_key="<unique-per-record>")` with channel capacity set in `odoo.conf` `[queue_job] channels` — missing channel config fails silently (e.g. `root.infohub` is declared for channel fetches but no capacity is configured in `devop/deploy/odoo/odoo.conf`).
+- **SSRF**: server-side outbound HTTP to user-supplied URLs must be validated — scheme allowlist, private-range/loopback/link-local blocking, per-hop redirect rechecks (follow redirects manually with `allow_redirects=False`), timeouts + response size caps. `infohub/url_guard.py` is the in-house helper; `llm_knowledge/models/llm_document_http.py` is a stricter variant that additionally pins the validated IP. No unguarded `requests.get`.
 - Rendering third-party HTML on public pages: `fields.Html(sanitize=True)` and `t-out` only, never `t-raw`.
 
 ## Odoo 19 conventions (differ from older Odoo)
