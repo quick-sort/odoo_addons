@@ -3,7 +3,9 @@
     <record id="llm_store_view_form_inherit_pgvector" model="ir.ui.view">
         <field name="name">llm.store.form.inherit.pgvector</field>
         <field name="model">llm.store</field>
-        <field name="inherit_id" ref="llm_store.llm_store_view_form" />
+        <!-- `llm_store` was merged into `llm_knowledge`; the base view moved
+             with it. Same xmlid the llm_pg and llm_qdrant adapters inherit. -->
+        <field name="inherit_id" ref="llm_knowledge.llm_store_view_form" />
         <field name="arch" type="xml">
             <xpath expr="//field[@name='service']" position="after">
                 <field

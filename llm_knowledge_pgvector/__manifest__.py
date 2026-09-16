@@ -26,12 +26,25 @@ which requires a superuser to run ``CREATE EXTENSION vector`` once.
 It registers on ``llm.store`` as the ``pgvector_local`` service. Managing a
 *standalone* pgvector instance is a different feature, provided by the
 ``llm_pgvector`` addon, which has none of the requirements above.
+
+Scheduled for a rewrite
+-----------------------
+This addon is to be reworked; treat the current implementation as a working
+placeholder rather than a settled design. It is kept installable in the
+meantime, so the adapter contract is worth revisiting as a whole when the
+rewrite happens rather than patched piecemeal before then.
     """,
     "category": "Technical",
     "version": "19.0.1.0.1",
     "author": "quick-sort@outlook.com",
     "website": "quick-sort@outlook.com",
-    "depends": ["base_pgvector", "llm_store"],
+    # `llm_store` was merged into `llm_knowledge`, which is where `llm.store`
+    # and `llm.store.adapter` now live. Sibling adapters (`llm_pg`, `llm_qdrant`)
+    # already depend on `llm_knowledge` for the same reason.
+    #
+    # TODO: this addon is slated for a rewrite. It is kept installable in the
+    # meantime; revisit the whole adapter contract then.
+    "depends": ["base_pgvector", "llm_knowledge"],
     # Imported at module level by components/pgvector_local_store_adapter.py
     # (`from pgvector import Vector`). The pgvector Python package is what
     # registers the adapter with psycopg2 and must be installed separately from
