@@ -34,6 +34,22 @@ python3 -c "import xml.dom.minidom as m; m.parse('path/to/file.xml')"
 
 Use a scratch database (e.g. `test_infohub`) for tests, not the main `odoo` db. Python deps beyond the image are pip-installed manually into the container and are lost on container recreation (e.g. `feedparser`).
 
+### Throwaway containers must not touch production ports
+
+A production deployment lives in `../devop/deploy/docker-compose.yml` and owns these host ports — never publish them from a scratch container:
+
+| Port | Used by |
+|---|---|
+| `8069` | Odoo HTTP workers (nginx reverse-proxied) |
+| `8072` | Odoo gevent worker (websocket) |
+| `24224` | fluent-bit log shipping (tcp + udp) |
+| `5432` | Postgres — deliberately **not** published; the odoo container reaches it over the docker network |
+| `3000` | an unrelated long-running agent container on this host |
+
+Note that `odoo:19.0` **EXPOSE**s 8069/8071/8072 in its image config. Exposed is not published: it costs nothing until a `-p` is passed. Omitting `-p` entirely is the safest habit, and it is what the scratch containers use — they reach each other by container name over the existing external `main` network (reuse it, do not create a new one).
+
+For one-shot commands add `--workers=0 --no-http --http-port=0`; without `--http-port=0` Odoo still tries to bind 8069 even under `--no-http` when `queue_job` is a server-wide module. If a scratch container genuinely needs to serve HTTP, map a high port explicitly, e.g. `-p 127.0.0.1:8099:8069`.
+
 ## Quality gates — required before declaring work done
 
 1. **Addon loads cleanly**: `docker exec odoo odoo -c /etc/odoo/odoo.conf -d <test_db> -u <addon> --stop-after-init --workers=0 --no-http` exits 0 (catches manifest errors, broken XML/views, import errors).
