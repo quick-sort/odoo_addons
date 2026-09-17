@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <!-- Inject the BioMedTracker-specific fields into the core channel form,
+         plus a Login button — the session cookie comes from the Auth0
+         handshake, not from the user. -->
+    <record id="view_infohub_channel_form_biomedtracker" model="ir.ui.view">
+        <field name="name">infohub.channel.form.biomedtracker</field>
+        <field name="model">infohub.channel</field>
+        <field name="inherit_id" ref="infohub.view_infohub_channel_form" />
+        <field name="arch" type="xml">
+            <header position="inside">
+                <button
+                    name="action_biomedtracker_login"
+                    string="Login"
+                    type="object"
+                    invisible="channel_type != 'biomedtracker'"
+                />
+            </header>
+            <field name="channel_type" position="after">
+                <field
+                    name="biomedtracker_username"
+                    invisible="channel_type != 'biomedtracker'"
+                />
+                <field
+                    name="biomedtracker_password"
+                    invisible="channel_type != 'biomedtracker'"
+                />
+                <field
+                    name="biomedtracker_manual_cookie"
+                    invisible="channel_type != 'biomedtracker'"
+                />
+                <field
+                    name="biomedtracker_session_cookie"
+                    invisible="channel_type != 'biomedtracker'"
+                />
+            </field>
+        </field>
+    </record>
+</odoo>
