@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Development governance — read first
+
+文档、质量与开发流程的规范见 [`docs/development-governance.md`](docs/development-governance.md)，改动任何 addon 前必读。要点：设计文档是唯一事实来源（`<addon>/docs/`），README 用 `README.rst`、manifest 不写 `description`，改代码走 PR、QC（Odoo 测试）通过才能合并。
+
 ## Repository layout
 
 A flat collection of Odoo 19 addons — each top-level directory is one addon (has `__manifest__.py`). There is no build system at repo level; addons are consumed by an Odoo server.
