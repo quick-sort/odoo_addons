@@ -47,7 +47,7 @@ patch(Thread.prototype, {
     if (this.isLLMThread && message.llm_role) {
       className += ` o-llm-message o-llm-message-${message.llm_role}`;
 
-      // Add streaming indicator for assistant messages
+      // Add streaming indicator for agent messages
       if (message.llm_role === "assistant" && message.isPending) {
         className += " o-llm-message-streaming";
       }
@@ -111,7 +111,7 @@ patch(Thread.prototype, {
 
   /**
    * Override isSquashed to prevent squashing messages with different LLM roles
-   * This ensures user, assistant, and tool messages appear in separate bubbles
+   * This ensures user, agent, and tool messages appear in separate bubbles
    * @param {Object} msg - Current message
    * @param {Object} prevMsg - Previous message
    * @returns {Boolean} Whether messages should be squashed together

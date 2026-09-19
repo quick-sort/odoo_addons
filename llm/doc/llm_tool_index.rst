@@ -16,13 +16,13 @@ Installation
 What to Install
 ---------------
 
-This module is typically **auto-installed** as a dependency of ``llm_assistant`` or ``llm_thread``.
+This module is typically **auto-installed** as a dependency of ``llm_agent`` or ``llm_thread``.
 
 **For AI with function calling:**
 
 .. code-block:: bash
 
-    odoo-bin -d your_db -i llm_assistant,llm_openai
+    odoo-bin -d your_db -i llm_agent,llm_openai
 
 Auto-Installed Dependencies
 ---------------------------
@@ -50,7 +50,7 @@ Common Setups
 +--------------------------------+------------------------------------------------------+
 | I want to...                   | Install                                              |
 +================================+======================================================+
-| AI that searches Odoo records  | ``llm_assistant`` + ``llm_openai``                   |
+| AI that searches Odoo records  | ``llm_agent`` + ``llm_openai``                   |
 +--------------------------------+------------------------------------------------------+
 | AI that searches documents     | Above + ``llm_knowledge`` + ``llm_tool_knowledge``   |
 +--------------------------------+------------------------------------------------------+
@@ -202,7 +202,7 @@ Related Modules
 
 - **``llm``** - Base LLM infrastructure
 - **``llm_thread``** - Chat interface with tool execution
-- **``llm_assistant``** - Configure assistants with specific tools
+- **``llm_agent``** - Configure assistants with specific tools
 - **``llm_tool_demo``** - Example tools using ``@llm_tool`` decorator
 - **``llm_mcp_server``** - Expose tools via Model Context Protocol
 

@@ -7,25 +7,25 @@ export const llmDiscussService = {
     dependencies: ["action", "mail.store", "notification", "orm"],
 
     async start(env, { action, "mail.store": mailStore, notification, orm }) {
-        let assistants = [];
+        let agents = [];
         let odoobotConfig = {};
         try {
-            [assistants, odoobotConfig] = await Promise.all([
-                orm.call("llm.assistant", "get_available_discuss_assistants", []),
-                orm.call("llm.assistant", "get_odoobot_discuss_config", []),
+            [agents, odoobotConfig] = await Promise.all([
+                orm.call("llm.agent", "get_available_discuss_agents", []),
+                orm.call("llm.agent", "get_odoobot_discuss_config", []),
             ]);
         } catch (error) {
-            console.warn("Could not load Discuss assistants", error);
+            console.warn("Could not load Discuss agents", error);
         }
         const botPartnerIds = new Set(
-            assistants.map((assistant) => assistant.bot_partner_id)
+            agents.map((agent) => agent.bot_partner_id)
         );
         if (odoobotConfig.bot_partner_id) {
             botPartnerIds.add(odoobotConfig.bot_partner_id);
         }
 
         return {
-            assistants,
+            agents,
 
             isAssistantThread(thread) {
                 if (!thread || thread.model !== "discuss.channel") {
@@ -69,14 +69,14 @@ export const llmDiscussService = {
                 );
             },
 
-            async openAssistant(assistant) {
-                if (!assistant?.bot_user_id) {
-                    notification.add(_t("This assistant has no Discuss bot user."), {
+            async openAgent(agent) {
+                if (!agent?.bot_user_id) {
+                    notification.add(_t("This agent has no Discuss bot user."), {
                         type: "warning",
                     });
                     return;
                 }
-                await mailStore.openChat({ userId: assistant.bot_user_id });
+                await mailStore.openChat({ userId: agent.bot_user_id });
             },
         };
     },

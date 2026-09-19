@@ -10,7 +10,7 @@
         - Function calling / tool execution (built-in Odoo CRUD tools, custom
           model methods, server actions, and remote MCP servers)
         - Real-time AI chat threads, linked to any Odoo record
-        - Configurable AI assistants with prompt templates, categories, tags
+        - Configurable AI agents with prompt templates, categories, tags
           and preferred tools
 
     """,
@@ -42,18 +42,18 @@
         "views/llm_tool_consent_config_views.xml",
         "views/llm_mcp_client_views.xml",
         "views/llm_thread_views.xml",
-        "views/llm_assistant_tag_views.xml",
-        "views/llm_assistant_category_views.xml",
-        "views/llm_assistant_views.xml",
+        "views/llm_agent_tag_views.xml",
+        "views/llm_agent_category_views.xml",
+        "views/llm_agent_views.xml",
         "views/llm_menu_views.xml",
         "data/mail_message_subtype.xml",
         "data/llm_tool_data.xml",
         "data/llm_tool_consent_config_data.xml",
         "data/llm_tool_server_actions.xml",
-        "data/llm_assistant_tag_data.xml",
-        "data/llm_assistant_category_data.xml",
-        "data/llm_tool_invoke_assistant_data.xml",
-        "data/llm_assistant_data.xml",
+        "data/llm_agent_tag_data.xml",
+        "data/llm_agent_category_data.xml",
+        "data/llm_tool_invoke_agent_data.xml",
+        "data/llm_agent_data.xml",
     ],
     "demo": [
         "data/llm_publisher_demo.xml",
@@ -66,7 +66,7 @@
             "llm/static/src/components/llm_chat_container/llm_chat_container.js",
             "llm/static/src/components/llm_chat_container/llm_chat_container.xml",
             "llm/static/src/components/llm_chat_container/llm_chat_container.scss",
-            # Thread Header component with assistant selection
+            # Thread Header component with agent selection
             "llm/static/src/components/llm_thread_header/llm_thread_header.js",
             "llm/static/src/components/llm_thread_header/llm_thread_header.xml",
             "llm/static/src/components/llm_thread_header/llm_thread_header.scss",

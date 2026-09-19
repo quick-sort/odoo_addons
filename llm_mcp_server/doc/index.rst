@@ -82,7 +82,7 @@ Common Setups
 What is MCP?
 ------------
 
-`Model Context Protocol (MCP) <https://modelcontextprotocol.io/>`_ is an open standard by Anthropic that lets AI assistants securely access external tools and data sources. This module implements an MCP server directly in Odoo.
+`Model Context Protocol (MCP) <https://modelcontextprotocol.io/>`_ is an open standard by Anthropic that lets AI agents securely access external tools and data sources. This module implements an MCP server directly in Odoo.
 
 Requirements
 ------------

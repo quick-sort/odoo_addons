@@ -10,7 +10,7 @@ This module integrates Anthropic's Claude API with the Odoo LLM framework, provi
 ┌─────────────────────────────────────────────────────────────────┐
 │                    Used By (Any LLM Module)                     │
 │  ┌─────────────┐  ┌───────────┐  ┌─────────────┐  ┌───────────┐ │
-│  │llm_assistant│  │llm_thread │  │llm_knowledge│  │llm_generate│ │
+│  │llm_agent│  │llm_thread │  │llm_knowledge│  │llm_generate│ │
 │  └──────┬──────┘  └─────┬─────┘  └──────┬──────┘  └─────┬─────┘ │
 └─────────┼───────────────┼───────────────┼───────────────┼───────┘
           │               │               │               │
@@ -36,7 +36,7 @@ This module integrates Anthropic's Claude API with the Odoo LLM framework, provi
 **For AI chat with Claude:**
 
 ```bash
-odoo-bin -d your_db -i llm_assistant,llm_anthropic
+odoo-bin -d your_db -i llm_agent,llm_anthropic
 ```
 
 ### Auto-Installed Dependencies
@@ -56,7 +56,7 @@ odoo-bin -d your_db -i llm_assistant,llm_anthropic
 
 | I want to...             | Install                                  |
 | ------------------------ | ---------------------------------------- |
-| Chat with Claude         | `llm_assistant` + `llm_anthropic`        |
+| Chat with Claude         | `llm_agent` + `llm_anthropic`        |
 | Claude + document search | Above + `llm_knowledge` + `llm_pgvector` |
 | Claude + external tools  | Above + `llm_mcp_server`                 |
 
@@ -137,7 +137,7 @@ This module extends the base LLM integration framework with Anthropic-specific i
 Claude supports extended thinking mode, which allows the model to show its reasoning process:
 
 ```python
-# Enable extended thinking in your assistant configuration
+# Enable extended thinking in your agent configuration
 response = provider.chat(
     messages=messages,
     extended_thinking=True,

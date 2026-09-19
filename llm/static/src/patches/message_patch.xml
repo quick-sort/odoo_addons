@@ -16,7 +16,7 @@
                 <LLMToolMessage message="message" />
             </t>
 
-            <!-- Assistant Message with Tool Calls -->
+            <!-- Agent Message with Tool Calls -->
             <t t-if="hasToolCalls">
                 <div
           class="o_llm_tool_calls mt-2 small text-muted border-top pt-2"

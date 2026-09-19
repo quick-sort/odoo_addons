@@ -14,7 +14,7 @@ graph TD
     end
 
     subgraph Odoo AI Chat
-        LA[llm_assistant]
+        LA[llm_agent]
         LT[llm_thread]
     end
 
@@ -53,8 +53,8 @@ This module is **auto-installed** as a dependency. You typically don't install i
 | I want to...                                 | Install                                                 |
 | -------------------------------------------- | ------------------------------------------------------- |
 | **Use Claude/Cursor/Codex with Odoo (MCP)**  | `llm_mcp_server` (+ tool packs below)                   |
-| Chat with AI inside Odoo                     | `llm_assistant` + `llm_openai`                          |
-| Use local AI (privacy)                       | `llm_assistant` + `llm_ollama`                          |
+| Chat with AI inside Odoo                     | `llm_agent` + `llm_openai`                          |
+| Use local AI (privacy)                       | `llm_agent` + `llm_ollama`                          |
 | Add RAG/knowledge base                       | Above + `llm_knowledge` + `llm_pgvector`                |
 | AI-powered accounting via MCP or chat        | `llm_tool_account` (+ `llm_mcp_server` for external AI) |
 | AI-powered financial reporting (MIS Builder) | `llm_tool_mis_builder` (+ `llm_mcp_server`)             |
@@ -71,7 +71,7 @@ After installing, each user generates their own API key from **My Profile → Ac
 
 ### Domain-Specific Tool Packs
 
-Install tool packs to give AI assistants (both in-Odoo and external MCP clients) specialized capabilities:
+Install tool packs to give AI agents (both in-Odoo and external MCP clients) specialized capabilities:
 
 | Module                     | Tools | Description                                                                |
 | -------------------------- | ----- | -------------------------------------------------------------------------- |
@@ -96,7 +96,7 @@ The base `llm_tool` module also includes 6 **generic CRUD tools** out of the box
 | Category           | Modules                                                                                               |
 | ------------------ | ----------------------------------------------------------------------------------------------------- |
 | **MCP Server**     | `llm_mcp_server`                                                                                      |
-| **Interfaces**     | `llm_assistant`, `llm_thread`                                                                         |
+| **Interfaces**     | `llm_agent`, `llm_thread`                                                                         |
 | **Tool Framework** | `llm_tool` → `llm_tool_account`, `llm_tool_mis_builder`, `llm_tool_knowledge`, `llm_tool_ocr_mistral` |
 | **Providers**      | `llm_openai`, `llm_ollama`, `llm_mistral`, `llm_replicate`, `llm_fal_ai`                              |
 | **Infrastructure** | `llm_store`, `llm_generate`                                                                           |
@@ -123,7 +123,7 @@ The module extends Odoo's `mail.message` model with LLM-specific fields:
 # Performance-optimized role field (10x faster queries)
 llm_role = fields.Selection([
     ('user', 'User'),
-    ('assistant', 'Assistant'),
+    ('assistant', 'Agent'),
     ('tool', 'Tool'),
     ('system', 'System')
 ], compute='_compute_llm_role', store=True, index=True)
@@ -416,9 +416,9 @@ Build complete AI solutions by combining with specialized modules:
 - **`llm_tool_knowledge`**: RAG tools for semantic search, knowledge retrieval, and source citations
 - **`llm_tool_ocr_mistral`**: OCR tool using Mistral vision models for invoices, receipts, scanned documents
 
-### Chat & Assistants
+### Chat & Agents
 
-- **`llm_assistant`**: AI assistants with custom prompts and personalities
+- **`llm_agent`**: AI agents with custom prompts and personalities
 - **`llm_thread`**: Chat interfaces and conversation management
 
 ### Infrastructure

@@ -4,7 +4,7 @@ from odoo import fields, models
 
 
 class LLMAssistantTag(models.Model):
-    _name = "llm.assistant.tag"
+    _name = "llm.agent.tag"
     _description = "LLM Assistant Tag"
 
     def _get_default_color(self):

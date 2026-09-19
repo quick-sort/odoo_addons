@@ -67,4 +67,6 @@
         <field name="res_model">llm.knowledge.chunkset</field>
         <field name="view_mode">list,form</field>
     </record>
+
+    <menuitem id="menu_llm_knowledge_chunkset" name="Chunking" parent="menu_llm_document_processing" action="action_llm_knowledge_chunkset" sequence="40" />
 </odoo>

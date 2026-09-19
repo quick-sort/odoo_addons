@@ -6,10 +6,10 @@
     "description": """
 LLM Discuss Live Chat
 ======================
-Companion module for ``llm_discuss``: lets an assistant's Discuss bot user be
+Companion module for ``llm_discuss``: lets an agent's Discuss bot user be
 registered as an operator on one or more ``im_livechat.channel`` records, and
 adds the Live-Chat-specific auto-reply trigger (every visitor message in a
-session where the assistant is the operator).
+session where the agent is the operator).
 
 See ``DESIGN.md`` in this module for details, including how this interacts
 with human operators and with Odoo's native ``chatbot.script`` framework.
@@ -23,7 +23,7 @@ with human operators and with Odoo's native ``chatbot.script`` framework.
     "author": "quick-sort@outlook.com",
     "website": "quick-sort@outlook.com",
     "data": [
-        "views/llm_assistant_views.xml",
+        "views/llm_agent_views.xml",
     ],
     "license": "LGPL-3",
     "installable": True,

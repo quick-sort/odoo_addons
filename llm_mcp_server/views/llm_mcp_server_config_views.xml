@@ -243,7 +243,7 @@
     id="menu_llm_mcp_server_config"
     name="MCP Server"
     action="llm_mcp_server_config_action"
-    parent="llm.menu_llm_config"
+    parent="llm.menu_llm_basic"
     sequence="50"
   />
 

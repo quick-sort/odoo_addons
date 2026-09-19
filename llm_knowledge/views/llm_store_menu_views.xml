@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <odoo>
-    <menuitem id="menu_llm_storage_config" name="Storage" parent="llm.menu_llm_config" sequence="30" />
-    <menuitem id="menu_llm_store" name="Store Instances" action="llm_store_action" parent="menu_llm_storage_config" sequence="10" />
-    <menuitem id="menu_llm_store_database" name="Store Databases" action="action_llm_store_database" parent="menu_llm_storage_config" sequence="20" />
+    <menuitem id="menu_llm_vector_store_config" name="Vector Store" parent="llm.menu_llm_config" sequence="40" />
+    <menuitem id="menu_llm_store" name="Instances" action="llm_store_action" parent="menu_llm_vector_store_config" sequence="10" />
+    <menuitem id="menu_llm_store_database" name="Databases" action="action_llm_store_database" parent="menu_llm_vector_store_config" sequence="20" />
 </odoo>

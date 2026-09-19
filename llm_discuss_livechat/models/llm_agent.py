@@ -2,22 +2,22 @@ from odoo import fields, models
 
 
 class LlmAssistant(models.Model):
-    _inherit = "llm.assistant"
+    _inherit = "llm.agent"
 
     livechat_channel_ids = fields.Many2many(
         "im_livechat.channel",
-        "llm_assistant_livechat_channel_rel",
-        "assistant_id",
+        "llm_agent_livechat_channel_rel",
+        "agent_id",
         "livechat_channel_id",
         string="Live Chat Channels",
-        help="Live Chat channels this assistant is registered as an "
+        help="Live Chat channels this agent is registered as an "
         "operator on. Requires a Bot User (see the Discuss tab).",
     )
 
     def write(self, vals):
         old_bot_users = {
-            assistant.id: assistant.discuss_user_id
-            for assistant in self
+            agent.id: agent.discuss_user_id
+            for agent in self
         }
         res = super().write(vals)
         if "livechat_channel_ids" in vals or "discuss_user_id" in vals:
@@ -43,16 +43,16 @@ class LlmAssistant(models.Model):
         """Synchronize selected channels and remove replaced bot users."""
         old_bot_users = old_bot_users or {}
         LivechatChannel = self.env["im_livechat.channel"].sudo()
-        for assistant in self:
-            bot_user = assistant.discuss_user_id
-            old_bot = old_bot_users.get(assistant.id)
+        for agent in self:
+            bot_user = agent.discuss_user_id
+            old_bot = old_bot_users.get(agent.id)
             if old_bot and old_bot != bot_user:
                 old_channels = LivechatChannel.search([("user_ids", "in", old_bot.id)])
                 old_channels.write({"user_ids": [fields.Command.unlink(old_bot.id)]})
 
             if not bot_user:
                 continue
-            selected = assistant.livechat_channel_ids
+            selected = agent.livechat_channel_ids
             currently_operator_on = LivechatChannel.search(
                 [("user_ids", "in", bot_user.id)]
             )

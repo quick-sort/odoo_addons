@@ -13,7 +13,7 @@ _logger = logging.getLogger(__name__)
 
 
 class LLMAssistant(models.Model):
-    _name = "llm.assistant"
+    _name = "llm.agent"
     _description = "LLM Assistant"
     _inherit = ["mail.thread"]
     _order = "name"
@@ -25,7 +25,7 @@ class LLMAssistant(models.Model):
     )
     active = fields.Boolean(default=True, tracking=True)
 
-    # Assistant configuration
+    # Agent configuration
     provider_id = fields.Many2one(
         "llm.provider",
         string="Provider",
@@ -43,49 +43,49 @@ class LLMAssistant(models.Model):
     is_public = fields.Boolean(
         string="Public",
         default=False,
-        help="If checked, this assistant will be available to all users",
+        help="If checked, this agent will be available to all users",
     )
 
     allowed_group_ids = fields.Many2many(
         "res.groups",
-        "llm_assistant_group_rel",
-        "assistant_id",
+        "llm_agent_group_rel",
+        "agent_id",
         "group_id",
         string="Allowed Groups",
-        help="Groups that can access this assistant. If empty and not public, only internal users can access it.",
+        help="Groups that can access this agent. If empty and not public, only internal users can access it.",
     )
 
     code = fields.Char(
         string="Code",
-        help="Unique code identifier for the assistant (e.g., roleplay, avatar_generation)",
+        help="Unique code identifier for the agent (e.g., roleplay, avatar_generation)",
         index=True,
     )
 
     res_model = fields.Char(
         string="Related Model",
-        help="Model that this assistant is associated with (e.g., fleek.character)",
+        help="Model that this agent is associated with (e.g., fleek.character)",
     )
 
     is_default = fields.Boolean(
         string="Is Default",
         default=False,
-        help="If enabled, this assistant will be used as the default for its model/category",
+        help="If enabled, this agent will be used as the default for its model/category",
     )
 
     # ------------------------------------------------------------------
     # Prompt template
     #
     # Flattened out of a former ``llm.prompt`` model. That model existed to make
-    # templates reusable across assistants, but nothing reused them: the three
-    # shipped prompts mapped 1:1 to the three shipped assistants. The template
-    # now belongs to the assistant that uses it, and is used verbatim -- no
+    # templates reusable across agents, but nothing reused them: the three
+    # shipped prompts mapped 1:1 to the three shipped agents. The template
+    # now belongs to the agent that uses it, and is used verbatim -- no
     # variable substitution.
     # ------------------------------------------------------------------
     template = fields.Text(
         string="Prompt Template",
         required=True,
         tracking=True,
-        help="This assistant's system prompt, used as-is.",
+        help="This agent's system prompt, used as-is.",
     )
 
     template_format = fields.Selection(
@@ -104,26 +104,26 @@ class LLMAssistant(models.Model):
     )
 
     category_id = fields.Many2one(
-        "llm.assistant.category",
+        "llm.agent.category",
         string="Category",
         index=True,
-        help="Category for organizing assistants",
+        help="Category for organizing agents",
     )
 
     tag_ids = fields.Many2many(
-        "llm.assistant.tag",
-        "llm_assistant_tag_rel",
-        "assistant_id",
+        "llm.agent.tag",
+        "llm_agent_tag_rel",
+        "agent_id",
         "tag_id",
         string="Tags",
-        help="Classify and analyze your assistants",
+        help="Classify and analyze your agents",
     )
 
     # Tools configuration
     tool_ids = fields.Many2many(
         "llm.tool",
         string="Preferred Tools",
-        help="Tools that this assistant can use",
+        help="Tools that this agent can use",
         tracking=True,
     )
 
@@ -138,13 +138,13 @@ class LLMAssistant(models.Model):
     thread_count = fields.Integer(
         string="Thread Count",
         compute="_compute_thread_count",
-        help="Number of threads using this assistant",
+        help="Number of threads using this agent",
     )
     thread_ids = fields.One2many(
         "llm.thread",
-        "assistant_id",
+        "agent_id",
         string="Threads",
-        help="Threads using this assistant",
+        help="Threads using this agent",
     )
 
     system_prompt_preview = fields.Text(
@@ -155,26 +155,26 @@ class LLMAssistant(models.Model):
 
     _unique_code = models.Constraint(
         'UNIQUE(code)',
-        'Assistant code must be unique.',
+        'Agent code must be unique.',
     )
 
     @api.depends("template", "template_format")
     def _compute_system_prompt_preview(self):
         """Render the template for the form view."""
-        for assistant in self:
+        for agent in self:
             try:
-                messages = assistant.get_messages()
+                messages = agent.get_messages()
             except Exception as error:  # noqa: BLE001 - a preview must not raise
                 _logger.info(
-                    "Could not render prompt preview for assistant %s: %s",
-                    assistant.name,
+                    "Could not render prompt preview for agent %s: %s",
+                    agent.name,
                     error,
                 )
-                assistant.system_prompt_preview = f"Error: {error}"
+                agent.system_prompt_preview = f"Error: {error}"
                 continue
 
             if not messages:
-                assistant.system_prompt_preview = "No messages generated"
+                agent.system_prompt_preview = "No messages generated"
                 continue
 
             # Prefer the system message; fall back to the first one.
@@ -184,24 +184,24 @@ class LLMAssistant(models.Model):
             )
             content = message.get("content")
             if isinstance(content, list) and content:
-                assistant.system_prompt_preview = content[0].get("text", "")
+                agent.system_prompt_preview = content[0].get("text", "")
             elif isinstance(content, str):
-                assistant.system_prompt_preview = content
+                agent.system_prompt_preview = content
             else:
-                assistant.system_prompt_preview = str(content)
+                agent.system_prompt_preview = str(content)
 
     @api.depends("thread_ids")
     def _compute_thread_count(self):
-        """Compute the number of threads using this assistant"""
-        for assistant in self:
-            assistant.thread_count = len(assistant.thread_ids)
+        """Compute the number of threads using this agent"""
+        for agent in self:
+            agent.thread_count = len(agent.thread_ids)
 
     # ------------------------------------------------------------------
     # Template rendering
     # ------------------------------------------------------------------
 
     def get_messages(self):
-        """Return this assistant's template as a list of message dicts.
+        """Return this agent's template as a list of message dicts.
 
         Returns:
             list of ``{"role": str, "content": [{"type": "text", "text": str}]}``
@@ -220,7 +220,7 @@ class LLMAssistant(models.Model):
                 return list(self._parse_dict_messages(json.loads(content)))
         except (json.JSONDecodeError, yaml.YAMLError) as error:
             _logger.error(
-                "Error parsing %s prompt for assistant %s: %s",
+                "Error parsing %s prompt for agent %s: %s",
                 self.template_format,
                 self.name,
                 error,
@@ -319,13 +319,13 @@ class LLMAssistant(models.Model):
                 yield from self._parse_dict_messages(item)
 
     def action_view_threads(self):
-        """Open the threads using this assistant"""
+        """Open the threads using this agent"""
         self.ensure_one()
         action = self.env["ir.actions.actions"]._for_xml_id(
             "llm.llm_thread_action"
         )
-        action["domain"] = [("assistant_id", "=", self.id)]
-        action["context"] = {"default_assistant_id": self.id}
+        action["domain"] = [("agent_id", "=", self.id)]
+        action["context"] = {"default_agent_id": self.id}
         return action
 
     def _notify(self, title, message, kind):
@@ -341,48 +341,48 @@ class LLMAssistant(models.Model):
         }
 
     @api.model
-    def get_assistant_by_id(self, assistant_id):
-        """Get an assistant record by its ID
+    def get_agent_by_id(self, agent_id):
+        """Get an agent record by its ID
 
         Args:
-            assistant_id (int): ID of the assistant
+            agent_id (int): ID of the agent
 
         Returns:
-            tuple: (assistant, error_response)
+            tuple: (agent, error_response)
                   If successful, error_response will be None
-                  If error, assistant will be None
+                  If error, agent will be None
         """
-        if not assistant_id:
+        if not agent_id:
             return None, None
 
-        assistant = self.browse(int(assistant_id))
-        if not assistant.exists():
-            return None, {"success": False, "error": "Assistant not found"}
-        return assistant, None
+        agent = self.browse(int(agent_id))
+        if not agent.exists():
+            return None, {"success": False, "error": "Agent not found"}
+        return agent, None
 
-    def get_assistant_values(self, thread, include_template=True):
-        """Get assistant metadata for a thread.
+    def get_agent_values(self, thread, include_template=True):
+        """Get agent metadata for a thread.
 
-        Served by ``/llm/thread/set_assistant`` and
-        ``/llm/thread/get_assistant_values``.
+        Served by ``/llm/thread/set_agent`` and
+        ``/llm/thread/get_agent_values``.
 
         Args:
             thread (llm.thread): Thread record
             include_template (bool): Whether to include the prompt template
 
         Returns:
-            dict: Result with assistant info and template info
+            dict: Result with agent info and template info
         """
         self.ensure_one()
 
         result = {
             "success": True,
             "thread_id": thread.id,
-            "assistant_id": self.id,
+            "agent_id": self.id,
         }
 
         # Used to be the related llm.prompt record; the template lives on the
-        # assistant now, so report it directly.
+        # agent now, so report it directly.
         if include_template:
             result["template"] = {
                 "format": self.template_format,
@@ -390,16 +390,16 @@ class LLMAssistant(models.Model):
 
         return result
 
-    def _get_allowed_assistants_for_user(self, user=None):
-        """Get assistants that the current user can access"""
+    def _get_allowed_agents_for_user(self, user=None):
+        """Get agents that the current user can access"""
         if not user:
             user = self.env.user
 
-        # Admin can access all assistants
+        # Admin can access all agents
         if user.has_group("base.group_system"):
             return self.search([])
 
-        # Assistants allowed for user's groups
+        # Agents allowed for user's groups
         if user.group_ids:
             domain = [
                 "|",
@@ -407,14 +407,14 @@ class LLMAssistant(models.Model):
                 ("allowed_group_ids", "in", user.group_ids.ids),
             ]
         else:
-            # If user has no groups, only public assistants
+            # If user has no groups, only public agents
             domain = [("is_public", "=", True)]
 
         return self.search(domain)
 
     @api.model
-    def get_assistant_by_code(self, code):
-        """Get assistant by code"""
+    def get_agent_by_code(self, code):
+        """Get agent by code"""
         return self.search([("code", "=", code)], limit=1)
 
     def _invocation_background_messages(self, background):
@@ -447,7 +447,7 @@ class LLMAssistant(models.Model):
         ]
 
     def _run_in_thread(self, query, thread_vals=None, stream=None, background=None):
-        """Create a sub-thread and run the assistant in the current environment.
+        """Create a sub-thread and run the agent in the current environment.
 
         The caller controls the execution identity by binding ``self`` with
         ``with_user`` before entering this method. Provider credentials are
@@ -456,12 +456,12 @@ class LLMAssistant(models.Model):
         """
         self.ensure_one()
         code = self.code or self.name
-        depth = self.env.context.get("llm_invoke_assistant_depth", 0)
+        depth = self.env.context.get("llm_invoke_agent_depth", 0)
         new_cursor = self.env.context.get("llm_invoke_as_subthread", False)
         vals = {
             "provider_id": self.provider_id.id,
             "model_id": self.model_id.id,
-            "assistant_id": self.id,
+            "agent_id": self.id,
             "tool_ids": [(6, 0, self.tool_ids.ids)],
             "user_id": self.env.user.id,
         }
@@ -475,7 +475,7 @@ class LLMAssistant(models.Model):
         additional_messages = self._invocation_background_messages(background)
 
         _logger.info(
-            "[assistant.run] START code=%r thread_id=%d depth=%d "
+            "[agent.run] START code=%r thread_id=%d depth=%d "
             "isolated_cursor=%s query_len=%d execution_uid=%d stream=%s",
             code, thread.id, depth, new_cursor, len(query or ""),
             self.env.uid, stream,
@@ -498,7 +498,7 @@ class LLMAssistant(models.Model):
                     break
         except Exception as exc:
             _logger.exception(
-                "Error running assistant '%s' (thread %s)", code, thread.id,
+                "Error running agent '%s' (thread %s)", code, thread.id,
             )
             error = str(exc)
         elapsed = time.monotonic() - start
@@ -506,10 +506,10 @@ class LLMAssistant(models.Model):
         if final_message and final_message.is_error and not error:
             error = str(final_message.body or "LLM generation failed")
         elif final_message and final_message.llm_role != "assistant" and not error:
-            error = "The assistant did not produce a final response."
+            error = "The agent did not produce a final response."
 
         _logger.info(
-            "[assistant.run] END   code=%r thread_id=%d elapsed=%.1fs error=%s",
+            "[agent.run] END   code=%r thread_id=%d elapsed=%.1fs error=%s",
             code, thread.id, elapsed, error,
         )
 
@@ -524,7 +524,7 @@ class LLMAssistant(models.Model):
             ], order="id desc", limit=1)
 
         _logger.info(
-            "[assistant.run] result code=%r thread_id=%d message_id=%s "
+            "[agent.run] result code=%r thread_id=%d message_id=%s "
             "llm_role=%s body_len=%s",
             code, thread.id,
             message.id if message else None,
@@ -547,7 +547,7 @@ class LLMAssistant(models.Model):
             if message.body:
                 result_html = str(message.body)
         elif not error:
-            error = "The assistant returned no response."
+            error = "The agent returned no response."
 
         return {
             "query": query,
@@ -599,7 +599,7 @@ class LLMAssistant(models.Model):
         new_cursor=True,
         stream=None,
     ):
-        """Run this assistant as the current user without privileged context.
+        """Run this agent as the current user without privileged context.
 
         This public ORM method is RPC-callable, so it intentionally accepts
         neither an execution user nor system-role background messages.
@@ -631,22 +631,22 @@ class LLMAssistant(models.Model):
         )
 
     @api.model
-    def invoke_assistant(self, assistant_code, query, parent_context=None,
+    def invoke_agent(self, agent_code, query, parent_context=None,
                          thread_vals=None, new_cursor=True):
-        """Look up an assistant by code and run it.
+        """Look up an agent by code and run it.
 
-        Convenience wrapper: ``get_assistant_by_code`` + ``invoke``. See
+        Convenience wrapper: ``get_agent_by_code`` + ``invoke``. See
         ``invoke`` for transaction semantics and the ``new_cursor`` flag.
         """
-        assistant = self.get_assistant_by_code(assistant_code)
-        if not assistant:
+        agent = self.get_agent_by_code(agent_code)
+        if not agent:
             return {
                 "query": query,
                 "result": None,
-                "error": f"Assistant with code '{assistant_code}' not found.",
+                "error": f"Agent with code '{agent_code}' not found.",
                 "thread_id": None,
             }
-        return assistant.invoke(
+        return agent.invoke(
             query,
             parent_context=parent_context,
             thread_vals=thread_vals,

@@ -6,13 +6,13 @@
     "description": """
 LLM Discuss
 ===========
-Bridges the ``llm`` module's assistants with Odoo's Discuss app.
+Bridges the ``llm`` module's agents with Odoo's Discuss app.
 
-Any ``llm.assistant`` can be promoted to an internal Discuss bot:
+Any ``llm.agent`` can be promoted to an internal Discuss bot:
 
-- A dedicated technical ``res.users`` account can represent the assistant in
+- A dedicated technical ``res.users`` account can represent the agent in
   direct chats, channels, and Live Chat.
-- One assistant can instead take over the existing OdooBot private chat after
+- One agent can instead take over the existing OdooBot private chat after
   each user's native onboarding is complete. The visible identity remains
   OdooBot, but hidden threads and tools execute with the sender's permissions.
 - Replies are generated asynchronously and posted as one complete native
@@ -20,7 +20,7 @@ Any ``llm.assistant`` can be promoted to an internal Discuss bot:
 
 See ``DESIGN.md`` in this module for the full architecture write-up.
 
-Live Chat support (assigning a dedicated assistant bot as an operator) is
+Live Chat support (assigning a dedicated agent bot as an operator) is
 provided by the companion module ``llm_discuss_livechat``.
     """,
     "category": "Productivity, Discuss",
@@ -36,7 +36,7 @@ provided by the companion module ``llm_discuss_livechat``.
     "data": [
         "security/ir.model.access.csv",
         "data/ir_cron_data.xml",
-        "views/llm_assistant_views.xml",
+        "views/llm_agent_views.xml",
     ],
     "assets": {
         "web.assets_backend": [

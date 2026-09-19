@@ -1,6 +1,6 @@
 # LLM Discuss
 
-Connect `llm.assistant` to Odoo's native Discuss threads and floating
+Connect `llm.agent` to Odoo's native Discuss threads and floating
 ChatWindow, either through a dedicated bot user or through the existing
 OdooBot private chat.
 
@@ -8,14 +8,14 @@ OdooBot private chat.
 
 ## What it does
 
-- Creates an optional dedicated internal bot user for an assistant.
-- Adds an **AI Assistant** systray launcher for dedicated bots. It creates or
+- Creates an optional dedicated internal bot user for an agent.
+- Adds an **AI Agent** systray launcher for dedicated bots. It creates or
   reuses the native 1:1 `discuss.channel` and opens Odoo's floating chat.
-- Lets exactly one active assistant take over each user's existing OdooBot
+- Lets exactly one active agent take over each user's existing OdooBot
   private chat after native onboarding finishes. Onboarding, `start the tour`,
   and `/help` remain handled by Odoo; LLM replies keep the OdooBot name/avatar.
 - Replies in dedicated direct chats and/or on `@mention`, according to the
-  assistant's **Reply Trigger** setting.
+  agent's **Reply Trigger** setting.
 - Captures the active backend page (`res_model`, form `res_id`, `view_type`,
   and `action_id`) when each message is sent, including OdooBot chats. Record
   read access is checked before a minimal snapshot enters the LLM context.
@@ -33,7 +33,7 @@ company. Provider credentials and the final native post use narrow sudo scopes;
 business data and tools never inherit OdooBot/root permissions.
 
 Website Live Chat guests have no internal source user, so the companion module
-uses the assistant's dedicated low-privilege bot user for execution.
+uses the agent's dedicated low-privilege bot user for execution.
 
 ## Install and configure
 
@@ -41,13 +41,13 @@ uses the assistant's dedicated low-privilege bot user for execution.
 odoo-bin -d your_db -i llm_discuss
 ```
 
-Configure an assistant and make it public or assign it to the intended groups.
+Configure an agent and make it public or assign it to the intended groups.
 Then choose either or both modes:
 
 1. **Dedicated Bot User:** create its Bot User, enable Discuss, and add that
    user to the required chat/channel.
 2. **OdooBot Private Chat:** enable **Use for OdooBot Private Chat**. Only one
-   assistant can hold this setting; no dedicated bot user is required.
+   agent can hold this setting; no dedicated bot user is required.
 
 For website Live Chat operator support, install `llm_discuss_livechat` too.
 

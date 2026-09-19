@@ -15,7 +15,7 @@ Odoobot 就是 `base.partner_root`（XML-ID 引用的一个 `res.partner`，对�
 `base.user_root`）。Bot 消息 = 以该 partner 为 author 的普通 `mail.message`。
 前端对 bot **零特殊处理**——它就是一个普通 channel 成员。
 
-推论：任何 partner 都可以扮演 bot。llm_discuss v1 已利用这一点（每个 assistant
+推论：任何 partner 都可以扮演 bot。llm_discuss v1 已利用这一点（每个 agent
 一个 `discuss_user_id`），比共用 `partner_root` 干净。
 
 ### 1.2 逻辑层：`mail.bot` AbstractModel
@@ -99,8 +99,8 @@ def _notify_thread(self, message, msg_vals=False, **kwargs):
 
 ## 3. v2 方向之一：多轮上下文（DESIGN.md §3/§8 遗留项）
 
-v1 把触发消息的 body 作为 query 喂给 `llm.assistant.invoke()`，每次调用开新
-`llm.thread`，assistant 看不到频道历史。v2 的核心问题是：discuss.channel 的
+v1 把触发消息的 body 作为 query 喂给 `llm.agent.invoke()`，每次调用开新
+`llm.thread`，agent 看不到频道历史。v2 的核心问题是：discuss.channel 的
 消息历史如何进入 LLM 上下文。
 
 ### 3.1 方案对比
@@ -109,9 +109,9 @@ v1 把触发消息的 body 作为 query 喂给 `llm.assistant.invoke()`，每次
 |---|---|---|---|
 | A. 双写 | 用户消息同时 post 到 channel 和 llm.thread | 简单直接 | channel 是 UI 真相源，双写必然漂移（编辑/删除/删不同步） |
 | B. channel 即历史 | `llm.thread` 扩展：绑定的 thread 直接把 discuss.channel 消息当作自己的历史（override `get_llm_messages()` 按 channel 查询） | 单一真相源，无同步问题；`llm.thread` 已继承 `mail.thread` 且消息查询按 `model/res_id`，机制天然兼容 | 需要处理 role 映射（bot 消息 → assistant role，人类消息 → user role）；thread 独立 UI 与 channel 消息会混在一起，需注意隔离 |
-| C. 每轮重放 | 每次触发时把 channel 最近 N 条消息拼成 messages 传给 LLM | 无 schema 改动 | 每轮重放，token 浪费；llm.thread 里的 assistant 内部推理（tool 调用链）无法保留 |
+| C. 每轮重放 | 每次触发时把 channel 最近 N 条消息拼成 messages 传给 LLM | 无 schema 改动 | 每轮重放，token 浪费；llm.thread 里的 agent 内部推理（tool 调用链）无法保留 |
 
-**推荐 B**。依据（来自 `llm_assistant/models/llm_thread.py` 的实现事实）：
+**推荐 B**。依据（来自 `llm_agent/models/llm_thread.py` 的实现事实）：
 - `llm.thread.generate_messages()` 的上下文全部来自 `get_llm_messages()`
   （llm_thread.py:351）：按 `model='llm.thread', res_id=thread.id,
   llm_role != False, is_error = False` 查 `mail.message`。
@@ -166,7 +166,7 @@ Discuss 没有原生 SSE 通道给消息体。两个选项：
 
 - **mention 生效的前提是 bot 是成员**：`_get_allowed_message_partner_ids`
   （discuss_channel.py:987）会把不在成员里的 mention 过滤掉，所以
-  `discuss_trigger_mode = mention` 依赖 v1 的"绑定 assistant 时自动拉 bot
+  `discuss_trigger_mode = mention` 依赖 v1 的"绑定 agent 时自动拉 bot
   入成员"行为——若 channel 创建早于绑定，需确保补拉成员。
 - **`everyone` mention 不会触发 bot 的 mention 规则**：`special_mentions`
   中的 `everyone` 展开为全部成员 partner_ids（discuss_channel.py:1010），

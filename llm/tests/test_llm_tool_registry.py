@@ -199,7 +199,7 @@ class TestBuiltinTools(LLMToolCase):
             self.assertFalse(tool.res_id, "built-ins are model-level calls")
 
     def test_builtins_keep_their_xmlids(self):
-        """llm.assistant seed data references them, so the ids must survive."""
+        """llm.agent seed data references them, so the ids must survive."""
         for method in self.EXPECTED:
             ref = self.env.ref(f"llm.llm_tool_{method}")
             self.assertEqual(ref.res_method, method)

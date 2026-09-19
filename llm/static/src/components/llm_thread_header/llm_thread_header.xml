@@ -61,36 +61,36 @@
                     <i class="fa fa-spinner fa-spin text-muted" />
                 </t>
 
-                <!-- Assistant Dropdown -->
+                <!-- Agent Dropdown -->
                 <Dropdown>
                     <button
             class="btn btn-sm btn-outline-secondary dropdown-toggle"
           >
                         <i class="fa fa-user me-1" />
                         <span
-              t-if="currentAssistant"
-              t-esc="currentAssistant.name"
+              t-if="currentAgent"
+              t-esc="currentAgent.name"
             />
-                        <span t-else="">Select Assistant</span>
+                        <span t-else="">Select Agent</span>
                     </button>
                     <t t-set-slot="content">
                         <t
               t-foreach="availableAssistants"
               t-as="assistant"
-              t-key="assistant.id"
+              t-key="agent.id"
             >
                             <DropdownItem
-                onSelected="() => this.selectAssistant(assistant)"
-                class="{'active': currentAssistant?.id === assistant.id}"
+                onSelected="() => this.selectAgent(agent)"
+                class="{'active': currentAgent?.id === agent.id}"
               >
-                                <span t-esc="assistant.name" />
+                                <span t-esc="agent.name" />
                             </DropdownItem>
                         </t>
                         <div
               t-if="availableAssistants.length === 0"
               class="dropdown-item-text text-muted"
             >
-                            No assistants available
+                            No agents available
                         </div>
                     </t>
                 </Dropdown>

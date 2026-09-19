@@ -6,8 +6,8 @@ import { DropdownItem } from "@web/core/dropdown/dropdown_item";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 
-export class LlmAssistantLauncher extends Component {
-    static template = "llm_discuss.AssistantLauncher";
+export class LlmAgentLauncher extends Component {
+    static template = "llm_discuss.AgentLauncher";
     static components = { Dropdown, DropdownItem };
     static props = [];
 
@@ -15,13 +15,13 @@ export class LlmAssistantLauncher extends Component {
         this.llmDiscuss = useService("llm.discuss");
     }
 
-    openAssistant(assistant) {
-        return this.llmDiscuss.openAssistant(assistant);
+    openAgent(agent) {
+        return this.llmDiscuss.openAgent(agent);
     }
 }
 
 registry.category("systray").add(
-    "llm_discuss.AssistantLauncher",
-    { Component: LlmAssistantLauncher },
+    "llm_discuss.AgentLauncher",
+    { Component: LlmAgentLauncher },
     { sequence: 25 }
 );

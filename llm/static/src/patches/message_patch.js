@@ -41,7 +41,7 @@ patch(Message.prototype, {
   },
 
   /**
-   * Check if assistant message has tool calls
+   * Check if agent message has tool calls
    */
   get hasToolCalls() {
     return (
@@ -64,7 +64,7 @@ patch(Message.prototype, {
         className += ` o-llm-message-${this.llmRole}`;
       }
 
-      // Add streaming class for assistant messages that are still being generated
+      // Add streaming class for agent messages that are still being generated
       if (this.llmRole === "assistant" && this.props.message?.isPending) {
         className += " o-llm-message-streaming";
       }
@@ -88,7 +88,7 @@ patch(MessageModel.prototype, {
   computeIsEmpty() {
     // For LLM messages, apply custom logic
     if (this.model === "llm.thread") {
-      // Assistant messages with tool calls are never empty
+      // Agent messages with tool calls are never empty
       if (
         this.llm_role === "assistant" &&
         this.body_json?.tool_calls?.length > 0

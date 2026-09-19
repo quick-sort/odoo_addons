@@ -22,8 +22,8 @@ class LlmDiscussReplyQueue(models.Model):
     _description = "Pending LLM Assistant replies to Discuss / Live Chat messages"
     _order = "id"
 
-    assistant_id = fields.Many2one(
-        "llm.assistant",
+    agent_id = fields.Many2one(
+        "llm.agent",
         required=True,
         ondelete="cascade",
         index=True,
@@ -46,7 +46,7 @@ class LlmDiscussReplyQueue(models.Model):
         ondelete="set null",
         index=True,
         help="Partner shown as the author and typing persona of the native reply. "
-        "This is independent from the user whose permissions execute the assistant.",
+        "This is independent from the user whose permissions execute the agent.",
     )
     source_user_id = fields.Many2one(
         "res.users",
@@ -62,7 +62,7 @@ class LlmDiscussReplyQueue(models.Model):
     execution_mode = fields.Selection(
         [
             ("source_user", "Source User"),
-            ("assistant_user", "Assistant Service User"),
+            ("assistant_user", "Agent Service User"),
         ],
         default="source_user",
         required=True,
@@ -95,15 +95,15 @@ class LlmDiscussReplyQueue(models.Model):
     claim_token = fields.Char(readonly=True, copy=False, index=True)
     error_message = fields.Text(readonly=True)
 
-    _unique_assistant_message = models.Constraint(
-        "UNIQUE(assistant_id, message_id)",
-        "An assistant reply is already queued for this message.",
+    _unique_agent_message = models.Constraint(
+        "UNIQUE(agent_id, message_id)",
+        "An agent reply is already queued for this message.",
     )
 
     def _reply_partner(self):
         """Return the persisted persona, with compatibility for existing jobs."""
         self.ensure_one()
-        return self.reply_partner_id or self.assistant_id.discuss_user_id.partner_id
+        return self.reply_partner_id or self.agent_id.discuss_user_id.partner_id
 
     @api.model
     def _expire_stale_jobs(self):
@@ -123,7 +123,7 @@ class LlmDiscussReplyQueue(models.Model):
         self.env.cr.execute(
             query,
             (
-                "Assistant processing timed out; automatic replay was disabled "
+                "Agent processing timed out; automatic replay was disabled "
                 "to avoid repeating tool side effects.",
                 cutoff,
             ),
@@ -214,10 +214,10 @@ class LlmDiscussReplyQueue(models.Model):
         else:
             if self.channel_id.channel_type != "livechat":
                 raise UserError(_("Service-user execution is only allowed for Live Chat guests."))
-            execution_user = self.assistant_id.discuss_user_id
+            execution_user = self.agent_id.discuss_user_id
             company = execution_user.company_id
         if not execution_user or not execution_user.active:
-            raise UserError(_("The assistant execution user is not available."))
+            raise UserError(_("The agent execution user is not available."))
         if company not in execution_user.company_ids:
             raise UserError(_("The execution company is not available to the user."))
         return execution_user, company
@@ -233,8 +233,8 @@ class LlmDiscussReplyQueue(models.Model):
             and not source_user.has_group("base.group_user")
         ):
             return False
-        return self.channel_id._llm_discuss_user_can_use_assistant(
-            self.assistant_id,
+        return self.channel_id._llm_discuss_user_can_use_agent(
+            self.agent_id,
             source_user,
         )
 
@@ -294,7 +294,7 @@ class LlmDiscussReplyQueue(models.Model):
         reply_partner = self._reply_partner()
         active_jobs = self.search(
             [
-                ("assistant_id", "=", self.assistant_id.id),
+                ("agent_id", "=", self.agent_id.id),
                 ("channel_id", "=", self.channel_id.id),
                 ("state", "in", ["pending", "processing"]),
             ]
@@ -369,7 +369,7 @@ class LlmDiscussReplyQueue(models.Model):
             # final reply can be posted. External tools still require their own
             # idempotency guarantees, which is why failures are never replayed.
             with self.env.cr.savepoint():
-                assistant = self.assistant_id
+                agent = self.agent_id
                 message = self.message_id
                 channel = self.channel_id
                 reply_partner = self._reply_partner()
@@ -379,11 +379,11 @@ class LlmDiscussReplyQueue(models.Model):
                     and channel.exists()
                 ):
                     raise UserError(
-                        _("The assistant, reply persona, message, or channel is no longer available.")
+                        _("The agent, reply persona, message, or channel is no longer available.")
                     )
 
                 if not self._reply_is_authorized():
-                    raise UserError(_("You are no longer allowed to use this assistant."))
+                    raise UserError(_("You are no longer allowed to use this agent."))
 
                 execution_user, company = self._execution_user_and_company()
                 background, thread_vals = self._build_background(
@@ -392,8 +392,8 @@ class LlmDiscussReplyQueue(models.Model):
                 )
                 query = html2plaintext(message.body) if message.body else ""
 
-                assistant_as_user = assistant.with_user(execution_user).with_company(company)
-                result = assistant_as_user._invoke_with_background(
+                agent_as_user = agent.with_user(execution_user).with_company(company)
+                result = agent_as_user._invoke_with_background(
                     query,
                     thread_vals=thread_vals,
                     new_cursor=False,
@@ -405,14 +405,14 @@ class LlmDiscussReplyQueue(models.Model):
 
                 body = result.get("result_html") or result.get("result") or ""
                 if not body:
-                    raise UserError(_("The assistant returned an empty response."))
+                    raise UserError(_("The agent returned an empty response."))
 
                 # Fencing lock closes the race between timeout recovery and
                 # posting the final message. A stale worker can no longer post.
                 if not self._lock_owned_claim(claim_token):
                     raise LostQueueClaimError()
                 if not self._reply_is_authorized():
-                    raise UserError(_("The assistant is no longer assigned to this conversation."))
+                    raise UserError(_("The agent is no longer assigned to this conversation."))
 
                 channel.sudo().message_post(
                     author_id=reply_partner.id,

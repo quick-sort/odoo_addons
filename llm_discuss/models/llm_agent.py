@@ -10,21 +10,21 @@ ODOOBOT_UNIQUE_KEY = "odoobot"
 
 
 class LlmAssistant(models.Model):
-    _inherit = "llm.assistant"
+    _inherit = "llm.agent"
 
     discuss_user_id = fields.Many2one(
         "res.users",
         string="Discuss Bot User",
         readonly=True,
         copy=False,
-        help="Internal technical user representing this assistant inside "
+        help="Internal technical user representing this agent inside "
         "Discuss / Live Chat. Created via the 'Create Bot User' button. "
-        "Add this user to a chat/channel to let the assistant participate "
+        "Add this user to a chat/channel to let the agent participate "
         "in it.",
     )
     discuss_enabled = fields.Boolean(
         string="Enable in Discuss",
-        help="When enabled, this assistant automatically replies to "
+        help="When enabled, this agent automatically replies to "
         "messages in Discuss according to the Reply Trigger below. "
         "Requires a Bot User.",
     )
@@ -37,15 +37,15 @@ class LlmAssistant(models.Model):
         string="Reply Trigger",
         default="both",
         required=True,
-        help="Direct chat: the assistant replies to every message in its "
-        "1:1 conversation with a user. @mention: the assistant only "
+        help="Direct chat: the agent replies to every message in its "
+        "1:1 conversation with a user. @mention: the agent only "
         "replies when explicitly mentioned in a (multi-user) channel.",
     )
     odoobot_enabled = fields.Boolean(
         string="Use for OdooBot Private Chat",
         copy=False,
         help="After each user's native OdooBot onboarding is complete, use this "
-        "assistant for that same OdooBot private chat. Replies still appear as "
+        "agent for that same OdooBot private chat. Replies still appear as "
         "OdooBot, while hidden threads and tools run with the sender's permissions.",
     )
     odoobot_unique_key = fields.Char(
@@ -53,9 +53,9 @@ class LlmAssistant(models.Model):
         copy=False,
     )
 
-    _unique_odoobot_assistant = models.Constraint(
+    _unique_odoobot_agent = models.Constraint(
         "UNIQUE(odoobot_unique_key)",
-        "Only one assistant can be configured for OdooBot private chat.",
+        "Only one agent can be configured for OdooBot private chat.",
     )
 
     @api.model_create_multi
@@ -82,17 +82,17 @@ class LlmAssistant(models.Model):
 
     def action_create_discuss_user(self):
         """Create the least-privileged internal user representing the bot."""
-        for assistant in self:
-            if assistant.discuss_user_id:
+        for agent in self:
+            if agent.discuss_user_id:
                 continue
-            login = f"llm-bot-{assistant.code or assistant.id}@bot.internal"
+            login = f"llm-bot-{agent.code or agent.id}@bot.internal"
             user = (
                 self.env["res.users"]
                 .sudo()
                 .with_context(no_reset_password=True)
                 .create(
                     {
-                        "name": assistant.name,
+                        "name": agent.name,
                         "login": login,
                         "share": False,
                         "active": True,
@@ -100,12 +100,12 @@ class LlmAssistant(models.Model):
                     }
                 )
             )
-            assistant.discuss_user_id = user.id
+            agent.discuss_user_id = user.id
             _logger.info(
-                "llm_discuss: created bot user %s (login=%s) for assistant %s",
+                "llm_discuss: created bot user %s (login=%s) for agent %s",
                 user.id,
                 login,
-                assistant.id,
+                agent.id,
             )
         return True
 
@@ -114,8 +114,8 @@ class LlmAssistant(models.Model):
         return self.discuss_user_id.partner_id
 
     @api.model
-    def _get_odoobot_assistant(self):
-        """Return the single active assistant configured for OdooBot chat."""
+    def _get_odoobot_agent(self):
+        """Return the single active agent configured for OdooBot chat."""
         return self.sudo().search(
             [
                 ("active", "=", True),
@@ -125,42 +125,42 @@ class LlmAssistant(models.Model):
         )
 
     @api.model
-    def get_available_discuss_assistants(self):
-        """Return safe launcher metadata for assistants available to the user."""
+    def get_available_discuss_agents(self):
+        """Return safe launcher metadata for agents available to the user."""
         user = self.env.user
         if not user.has_group("base.group_user"):
             return []
-        assistants = self.sudo()._get_allowed_assistants_for_user(user).filtered(
-            lambda assistant: (
-                assistant.active
-                and assistant.discuss_enabled
-                and assistant.discuss_user_id
-                and assistant.discuss_user_id.active
+        agents = self.sudo()._get_allowed_agents_for_user(user).filtered(
+            lambda agent: (
+                agent.active
+                and agent.discuss_enabled
+                and agent.discuss_user_id
+                and agent.discuss_user_id.active
             )
         )
-        assistants = assistants.sorted(
-            key=lambda assistant: (not assistant.is_default, assistant.name or "")
+        agents = agents.sorted(
+            key=lambda agent: (not agent.is_default, agent.name or "")
         )
         return [
             {
-                "id": assistant.id,
-                "name": assistant.name,
-                "bot_user_id": assistant.discuss_user_id.id,
-                "bot_partner_id": assistant.discuss_user_id.partner_id.id,
-                "is_default": assistant.is_default,
+                "id": agent.id,
+                "name": agent.name,
+                "bot_user_id": agent.discuss_user_id.id,
+                "bot_partner_id": agent.discuss_user_id.partner_id.id,
+                "is_default": agent.is_default,
             }
-            for assistant in assistants
+            for agent in agents
         ]
 
     @api.model
     def get_odoobot_discuss_config(self):
         """Return only the OdooBot persona metadata safe for the current user."""
         user = self.env.user
-        assistant = self._get_odoobot_assistant()
+        agent = self._get_odoobot_agent()
         if not (
             user.has_group("base.group_user")
-            and assistant
-            and assistant in assistant._get_allowed_assistants_for_user(user)
+            and agent
+            and agent in agent._get_allowed_agents_for_user(user)
         ):
             return {}
         return {"bot_partner_id": self.env.ref("base.partner_root").id}
@@ -235,7 +235,7 @@ class LlmAssistant(models.Model):
         Queue = self.env["llm.discuss.reply.queue"].sudo()
         job = Queue.search(
             [
-                ("assistant_id", "=", self.id),
+                ("agent_id", "=", self.id),
                 ("message_id", "=", message.id),
             ],
             limit=1,
@@ -247,7 +247,7 @@ class LlmAssistant(models.Model):
                 with self.env.cr.savepoint():
                     job = Queue.create(
                         {
-                            "assistant_id": self.id,
+                            "agent_id": self.id,
                             "channel_id": channel.id,
                             "message_id": message.id,
                             "reply_partner_id": reply_partner.id,
@@ -264,7 +264,7 @@ class LlmAssistant(models.Model):
             except IntegrityError:
                 job = Queue.search(
                     [
-                        ("assistant_id", "=", self.id),
+                        ("agent_id", "=", self.id),
                         ("message_id", "=", message.id),
                     ],
                     limit=1,
@@ -292,37 +292,37 @@ class LlmAssistant(models.Model):
             raw_page_context,
             source_user,
         )
-        assistants = self.sudo().search(
+        agents = self.sudo().search(
             [
                 ("active", "=", True),
                 ("discuss_enabled", "=", True),
                 ("discuss_user_id", "!=", False),
             ]
         )
-        if not assistants:
+        if not agents:
             return
 
         triggered = False
-        for assistant in assistants:
+        for agent in agents:
             try:
-                if not channel._llm_discuss_user_can_use_assistant(
-                    assistant,
+                if not channel._llm_discuss_user_can_use_agent(
+                    agent,
                     source_user,
                 ):
                     continue
-                if not channel._llm_discuss_should_trigger(assistant, message, msg_vals):
+                if not channel._llm_discuss_should_trigger(agent, message, msg_vals):
                     continue
-                triggered |= assistant._llm_discuss_enqueue_reply(
+                triggered |= agent._llm_discuss_enqueue_reply(
                     channel,
                     message,
                     source_user,
-                    assistant.discuss_user_id.partner_id,
+                    agent.discuss_user_id.partner_id,
                     page_context,
                 )
-            except Exception:  # noqa: BLE001 - assistant failure must not abort message posting
+            except Exception:  # noqa: BLE001 - agent failure must not abort message posting
                 _logger.exception(
-                    "llm_discuss: error dispatching assistant %s on channel %s",
-                    assistant.id,
+                    "llm_discuss: error dispatching agent %s on channel %s",
+                    agent.id,
                     channel.id,
                 )
 
@@ -330,14 +330,14 @@ class LlmAssistant(models.Model):
             self._llm_discuss_trigger_queue_cron()
 
     def _llm_discuss_dispatch_odoobot(self, channel, message):
-        """Queue this assistant behind the native OdooBot private-chat persona."""
+        """Queue this agent behind the native OdooBot private-chat persona."""
         self.ensure_one()
         source_user = self.env.user
         if not (
             self.active
             and self.odoobot_enabled
             and source_user.has_group("base.group_user")
-            and channel._llm_discuss_user_can_use_assistant(self, source_user)
+            and channel._llm_discuss_user_can_use_agent(self, source_user)
         ):
             return
 

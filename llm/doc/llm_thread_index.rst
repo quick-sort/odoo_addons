@@ -16,13 +16,13 @@ Installation
 What to Install
 ---------------
 
-This module is typically **auto-installed** as a dependency of ``llm_assistant``.
+This module is typically **auto-installed** as a dependency of ``llm_agent``.
 
 **For a complete AI chat experience:**
 
 .. code-block:: bash
 
-    odoo-bin -d your_db -i llm_assistant,llm_openai
+    odoo-bin -d your_db -i llm_agent,llm_openai
 
 Auto-Installed Dependencies
 ---------------------------
@@ -39,9 +39,9 @@ Common Setups
 +---------------------------+------------------------------------------------------+
 | I want to...              | Install                                              |
 +===========================+======================================================+
-| Chat with AI in Odoo      | ``llm_assistant`` + ``llm_openai``                   |
+| Chat with AI in Odoo      | ``llm_agent`` + ``llm_openai``                   |
 +---------------------------+------------------------------------------------------+
-| Chat with local AI        | ``llm_assistant`` + ``llm_ollama``                   |
+| Chat with local AI        | ``llm_agent`` + ``llm_ollama``                   |
 +---------------------------+------------------------------------------------------+
 | Add RAG to chat           | Above + ``llm_knowledge`` + ``llm_pgvector``         |
 +---------------------------+------------------------------------------------------+
@@ -53,7 +53,7 @@ What is LLM Thread?
 
 LLM Thread brings conversational AI directly into Odoo. It provides the chat UI and message management layer, bridging the frontend interface with the generation engine (``llm_generate``), provider APIs, and tool execution framework. Chat with AI models from OpenAI, Anthropic, Ollama, and dozens of other providers through a familiar messaging interface. Link conversations to any Odoo record, enable tool execution, and get streaming responses in real-time.
 
-**Note**: This module provides the chat interface and orchestration. Actual LLM generation is handled by ``llm_generate`` module, while ``llm_assistant`` provides assistant configurations and prompt templates.
+**Note**: This module provides the chat interface and orchestration. Actual LLM generation is handled by ``llm_generate`` module, while ``llm_agent`` provides assistant configurations and prompt templates.
 
 Requirements
 ============
@@ -103,7 +103,7 @@ Navigate to **LLM → Configuration → Providers**:
 
 To let AI execute actions in Odoo:
 
-- Install ``llm_assistant`` module for full functionality
+- Install ``llm_agent`` module for full functionality
 - In your thread, select available tools
 - AI can now search records, create data, and more
 
@@ -408,7 +408,7 @@ Programmatic Chat
     # Post question
     thread.message_post(body="Analyze this data: ...", llm_role="user")
 
-    # Generate response (requires llm_generate + llm_assistant)
+    # Generate response (requires llm_generate + llm_agent)
     for event in thread.generate():
         if event['type'] == 'message_update':
             response = event['message']['body']
@@ -439,7 +439,7 @@ Troubleshooting
 
 **Tools not executing?**
 
-- Verify ``llm_generate`` and ``llm_assistant`` modules are installed
+- Verify ``llm_generate`` and ``llm_agent`` modules are installed
 - Check tool is active and assigned to thread
 - Ensure user has permission to execute tool actions
 
@@ -462,7 +462,7 @@ Related Modules
 
 - **llm** - Base infrastructure and provider management
 - **llm_generate** - Core generation engine that handles actual LLM API calls
-- **llm_assistant** - AI assistants with prompt templates and configurations
+- **llm_agent** - AI agents with prompt templates and configurations
 - **llm_tool** - Function calling framework
 - **llm_tool_demo** - Example tools implementation
 - **llm_openai** - OpenAI provider (GPT-4, etc.)

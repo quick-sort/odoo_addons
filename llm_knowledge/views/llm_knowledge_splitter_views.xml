@@ -43,4 +43,6 @@
         <field name="res_model">llm.knowledge.splitter</field>
         <field name="view_mode">list,form</field>
     </record>
+
+    <menuitem id="menu_llm_knowledge_splitter" name="Splitters" parent="menu_llm_document_processing" action="action_llm_knowledge_splitter" sequence="30" />
 </odoo>

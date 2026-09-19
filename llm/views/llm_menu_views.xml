@@ -9,20 +9,20 @@
     sequence="100"
   />
 
-    <!-- Configuration Menu -->
+    <!-- Settings Menu -->
     <menuitem
     id="menu_llm_config"
-    name="Configuration"
+    name="Settings"
     parent="menu_llm_root"
     sequence="100"
   />
 
-    <!-- LLM Configuration Group -->
+    <!-- Basic Group -->
     <menuitem
-    id="llm_assistant_configuration_menu"
-    name="LLM"
+    id="menu_llm_basic"
+    name="Basic"
     parent="menu_llm_config"
-    sequence="5"
+    sequence="10"
   />
 
     <!-- Provider Menu -->
@@ -30,7 +30,7 @@
     id="menu_llm_provider"
     name="Providers"
     action="llm_provider_action"
-    parent="llm_assistant_configuration_menu"
+    parent="menu_llm_basic"
     sequence="10"
   />
 
@@ -48,7 +48,7 @@
     id="menu_llm_publisher"
     name="Publishers"
     action="llm_publisher_action"
-    parent="llm_assistant_configuration_menu"
+    parent="menu_llm_basic"
     sequence="20"
   />
 
@@ -57,34 +57,25 @@
     id="menu_llm_model"
     name="Models"
     action="llm_model_action"
-    parent="llm_assistant_configuration_menu"
+    parent="menu_llm_basic"
     sequence="30"
   />
 
-    <!-- Assistant Menu -->
+    <!-- Agent Group -->
     <menuitem
-    id="menu_llm_assistant"
-    name="Assistants"
-    parent="llm_assistant_configuration_menu"
-    action="action_llm_assistant"
-    sequence="40"
+    id="menu_llm_agent_group"
+    name="Agent"
+    parent="menu_llm_config"
+    sequence="20"
   />
 
-    <!-- Assistant Configuration Menus -->
+    <!-- Agent Menu -->
     <menuitem
-    id="llm_assistant_category_menu"
-    name="Categories"
-    parent="llm_assistant_configuration_menu"
-    action="llm_assistant_category_action"
-    sequence="50"
-  />
-
-    <menuitem
-    id="llm_assistant_tag_menu"
-    name="Tags"
-    parent="llm_assistant_configuration_menu"
-    action="llm_assistant_tag_action"
-    sequence="60"
+    id="menu_llm_agent"
+    name="Agent"
+    parent="menu_llm_agent_group"
+    action="action_llm_agent"
+    sequence="10"
   />
 
     <!-- Thread Menu -->
@@ -92,34 +83,51 @@
     id="menu_llm_thread"
     name="Threads"
     action="llm_thread_action"
-    parent="llm_assistant_configuration_menu"
-    sequence="70"
+    parent="menu_llm_agent_group"
+    sequence="20"
+  />
+
+    <!-- Agent Configuration Menus -->
+    <menuitem
+    id="llm_agent_category_menu"
+    name="Categories"
+    parent="menu_llm_agent_group"
+    action="llm_agent_category_action"
+    sequence="30"
+  />
+
+    <menuitem
+    id="llm_agent_tag_menu"
+    name="Tags"
+    parent="menu_llm_agent_group"
+    action="llm_agent_tag_action"
+    sequence="40"
   />
 
     <!-- Tool Menu -->
     <menuitem
     id="menu_llm_tool"
     name="Tools"
-    parent="llm_assistant_configuration_menu"
+    parent="menu_llm_basic"
     action="action_llm_tool"
-    sequence="80"
+    sequence="40"
   />
 
     <!-- Tool Consent Config Menu -->
     <menuitem
     id="menu_llm_tool_consent_config"
     name="Tool Consent"
-    parent="llm_assistant_configuration_menu"
+    parent="menu_llm_basic"
     action="action_llm_tool_consent_config"
-    sequence="90"
+    sequence="50"
   />
 
     <!-- MCP Services Menu -->
     <menuitem
     id="menu_llm_mcp_client"
     name="MCP Services"
-    parent="llm_assistant_configuration_menu"
+    parent="menu_llm_basic"
     action="action_llm_mcp_client"
-    sequence="100"
+    sequence="60"
   />
 </odoo>

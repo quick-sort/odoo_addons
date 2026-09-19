@@ -10,7 +10,7 @@ Qdrant vector database integration for high-performance semantic search at scale
 ┌───────────────────────────────────────────────────────────────┐
 │                    Used By (RAG Modules)                      │
 │        ┌───────────────┐           ┌───────────────┐         │
-│        │ llm_knowledge │           │llm_assistant  │         │
+│        │ llm_knowledge │           │llm_agent  │         │
 │        │   (RAG)       │           │  (with RAG)   │         │
 │        └───────┬───────┘           └───────┬───────┘         │
 └────────────────┼───────────────────────────┼─────────────────┘
@@ -77,7 +77,7 @@ odoo-bin -d your_db -i llm_knowledge,llm_qdrant
 | I want to...         | Install                                                         |
 | -------------------- | --------------------------------------------------------------- |
 | High-performance RAG | `llm_knowledge` + `llm_qdrant`                                  |
-| Chat + scalable RAG  | `llm_assistant` + `llm_openai` + `llm_knowledge` + `llm_qdrant` |
+| Chat + scalable RAG  | `llm_agent` + `llm_openai` + `llm_knowledge` + `llm_qdrant` |
 
 ## Features
 

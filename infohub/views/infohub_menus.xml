@@ -8,25 +8,30 @@
     />
     <menuitem
         id="menu_infohub_item"
-        name="Items"
+        name="Info"
         parent="menu_infohub_root"
         action="action_infohub_item"
         sequence="10"
     />
     <menuitem
+        id="menu_infohub_settings"
+        name="Settings"
+        parent="menu_infohub_root"
+        groups="group_infohub_manager"
+        sequence="90"
+    />
+    <menuitem
         id="menu_infohub_channel"
         name="Channels"
-        parent="menu_infohub_root"
+        parent="menu_infohub_settings"
         action="action_infohub_channel"
-        sequence="20"
-        groups="group_infohub_manager"
+        sequence="10"
     />
     <menuitem
         id="menu_infohub_source"
         name="Sources"
-        parent="menu_infohub_root"
+        parent="menu_infohub_settings"
         action="action_infohub_source"
-        sequence="30"
-        groups="group_infohub_manager"
+        sequence="20"
     />
 </odoo>

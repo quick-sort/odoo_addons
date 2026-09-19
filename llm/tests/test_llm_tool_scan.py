@@ -124,7 +124,7 @@ class TestSync(common.TransactionCase):
         """Keyed on the callable, never on the name.
 
         Keying on ``name`` would create a second row and archive the first, so
-        assistants referencing the old row would silently lose the tool.
+        agents referencing the old row would silently lose the tool.
         """
         self._set_registry({("res.partner", "probe_method"): self._values("old_name")})
         self.LLMTool._sync_tools_to_db()

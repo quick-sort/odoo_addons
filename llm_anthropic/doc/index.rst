@@ -14,7 +14,7 @@ Architecture
     ┌─────────────────────────────────────────────────────────────────┐
     │                    Used By (Any LLM Module)                     │
     │  ┌─────────────┐  ┌───────────┐  ┌─────────────┐  ┌───────────┐ │
-    │  │llm_assistant│  │llm_thread │  │llm_knowledge│  │llm_generate│ │
+    │  │llm_agent│  │llm_thread │  │llm_knowledge│  │llm_generate│ │
     │  └──────┬──────┘  └─────┬─────┘  └──────┬──────┘  └─────┬─────┘ │
     └─────────┼───────────────┼───────────────┼───────────────┼───────┘
               └───────────────┴───────┬───────┴───────────────┘
@@ -40,7 +40,7 @@ What to Install
 
 .. code-block:: bash
 
-    odoo-bin -d your_db -i llm_assistant,llm_anthropic
+    odoo-bin -d your_db -i llm_agent,llm_anthropic
 
 Auto-Installed Dependencies
 ---------------------------
@@ -71,7 +71,7 @@ Common Setups
 +---------------------------+----------------------------------------------+
 | I want to...              | Install                                      |
 +===========================+==============================================+
-| Chat with Claude          | ``llm_assistant`` + ``llm_anthropic``        |
+| Chat with Claude          | ``llm_agent`` + ``llm_anthropic``        |
 +---------------------------+----------------------------------------------+
 | Claude + document search  | Above + ``llm_knowledge`` + ``llm_pgvector`` |
 +---------------------------+----------------------------------------------+
@@ -181,7 +181,7 @@ Related Modules
 
 - **``llm``** - Core infrastructure
 - **``llm_tool``** - Tool calling support
-- **``llm_assistant``** - AI assistants
+- **``llm_agent``** - AI agents
 - **``llm_knowledge``** - RAG with semantic search
 - **``llm_openai``** - Alternative: OpenAI
 - **``llm_ollama``** - Alternative: local AI

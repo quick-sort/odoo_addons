@@ -8,29 +8,29 @@ _logger = logging.getLogger(__name__)
 
 class LLMAssistantActionMixin(models.AbstractModel):
     """
-    Mixin to add AI assistant action functionality to any model.
-    Provides generic methods to open LLM chat with specific assistants.
+    Mixin to add AI agent action functionality to any model.
+    Provides generic methods to open LLM chat with specific agents.
 
     Usage:
         class MyModel(models.Model):
-            _inherit = ['my.model', 'llm.assistant.action.mixin']
+            _inherit = ['my.model', 'llm.agent.action.mixin']
 
             def action_my_ai_button(self):
-                return self.action_open_llm_assistant('my_assistant_code')
+                return self.action_open_llm_agent('my_agent_code')
     """
 
-    _name = "llm.assistant.action.mixin"
+    _name = "llm.agent.action.mixin"
     _description = "LLM Assistant Action Mixin"
 
-    def action_open_llm_assistant(
-        self, assistant_code=None, force_new_thread=False, **kwargs
+    def action_open_llm_agent(
+        self, agent_code=None, force_new_thread=False, **kwargs
     ):
         """
-        Generic method to open AI assistant for current record.
-        Creates/finds thread, sets assistant, and prepares for frontend to open AI chat.
+        Generic method to open AI agent for current record.
+        Creates/finds thread, sets agent, and prepares for frontend to open AI chat.
 
         Args:
-            assistant_code: Code of the assistant to use (e.g., 'invoice_analyzer').
+            agent_code: Code of the agent to use (e.g., 'invoice_analyzer').
                            If not provided, tries to get from context.
             force_new_thread: If True, always create new thread (ignore existing).
             **kwargs: Reserved for future extensibility.
@@ -43,18 +43,18 @@ class LLMAssistantActionMixin(models.AbstractModel):
         """
         self.ensure_one()
 
-        # Get assistant code from parameter or context
-        if not assistant_code:
-            assistant_code = self.env.context.get("assistant_code")
+        # Get agent code from parameter or context
+        if not agent_code:
+            agent_code = self.env.context.get("agent_code")
 
-        if not assistant_code:
+        if not agent_code:
             raise UserError(
-                "No assistant code provided. Please specify assistant_code parameter or context."
+                "No agent code provided. Please specify agent_code parameter or context."
             )
 
         _logger.info(
-            "=== Opening AI assistant '%s' for %s ID: %s (force_new=%s) ===",
-            assistant_code,
+            "=== Opening AI agent '%s' for %s ID: %s (force_new=%s) ===",
+            agent_code,
             self._name,
             self.id,
             force_new_thread,
@@ -63,13 +63,13 @@ class LLMAssistantActionMixin(models.AbstractModel):
         # Find existing thread or create new one
         thread = self._find_or_create_llm_thread(force_new=force_new_thread)
 
-        # Find and set assistant
-        self._set_assistant_on_thread(thread, assistant_code)
+        # Find and set agent
+        self._set_agent_on_thread(thread, agent_code)
 
         _logger.info(
-            "=== AI assistant ready. Thread ID: %s, Assistant: %s ===",
+            "=== AI agent ready. Thread ID: %s, Agent: %s ===",
             thread.id,
-            thread.assistant_id.name if thread.assistant_id else "None",
+            thread.agent_id.name if thread.agent_id else "None",
         )
 
         # Return client action to open AI chat in chatter
@@ -172,33 +172,33 @@ class LLMAssistantActionMixin(models.AbstractModel):
 
         return thread
 
-    def _set_assistant_on_thread(self, thread, assistant_code):
+    def _set_agent_on_thread(self, thread, agent_code):
         """
-        Find assistant by code and set it on the thread.
+        Find agent by code and set it on the thread.
 
         Args:
             thread: llm.thread record
-            assistant_code: Code of the assistant to find
+            agent_code: Code of the agent to find
         """
-        _logger.info("Step 2: Looking for assistant with code '%s'...", assistant_code)
-        assistant = self.env["llm.assistant"].search(
-            [("code", "=", assistant_code)], limit=1
+        _logger.info("Step 2: Looking for agent with code '%s'...", agent_code)
+        agent = self.env["llm.agent"].search(
+            [("code", "=", agent_code)], limit=1
         )
 
-        if assistant:
-            _logger.info("Found assistant: %s (ID: %s)", assistant.name, assistant.id)
-            if not thread.assistant_id:
+        if agent:
+            _logger.info("Found agent: %s (ID: %s)", agent.name, agent.id)
+            if not thread.agent_id:
                 _logger.info(
-                    "Setting assistant on thread (with tools, provider, model)..."
+                    "Setting agent on thread (with tools, provider, model)..."
                 )
-                thread.set_assistant(assistant.id)
+                thread.set_agent(agent.id)
                 _logger.info(
-                    "Assistant set successfully. Tools: %s",
+                    "Agent set successfully. Tools: %s",
                     thread.tool_ids.mapped("name"),
                 )
             else:
                 _logger.info(
-                    "Thread already has assistant: %s", thread.assistant_id.name
+                    "Thread already has agent: %s", thread.agent_id.name
                 )
         else:
-            _logger.warning("Assistant with code '%s' not found!", assistant_code)
+            _logger.warning("Agent with code '%s' not found!", agent_code)

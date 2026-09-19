@@ -607,7 +607,7 @@ class LLMTool(models.Model):
 
         Keyed on ``(res_model, res_method)``, **never on name**: renaming a tool
         in code (``@llm_tool(name=...)``) must update the existing row, not
-        create a second one and archive the first -- assistants referencing the
+        create a second one and archive the first -- agents referencing the
         old row would silently lose the tool.
 
         Rows with another ``source`` are invisible here, which is what makes

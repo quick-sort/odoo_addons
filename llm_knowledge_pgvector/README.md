@@ -10,7 +10,7 @@ PostgreSQL-native vector storage using pgvector extension.
 ┌───────────────────────────────────────────────────────────────┐
 │                    Used By (RAG Modules)                      │
 │        ┌───────────────┐           ┌───────────────┐         │
-│        │ llm_knowledge │           │llm_assistant  │         │
+│        │ llm_knowledge │           │llm_agent  │         │
 │        │   (RAG)       │           │  (with RAG)   │         │
 │        └───────┬───────┘           └───────┬───────┘         │
 └────────────────┼───────────────────────────┼─────────────────┘
@@ -77,7 +77,7 @@ odoo-bin -d your_db -i llm_knowledge,llm_pgvector
 | I want to... | Install                                                           |
 | ------------ | ----------------------------------------------------------------- |
 | Simple RAG   | `llm_knowledge` + `llm_pgvector`                                  |
-| Chat + RAG   | `llm_assistant` + `llm_openai` + `llm_knowledge` + `llm_pgvector` |
+| Chat + RAG   | `llm_agent` + `llm_openai` + `llm_knowledge` + `llm_pgvector` |
 
 ## Features
 

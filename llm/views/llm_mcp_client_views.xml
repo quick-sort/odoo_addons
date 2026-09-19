@@ -94,7 +94,7 @@
             </p>
             <p>
                 Connect to any MCP-compatible server (streamable-http transport)
-                and import its tools for use with LLM assistants.
+                and import its tools for use with LLM agents.
             </p>
         </field>
     </record>

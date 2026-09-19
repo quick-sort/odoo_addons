@@ -93,6 +93,6 @@
         <field name="arch" type="xml"><xpath expr="//notebook" position="inside"><page string="Qdrant Access Grants" groups="llm.group_llm_manager" invisible="store_id.service != 'qdrant'"><field name="qdrant_grant_ids" readonly="1"><list><field name="principal_id" /><field name="permission" /><field name="valid_from" optional="hide" /><field name="valid_until" optional="show" /><field name="active" /></list></field></page></xpath></field>
     </record>
 
-    <menuitem id="menu_llm_qdrant_principal" name="Qdrant Principals" action="action_llm_qdrant_principal" parent="llm.menu_llm_config" sequence="52" groups="llm.group_llm_manager" />
-    <menuitem id="menu_llm_qdrant_credential" name="Qdrant Credentials" action="action_llm_qdrant_credential" parent="llm.menu_llm_config" sequence="53" groups="llm.group_llm_manager" />
+    <menuitem id="menu_llm_qdrant_principal" name="Qdrant Principals" action="action_llm_qdrant_principal" parent="llm_knowledge.menu_llm_vector_store_config" sequence="30" groups="llm.group_llm_manager" />
+    <menuitem id="menu_llm_qdrant_credential" name="Qdrant Credentials" action="action_llm_qdrant_credential" parent="llm_knowledge.menu_llm_vector_store_config" sequence="40" groups="llm.group_llm_manager" />
 </odoo>

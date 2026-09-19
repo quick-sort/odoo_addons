@@ -97,7 +97,7 @@
     id="menu_llm_mcp_tool_call"
     name="MCP Tool Calls"
     action="action_llm_mcp_tool_call"
-    parent="llm.menu_llm_config"
+    parent="llm.menu_llm_basic"
     sequence="51"
     groups="llm.group_llm_manager"
   />

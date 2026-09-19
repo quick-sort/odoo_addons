@@ -17,9 +17,9 @@ access_llm_mcp_client_system,llm.mcp.client.system,model_llm_mcp_client,base.gro
 
 access_llm_thread_user,llm.thread.user,model_llm_thread,base.group_user,1,1,1,0
 access_llm_thread_manager,llm.thread.manager,model_llm_thread,group_llm_manager,1,1,1,1
-access_llm_assistant_user,llm.assistant.user,model_llm_assistant,base.group_user,1,0,0,0
-access_llm_assistant_manager,llm.assistant.manager,model_llm_assistant,group_llm_manager,1,1,1,1
-access_llm_assistant_tag_user,llm.assistant.tag.user,model_llm_assistant_tag,base.group_user,1,0,0,0
-access_llm_assistant_tag_manager,llm.assistant.tag.manager,model_llm_assistant_tag,group_llm_manager,1,1,1,1
-access_llm_assistant_category_user,llm.assistant.category.user,model_llm_assistant_category,base.group_user,1,0,0,0
-access_llm_assistant_category_manager,llm.assistant.category.manager,model_llm_assistant_category,group_llm_manager,1,1,1,1
+access_llm_agent_user,llm.agent.user,model_llm_agent,base.group_user,1,0,0,0
+access_llm_agent_manager,llm.agent.manager,model_llm_agent,group_llm_manager,1,1,1,1
+access_llm_agent_tag_user,llm.agent.tag.user,model_llm_agent_tag,base.group_user,1,0,0,0
+access_llm_agent_tag_manager,llm.agent.tag.manager,model_llm_agent_tag,group_llm_manager,1,1,1,1
+access_llm_agent_category_user,llm.agent.category.user,model_llm_agent_category,base.group_user,1,0,0,0
+access_llm_agent_category_manager,llm.agent.category.manager,model_llm_agent_category,group_llm_manager,1,1,1,1

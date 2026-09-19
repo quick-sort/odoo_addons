@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <odoo>
-    <record id="view_llm_assistant_form_inherit_discuss" model="ir.ui.view">
-        <field name="name">llm.assistant.form.inherit.discuss</field>
-        <field name="model">llm.assistant</field>
-        <field name="inherit_id" ref="llm.view_llm_assistant_form" />
+    <record id="view_llm_agent_form_inherit_discuss" model="ir.ui.view">
+        <field name="name">llm.agent.form.inherit.discuss</field>
+        <field name="model">llm.agent</field>
+        <field name="inherit_id" ref="llm.view_llm_agent_form" />
         <field name="arch" type="xml">
             <xpath expr="//notebook" position="inside">
                 <page string="Discuss / Live Chat" name="discuss">
@@ -35,9 +35,9 @@
                             Live Chat operator.
                         </p>
                         <p class="mb-0">
-                            <strong>OdooBot private chat:</strong> only one assistant can
+                            <strong>OdooBot private chat:</strong> only one agent can
                             be selected. Native onboarding and <code>/help</code> remain
-                            unchanged; after onboarding, this assistant answers in the
+                            unchanged; after onboarding, this agent answers in the
                             same chat with the OdooBot name and avatar. OdooBot is only
                             the visible reply identity—record reads, hidden threads, and
                             tools always use the sender's permissions.

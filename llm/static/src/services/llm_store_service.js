@@ -23,7 +23,7 @@ export const llmStoreService = {
       // Map<id, LLMTool>
       llmTools: new Map(),
       // Map<id, LLMAssistant>
-      llmAssistants: new Map(),
+      llmAgents: new Map(),
       // Set<threadId> currently streaming
       streamingThreads: new Set(),
       // Map<threadId, EventSource>
@@ -45,13 +45,13 @@ export const llmStoreService = {
         return this.activeLLMThread !== null;
       },
 
-      get currentAssistant() {
+      get currentAgent() {
         const activeThread = this.activeLLMThread;
-        if (!activeThread?.assistant_id) return null;
+        if (!activeThread?.agent_id) return null;
 
-        const assistantId =
-          activeThread.assistant_id?.id || activeThread.assistant_id;
-        return this.llmAssistants.get(assistantId) || activeThread.assistant_id;
+        const agentId =
+          activeThread.agent_id?.id || activeThread.agent_id;
+        return this.llmAgents.get(agentId) || activeThread.agent_id;
       },
 
       get llmThreadList() {
@@ -84,7 +84,7 @@ export const llmStoreService = {
           "model",
           "res_id",
           "tool_ids",
-          "assistant_id",
+          "agent_id",
         ]);
 
         if (threadData && threadData.length > 0) {
@@ -297,18 +297,18 @@ export const llmStoreService = {
 
       async loadLLMAssistants() {
         try {
-          const assistants = await orm.silent.searchRead(
-            "llm.assistant",
+          const agents = await orm.silent.searchRead(
+            "llm.agent",
             [["active", "=", true]],
             ["id", "name", "is_public", "is_default", "provider_id", "model_id", "tool_ids"]
           );
 
-          assistants.forEach((assistant) => {
-            this.llmAssistants.set(assistant.id, assistant);
+          agents.forEach((agent) => {
+            this.llmAgents.set(agent.id, agent);
           });
         } catch (error) {
           console.warn(
-            "LLM assistants not available - llm module may not be installed:",
+            "LLM agents not available - llm module may not be installed:",
             error.message
           );
         }
@@ -336,33 +336,33 @@ export const llmStoreService = {
         }
       },
 
-      // Create new thread using the default (or first available) assistant
+      // Create new thread using the default (or first available) agent
       async createNewThread({ recordModel, recordId } = {}) {
-        // Refresh data (providers, models, assistants, etc.) so newly
+        // Refresh data (providers, models, agents, etc.) so newly
         // configured ones are available without requiring a page reload.
         const loaders = this.getDataLoaders();
         await Promise.all(loaders.map((loader) => loader.call(this)));
 
-        const assistant = this.getDefaultAssistant();
+        const agent = this.getDefaultAssistant();
 
-        if (!assistant) {
+        if (!agent) {
           notification.add(
             _t(
-              "No AI assistants are configured. Please contact your administrator to set up an assistant."
+              "No AI agents are configured. Please contact your administrator to set up an agent."
             ),
             { type: "danger" }
           );
           return;
         }
 
-        const providerId = assistant.provider_id?.[0] || assistant.provider_id;
-        const modelId = assistant.model_id?.[0] || assistant.model_id;
+        const providerId = agent.provider_id?.[0] || agent.provider_id;
+        const modelId = agent.model_id?.[0] || agent.model_id;
 
         if (!providerId || !modelId) {
           notification.add(
             _t(
-              "The assistant '%s' has no provider or model configured. Please contact your administrator.",
-              assistant.name
+              "The agent '%s' has no provider or model configured. Please contact your administrator.",
+              agent.name
             ),
             { type: "danger" }
           );
@@ -374,10 +374,10 @@ export const llmStoreService = {
 
         const threadData = {
           name: threadName,
-          assistant_id: assistant.id,
+          agent_id: agent.id,
           provider_id: providerId,
           model_id: modelId,
-          tool_ids: [[6, 0, (assistant.tool_ids || []).map((t) => (typeof t === "object" ? t.id : t))]],
+          tool_ids: [[6, 0, (agent.tool_ids || []).map((t) => (typeof t === "object" ? t.id : t))]],
         };
 
         // Auto-link to record if context provided (e.g., from chatter)
@@ -392,15 +392,15 @@ export const llmStoreService = {
         await this.refreshThreadsAndSelect(threadId);
       },
 
-      // Get the default assistant (falls back to the first available one)
+      // Get the default agent (falls back to the first available one)
       getDefaultAssistant() {
-        const assistants = Array.from(this.llmAssistants.values());
-        if (assistants.length === 0) return null;
-        return assistants.find((a) => a.is_default) || assistants[0];
+        const agents = Array.from(this.llmAgents.values());
+        if (agents.length === 0) return null;
+        return agents.find((a) => a.is_default) || agents[0];
       },
 
-      // Select an assistant for the active thread
-      async selectAssistant(assistantId) {
+      // Select an agent for the active thread
+      async selectAgent(agentId) {
         const activeThread = this.activeLLMThread;
         if (!activeThread) {
           notification.add(_t("No active thread to update"), {
@@ -410,19 +410,19 @@ export const llmStoreService = {
         }
 
         try {
-          await rpc("/llm/thread/set_assistant", {
+          await rpc("/llm/thread/set_agent", {
             thread_id: activeThread.id,
-            assistant_id: assistantId,
+            agent_id: agentId,
           });
 
-          const fields = ["assistant_id", "provider_id", "model_id", "tool_ids"];
+          const fields = ["agent_id", "provider_id", "model_id", "tool_ids"];
           if (typeof activeThread.fetchData === "function") {
             await activeThread.fetchData(fields);
           } else {
             const data = await orm.read("llm.thread", [activeThread.id], fields);
             if (data && data.length) {
               const raw = data[0];
-              for (const f of ["assistant_id", "provider_id", "model_id"]) {
+              for (const f of ["agent_id", "provider_id", "model_id"]) {
                 if (Array.isArray(raw[f])) {
                   raw[f] = { id: raw[f][0], name: raw[f][1] };
                 }
@@ -431,8 +431,8 @@ export const llmStoreService = {
             }
           }
         } catch (error) {
-          console.error("Error selecting assistant:", error);
-          notification.add(_t("Failed to update assistant"), {
+          console.error("Error selecting agent:", error);
+          notification.add(_t("Failed to update agent"), {
             type: "danger",
           });
         }
@@ -449,7 +449,7 @@ export const llmStoreService = {
           "model",
           "res_id",
           "tool_ids",
-          "assistant_id",
+          "agent_id",
         ]);
 
         if (threadData && threadData.length > 0) {

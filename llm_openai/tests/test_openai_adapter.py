@@ -41,7 +41,7 @@ def make_message(
     message.body = body
     message.body_json = body_json
     message.is_llm_user_message.return_value = {message: role == "user"}
-    message.is_llm_assistant_message.return_value = {message: role == "assistant"}
+    message.is_llm_agent_message.return_value = {message: role == "assistant"}
     message.is_llm_tool_message.return_value = {message: role == "tool"}
     message._get_text_attachments.return_value = list(texts)
     message._get_image_attachments.return_value = list(images)

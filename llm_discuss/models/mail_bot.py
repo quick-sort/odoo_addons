@@ -8,7 +8,7 @@ class MailBot(models.AbstractModel):
         """Keep onboarding and commands, but yield completed chats to the LLM."""
         if (
             command is None
-            and channel._llm_discuss_odoobot_takeover_assistant(values)
+            and channel._llm_discuss_odoobot_takeover_agent(values)
         ):
             return None
         return super()._apply_logic(channel, values, command=command)

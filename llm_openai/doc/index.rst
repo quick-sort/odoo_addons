@@ -14,7 +14,7 @@ Architecture
     ┌─────────────────────────────────────────────────────────────────┐
     │                    Used By (Any LLM Module)                     │
     │  ┌─────────────┐  ┌───────────┐  ┌─────────────┐  ┌───────────┐ │
-    │  │llm_assistant│  │llm_thread │  │llm_knowledge│  │llm_generate│ │
+    │  │llm_agent│  │llm_thread │  │llm_knowledge│  │llm_generate│ │
     │  └──────┬──────┘  └─────┬─────┘  └──────┬──────┘  └─────┬─────┘ │
     └─────────┼───────────────┼───────────────┼───────────────┼───────┘
               └───────────────┴───────┬───────┴───────────────┘
@@ -40,7 +40,7 @@ What to Install
 
 .. code-block:: bash
 
-    odoo-bin -d your_db -i llm_assistant,llm_openai
+    odoo-bin -d your_db -i llm_agent,llm_openai
 
 Auto-Installed Dependencies
 ---------------------------
@@ -53,7 +53,7 @@ Common Setups
 +---------------------------+----------------------------------------------+
 | I want to...              | Install                                      |
 +===========================+==============================================+
-| Chat with GPT-4           | ``llm_assistant`` + ``llm_openai``           |
+| Chat with GPT-4           | ``llm_agent`` + ``llm_openai``           |
 +---------------------------+----------------------------------------------+
 | GPT + document search     | Above + ``llm_knowledge`` + ``llm_pgvector`` |
 +---------------------------+----------------------------------------------+
@@ -91,7 +91,7 @@ Related Modules
 ===============
 
 - **``llm``** - Core infrastructure
-- **``llm_assistant``** - AI assistants
+- **``llm_agent``** - AI agents
 - **``llm_ollama``** - Alternative: local AI
 - **``llm_mistral``** - Alternative: Mistral AI
 

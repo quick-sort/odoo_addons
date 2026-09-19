@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <odoo>
-    <menuitem id="menu_llm_document_processing" name="Document Processing" parent="llm.menu_llm_config" sequence="10" />
-    <menuitem id="menu_llm_document" name="All Documents" parent="menu_llm_document_processing" action="action_llm_document" sequence="10" />
-    <menuitem id="menu_llm_document_extractor" name="Extractors" parent="menu_llm_document_processing" action="action_llm_document_extractor" sequence="20" />
-    <menuitem id="menu_llm_document_extractor_mapping" name="Extractor Mappings" parent="menu_llm_document_processing" action="action_llm_document_extractor_mapping" sequence="30" />
+    <menuitem id="menu_llm_document_processing" name="Document Processing" parent="llm.menu_llm_config" sequence="30" />
+    <menuitem id="menu_llm_document_extractor" name="Extractors" parent="menu_llm_document_processing" action="action_llm_document_extractor" sequence="10" />
+    <menuitem id="menu_llm_document_extractor_mapping" name="Extractor Mapping" parent="menu_llm_document_processing" action="action_llm_document_extractor_mapping" sequence="20" />
+    <!-- Splitters / Chunking menus live in their own action files: those load
+         later in the manifest, and a menuitem cannot reference an action that
+         has not been defined yet. -->
 </odoo>

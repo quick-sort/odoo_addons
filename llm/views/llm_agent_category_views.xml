@@ -1,25 +1,25 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <odoo>
     <!-- Category Tree View -->
-    <record id="llm_assistant_category_view_tree" model="ir.ui.view">
-        <field name="name">llm.assistant.category.tree</field>
-        <field name="model">llm.assistant.category</field>
+    <record id="llm_agent_category_view_tree" model="ir.ui.view">
+        <field name="name">llm.agent.category.tree</field>
+        <field name="model">llm.agent.category</field>
         <field name="arch" type="xml">
             <list>
                 <field name="sequence" widget="handle" />
                 <field name="complete_name" />
                 <field name="code" />
-                <field name="assistant_count" />
+                <field name="agent_count" />
             </list>
         </field>
     </record>
 
     <!-- Category Form View -->
-    <record id="llm_assistant_category_view_form" model="ir.ui.view">
-        <field name="name">llm.assistant.category.form</field>
-        <field name="model">llm.assistant.category</field>
+    <record id="llm_agent_category_view_form" model="ir.ui.view">
+        <field name="name">llm.agent.category.form</field>
+        <field name="model">llm.agent.category</field>
         <field name="arch" type="xml">
-            <form string="Assistant Category">
+            <form string="Agent Category">
                 <sheet>
                     <div class="oe_button_box" name="button_box">
                         <button
@@ -52,7 +52,7 @@
                         </group>
                         <group>
                             <field name="complete_name" readonly="1" />
-                            <field name="assistant_count" readonly="1" />
+                            <field name="agent_count" readonly="1" />
                         </group>
                     </group>
                     <notebook>
@@ -68,7 +68,7 @@
                                     <field name="sequence" widget="handle" />
                                     <field name="name" />
                                     <field name="code" />
-                                    <field name="assistant_count" />
+                                    <field name="agent_count" />
                                 </list>
                             </field>
                         </page>
@@ -79,9 +79,9 @@
     </record>
 
     <!-- Category Search View -->
-    <record id="llm_assistant_category_view_search" model="ir.ui.view">
-        <field name="name">llm.assistant.category.search</field>
-        <field name="model">llm.assistant.category</field>
+    <record id="llm_agent_category_view_search" model="ir.ui.view">
+        <field name="name">llm.agent.category.search</field>
+        <field name="model">llm.agent.category</field>
         <field name="arch" type="xml">
             <search string="Search Categories">
                 <field name="name" />
@@ -97,17 +97,17 @@
     </record>
 
     <!-- Action for Categories -->
-    <record id="llm_assistant_category_action" model="ir.actions.act_window">
-        <field name="name">Assistant Categories</field>
-        <field name="res_model">llm.assistant.category</field>
+    <record id="llm_agent_category_action" model="ir.actions.act_window">
+        <field name="name">Agent Categories</field>
+        <field name="res_model">llm.agent.category</field>
         <field name="view_mode">list,form</field>
         <field name="context">{'search_default_group_by_parent': 1}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
-                Create a new assistant category
+                Create a new agent category
             </p>
             <p>
-                Categories help organize and classify your assistants.
+                Categories help organize and classify your agents.
             </p>
         </field>
     </record>

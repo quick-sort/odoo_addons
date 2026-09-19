@@ -236,14 +236,14 @@ export class LLMChatContainer extends Component {
         onClose: async () => {
           // Refresh thread data after closing form
           const thread = this.activeThread;
-          const fields = ["name", "provider_id", "model_id", "tool_ids", "assistant_id"];
+          const fields = ["name", "provider_id", "model_id", "tool_ids", "agent_id"];
           if (thread && typeof thread.fetchData === "function") {
             await thread.fetchData(fields);
           } else if (thread) {
             const data = await this.env.services.orm.read("llm.thread", [thread.id], fields);
             if (data && data.length) {
               const raw = data[0];
-              for (const f of ["assistant_id", "provider_id", "model_id"]) {
+              for (const f of ["agent_id", "provider_id", "model_id"]) {
                 if (Array.isArray(raw[f])) {
                   raw[f] = { id: raw[f][0], name: raw[f][1] };
                 }

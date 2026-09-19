@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <odoo>
     <!-- Tree View -->
-    <record id="view_llm_assistant_tree" model="ir.ui.view">
-        <field name="name">llm.assistant.tree</field>
-        <field name="model">llm.assistant</field>
+    <record id="view_llm_agent_tree" model="ir.ui.view">
+        <field name="name">llm.agent.tree</field>
+        <field name="model">llm.agent</field>
         <field name="arch" type="xml">
             <list>
                 <field name="name" />
@@ -23,11 +23,11 @@
     </record>
 
     <!-- Form View -->
-    <record id="view_llm_assistant_form" model="ir.ui.view">
-        <field name="name">llm.assistant.form</field>
-        <field name="model">llm.assistant</field>
+    <record id="view_llm_agent_form" model="ir.ui.view">
+        <field name="name">llm.agent.form</field>
+        <field name="model">llm.agent</field>
         <field name="arch" type="xml">
-            <form string="Assistant">
+            <form string="Agent">
                 <sheet>
                     <div class="oe_button_box" name="button_box">
                         <button
@@ -55,7 +55,7 @@
                         <label for="name" class="oe_edit_only" />
                         <h1><field
                 name="name"
-                placeholder="Assistant Name"
+                placeholder="Agent Name"
               /></h1>
                     </div>
                     <group>
@@ -95,7 +95,7 @@
                   name="tool_ids"
                   widget="many2many_tags"
                   options="{'no_create': True}"
-                  placeholder="Select tools for this assistant..."
+                  placeholder="Select tools for this agent..."
                 />
                                 <field
                   name="tool_calls_max"
@@ -103,7 +103,7 @@
                 />
                             </group>
                             <div class="text-muted px-3 py-2">
-                                Select the tools this assistant may need. These tools will be auto selected when you assign this assistant on LLM Chat Thread.
+                                Select the tools this agent may need. These tools will be auto selected when you assign this agent on LLM Chat Thread.
                                 <br />
                                 <strong
                 >Max Tool Calls:</strong> Prevents infinite loops by limiting consecutive tool executions (default: 5).
@@ -117,11 +117,11 @@
                 name="template"
                 widget="ace"
                 options="{'mode': 'text'}"
-                placeholder="You are a helpful assistant..."
+                placeholder="You are a helpful agent..."
               />
                             <div class="text-muted mt-2">
                                 <i class="fa fa-info-circle" />
-                                This is the assistant's system prompt, used as-is.
+                                This is the agent's system prompt, used as-is.
                                 Choose YAML or JSON as the format to emit several
                                 messages with explicit roles.
                             </div>
@@ -157,11 +157,11 @@
     </record>
 
     <!-- Search View -->
-    <record id="view_llm_assistant_search" model="ir.ui.view">
-        <field name="name">llm.assistant.search</field>
-        <field name="model">llm.assistant</field>
+    <record id="view_llm_agent_search" model="ir.ui.view">
+        <field name="name">llm.agent.search</field>
+        <field name="model">llm.agent</field>
         <field name="arch" type="xml">
-            <search string="Search Assistants">
+            <search string="Search Agents">
                 <field name="name" />
                 <field name="code" />
                 <field name="res_model" />
@@ -215,14 +215,14 @@
     </record>
 
     <!-- Action -->
-    <record id="action_llm_assistant" model="ir.actions.act_window">
-        <field name="name">Assistants</field>
-        <field name="res_model">llm.assistant</field>
+    <record id="action_llm_agent" model="ir.actions.act_window">
+        <field name="name">Agent</field>
+        <field name="res_model">llm.agent</field>
         <field name="view_mode">list,form</field>
-        <field name="search_view_id" ref="view_llm_assistant_search" />
+        <field name="search_view_id" ref="view_llm_agent_search" />
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
-                Create your first AI Assistant!
+                Create your first AI Agent!
             </p>
             <p>
                 Assistants can be configured with specific roles, goals, and tools to enhance your AI interactions.

@@ -1,24 +1,24 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <templates xml:space="preserve">
-    <t t-name="llm_discuss.AssistantLauncher">
-        <Dropdown t-if="llmDiscuss.assistants.length" position="'bottom-end'">
+    <t t-name="llm_discuss.AgentLauncher">
+        <Dropdown t-if="llmDiscuss.agents.length" position="'bottom-end'">
             <button
                 type="button"
                 class="dropdown-toggle o-dropdown--narrow"
-                title="AI Assistant"
-                aria-label="AI Assistant"
+                title="AI Agent"
+                aria-label="AI Agent"
             >
                 <i class="fa fa-magic fa-lg px-1" />
             </button>
             <t t-set-slot="content">
                 <t
-                    t-foreach="llmDiscuss.assistants"
-                    t-as="assistant"
-                    t-key="assistant.id"
+                    t-foreach="llmDiscuss.agents"
+                    t-as="agent"
+                    t-key="agent.id"
                 >
-                    <DropdownItem onSelected="() => this.openAssistant(assistant)">
+                    <DropdownItem onSelected="() => this.openAgent(agent)">
                         <i class="fa fa-comments-o me-2" />
-                        <span t-esc="assistant.name" />
+                        <span t-esc="agent.name" />
                     </DropdownItem>
                 </t>
             </t>

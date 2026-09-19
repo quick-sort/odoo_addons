@@ -15,18 +15,18 @@ Composer / ChatWindow
     -> /mail/message/post
     -> discuss.channel.message_post()
     -> llm.discuss.reply.queue
-    -> llm.assistant (non-streaming)
+    -> llm.agent (non-streaming)
     -> discuss.channel.message_post(reply persona)
     -> discuss.channel/new_message bus
     -> Mail Store / Discuss / floating ChatWindow
 ```
 
-Dedicated assistants use `mail.store.openChat({ userId: botUserId })` from the
+Dedicated agents use `mail.store.openChat({ userId: botUserId })` from the
 systray launcher. Odoo creates or reuses the canonical 1:1 channel and selects
 the correct native UI for desktop, Discuss, or mobile.
 
-One assistant may instead use the existing `base.partner_root` OdooBot persona.
-No OdooBot user is assigned to the assistant and no core record is replaced.
+One agent may instead use the existing `base.partner_root` OdooBot persona.
+No OdooBot user is assigned to the agent and no core record is replaced.
 
 ## 2. Triggering, OdooBot takeover, and queueing
 
@@ -41,8 +41,8 @@ only Odoo's final tutorial answer, not a duplicate LLM answer.
 
 The takeover requires all of the following:
 
-- one active assistant has **Use for OdooBot Private Chat** enabled;
-- the sender is an internal user allowed to use that assistant;
+- one active agent has **Use for OdooBot Private Chat** enabled;
+- the sender is an internal user allowed to use that agent;
 - the sender's `odoobot_state` is `idle` or `disabled`;
 - the channel is a true 1:1 chat containing only that user and
   `base.partner_root`;
@@ -54,7 +54,7 @@ the plain-text `start the tour` restart, and explicit commands such as `/help`
 to core `mail_bot`. The message captured as pre-onboarding is never queued even
 if core changes the state to `idle` during the same hook.
 
-A matching message creates one queue row per `(assistant, source message)`.
+A matching message creates one queue row per `(agent, source message)`.
 `reply_partner_id` persists the visible author/typing persona independently of
 the execution user. The unique constraint is wrapped in a savepoint so a
 concurrent duplicate cannot abort the user's message transaction.
@@ -64,7 +64,7 @@ The worker:
 1. claims one pending row with `FOR UPDATE SKIP LOCKED`;
 2. assigns a random fencing token and commits the claim;
 3. publishes native typing for `reply_partner_id`;
-4. invokes the assistant with `stream=False`;
+4. invokes the agent with `stream=False`;
 5. locks the row and verifies the fencing token;
 6. posts one complete message as the persisted reply partner and marks done;
 7. commits state, then clears that persona's typing when no matching job remains.
@@ -75,10 +75,10 @@ not replayed automatically because a tool may have an external side effect.
 ## 3. Execution identity and sudo boundary
 
 For internal users, the queue stores the sender, active company, and immutable
-`source_user` execution mode at post time, then binds the assistant with:
+`source_user` execution mode at post time, then binds the agent with:
 
 ```python
-assistant.with_user(source_user).with_company(source_company)
+agent.with_user(source_user).with_company(source_company)
 ```
 
 The hidden `llm.thread`, its messages, related-record reads, and all tools use
@@ -91,12 +91,12 @@ native reply uses narrow `channel.sudo().message_post(author_id=reply_partner)`
 because cron must publish as another persona. Neither sudo recordset is passed
 to tools.
 
-The public `llm.assistant.invoke()` accepts neither an arbitrary execution user
+The public `llm.agent.invoke()` accepts neither an arbitrary execution user
 nor system-role background. Discuss uses a private server-side entry only after
-assistant availability is checked.
+agent availability is checked.
 
 For website guests, no internal source user exists; the Live Chat bridge
-persists an `assistant_user` mode and falls back to the assistant's dedicated
+persists an `assistant_user` mode and falls back to the agent's dedicated
 low-privilege service user, never sudo. Service-user mode is rejected outside a
 Live Chat channel. If an internal source user is removed, deactivated, or loses
 internal status before processing, the job fails closed instead of changing
@@ -106,7 +106,7 @@ execution principal.
 
 Immediately before `/mail/message/post`, a patch of `Store.doMessagePost()`
 checks whether the channel contains a permitted dedicated bot or the OdooBot
-persona for a permitted takeover assistant, then captures the Action Controller:
+persona for a permitted takeover agent, then captures the Action Controller:
 
 ```json
 {
@@ -132,9 +132,9 @@ Richer context must use an explicit allowlist and the same execution user.
 
 ## 5. Non-streaming generation and native waiting
 
-Discuss passes `stream=False` through every assistant round, including rounds
+Discuss passes `stream=False` through every agent round, including rounds
 after tool calls. Independent `llm.thread` SSE usage keeps its existing default.
-The actual final assistant message becomes the channel reply; errors and tool
+The actual final agent message becomes the channel reply; errors and tool
 messages are not mistaken for the answer.
 
 The queue calls the reply persona channel member's native
@@ -142,9 +142,9 @@ The queue calls the reply persona channel member's native
 floating ChatWindow and creates no temporary “Thinking...” message.
 
 Typing is cleared only after queue state commits and no other active job exists
-for the same assistant, channel, and effective reply persona.
+for the same agent, channel, and effective reply persona.
 
-## 6. Assistant availability and singleton configuration
+## 6. Agent availability and singleton configuration
 
 Dedicated launchers and ordinary channels respect `is_public` and
 `allowed_group_ids`. OdooBot takeover checks the same rules for each sender.
@@ -153,7 +153,7 @@ credentials are not exposed.
 
 A hidden nullable key with a database unique constraint backs
 `odoobot_enabled`, so concurrent writes cannot configure two takeover
-assistants. Multiple disabled assistants keep a null key and remain valid.
+agents. Multiple disabled agents keep a null key and remain valid.
 
 Queue rows are accessible only to `llm.group_llm_manager`. They retain page
 references and internal error details for seven days, then cron removes them.
@@ -174,15 +174,15 @@ references and internal error details for seven days, then cron removes them.
 ```text
 llm_discuss/
 ├── models/
-│   ├── llm_assistant.py
+│   ├── llm_agent.py
 │   ├── discuss_channel.py
 │   ├── mail_bot.py
 │   └── llm_discuss_reply_queue.py
 ├── static/src/
 │   ├── services/llm_discuss_service.js
 │   ├── patches/message_post_context_patch.js
-│   └── systray/assistant_launcher.{js,xml}
+│   └── systray/agent_launcher.{js,xml}
 ├── data/ir_cron_data.xml
 ├── security/ir.model.access.csv
-└── views/llm_assistant_views.xml
+└── views/llm_agent_views.xml
 ```

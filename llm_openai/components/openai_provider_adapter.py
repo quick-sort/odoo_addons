@@ -357,8 +357,8 @@ class OpenAIProviderAdapter(Component):
                 is_multimodal,
                 is_audio_model,
             )
-        if message.is_llm_assistant_message()[message]:
-            return self._format_assistant_message(message, body)
+        if message.is_llm_agent_message()[message]:
+            return self._format_agent_message(message, body)
         if message.is_llm_tool_message()[message]:
             return self._format_tool_message(message)
         return None
@@ -423,7 +423,7 @@ class OpenAIProviderAdapter(Component):
         return {"role": "user", "content": content}
 
     @staticmethod
-    def _format_assistant_message(message, body):
+    def _format_agent_message(message, body):
         formatted = {"role": "assistant", "content": body}
 
         tool_calls = message.get_tool_calls()

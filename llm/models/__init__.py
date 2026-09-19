@@ -9,10 +9,10 @@ from . import llm_tool_builtin_records
 from . import llm_tool_builtin_method
 from . import llm_tool_builtin_inspector
 from . import llm_tool_consent_config
-from . import llm_assistant_category
-from . import llm_assistant_tag
-from . import llm_assistant
-from . import llm_assistant_action_mixin
-from . import llm_tool_invoke_assistant
+from . import llm_agent_category
+from . import llm_agent_tag
+from . import llm_agent
+from . import llm_agent_action_mixin
+from . import llm_tool_invoke_agent
 from . import mail_message
 from . import res_users

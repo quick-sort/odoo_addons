@@ -10,7 +10,7 @@ This module integrates OpenAI's API with the Odoo LLM framework, providing acces
 ┌─────────────────────────────────────────────────────────────────┐
 │                    Used By (Any LLM Module)                     │
 │  ┌─────────────┐  ┌───────────┐  ┌─────────────┐  ┌───────────┐ │
-│  │llm_assistant│  │llm_thread │  │llm_knowledge│  │llm_generate│ │
+│  │llm_agent│  │llm_thread │  │llm_knowledge│  │llm_generate│ │
 │  └──────┬──────┘  └─────┬─────┘  └──────┬──────┘  └─────┬─────┘ │
 └─────────┼───────────────┼───────────────┼───────────────┼───────┘
           │               │               │               │
@@ -36,7 +36,7 @@ This module integrates OpenAI's API with the Odoo LLM framework, providing acces
 **For AI chat with OpenAI:**
 
 ```bash
-odoo-bin -d your_db -i llm_assistant,llm_openai
+odoo-bin -d your_db -i llm_agent,llm_openai
 ```
 
 ### Auto-Installed Dependencies
@@ -55,7 +55,7 @@ odoo-bin -d your_db -i llm_assistant,llm_openai
 
 | I want to...          | Install                                  |
 | --------------------- | ---------------------------------------- |
-| Chat with GPT-4       | `llm_assistant` + `llm_openai`           |
+| Chat with GPT-4       | `llm_agent` + `llm_openai`           |
 | GPT + document search | Above + `llm_knowledge` + `llm_pgvector` |
 | GPT + external tools  | Above + `llm_mcp_server`                 |
 

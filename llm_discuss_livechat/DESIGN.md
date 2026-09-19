@@ -6,7 +6,7 @@ Depends on: `llm_discuss` (see its `DESIGN.md` for the base architecture),
 
 ## 1. Problem
 
-`llm_discuss` makes an assistant answer in ordinary Discuss chats/channels,
+`llm_discuss` makes an agent answer in ordinary Discuss chats/channels,
 but `im_livechat` sessions are a distinct `discuss.channel_type = 'livechat'`
 with their own operator-assignment model (`im_livechat.channel.user_ids`).
 Live Chat's operator-selection logic
@@ -20,15 +20,15 @@ Live-Chat-specific auto-reply rule.
 ## 2. What this module adds, concretely
 
 1. A `livechat_channel_ids` (`im_livechat.channel`, Many2many) field on
-   `llm.assistant`: which Live Chat channels this assistant operates in.
-2. On write, the assistant's `discuss_user_id` is added to
+   `llm.agent`: which Live Chat channels this agent operates in.
+2. On write, the agent's `discuss_user_id` is added to
    `im_livechat.channel.user_ids` for every channel in
    `livechat_channel_ids` (and removed from channels no longer selected) —
    see `_sync_livechat_operator()`.
 3. An override of `discuss.channel._llm_discuss_should_trigger()` (defined
    in `llm_discuss`) that adds one more condition: *any* comment message in
    a `channel_type == 'livechat'` session where `livechat_operator_id`
-   is this assistant's bot partner triggers a reply — no `@mention` or
+   is this agent's bot partner triggers a reply — no `@mention` or
    1:1-chat check needed, because in a Live Chat session there is exactly
    one visitor and one operator, so every visitor message is implicitly
    "addressed" to the operator.
@@ -40,11 +40,11 @@ not have an internal execution identity, visitor jobs persist an
 low-privilege bot user, never as sudo. The queue revalidates that this bot is
 still `livechat_operator_id` before generation and again before any final or
 failure post; assigning another operator therefore revokes pending work. Only
-explicitly safe tools should be enabled on visitor-facing assistants.
+explicitly safe tools should be enabled on visitor-facing agents.
 
 Operator synchronization also removes the previous bot user when
 `discuss_user_id` is replaced or cleared, and removes memberships when the
-assistant is deleted.
+agent is deleted.
 
 ## 3. Operator selection interaction
 
@@ -62,7 +62,7 @@ mechanism instead (`im_livechat`'s own bot framework, with its
 `is_forward_operator` step type) rather than this module — they solve
 different problems and are not mutually exclusive.
 
-## 4. Why not just make every `discuss_enabled` assistant a livechat trigger unconditionally
+## 4. Why not just make every `discuss_enabled` agent a livechat trigger unconditionally
 
 Because `llm_discuss` has no dependency on `im_livechat` and must not break
 when that module isn't installed — `discuss.channel.livechat_operator_id`
@@ -91,8 +91,8 @@ own.
 llm_discuss_livechat/
 ├── __manifest__.py
 ├── models/
-│   ├── llm_assistant.py     # livechat_channel_ids + operator sync
+│   ├── llm_agent.py     # livechat_channel_ids + operator sync
 │   └── discuss_channel.py   # _llm_discuss_should_trigger override
-├── views/llm_assistant_views.xml   # adds the field to llm_discuss's "Discuss" tab
+├── views/llm_agent_views.xml   # adds the field to llm_discuss's "Discuss" tab
 └── DESIGN.md                # this file
 ```

@@ -145,11 +145,11 @@ class LLMThread(models.Model):
         help="Tools that can be used by the LLM in this thread",
     )
 
-    assistant_id = fields.Many2one(
-        "llm.assistant",
-        string="Assistant",
+    agent_id = fields.Many2one(
+        "llm.agent",
+        string="Agent",
         ondelete="restrict",
-        help="The assistant used for this thread",
+        help="The agent used for this thread",
     )
 
     attachment_ids = fields.Many2many(
@@ -216,42 +216,42 @@ class LLMThread(models.Model):
         for thread in self:
             thread.attachment_count = len(thread.attachment_ids)
 
-    @api.onchange("assistant_id")
-    def _onchange_assistant_id(self):
-        """Update provider, model and tools when assistant changes"""
-        if self.assistant_id:
-            self.provider_id = self.assistant_id.provider_id
-            self.model_id = self.assistant_id.model_id
-            self.tool_ids = self.assistant_id.tool_ids
+    @api.onchange("agent_id")
+    def _onchange_agent_id(self):
+        """Update provider, model and tools when agent changes"""
+        if self.agent_id:
+            self.provider_id = self.agent_id.provider_id
+            self.model_id = self.agent_id.model_id
+            self.tool_ids = self.agent_id.tool_ids
 
-    def set_assistant(self, assistant_id):
-        """Set the assistant for this thread and update related fields
+    def set_agent(self, agent_id):
+        """Set the agent for this thread and update related fields
 
         Args:
-            assistant_id (int): The ID of the assistant to set
+            agent_id (int): The ID of the agent to set
 
         Returns:
             bool: True if successful, False otherwise
         """
         self.ensure_one()
 
-        if not assistant_id:
-            return self.write({"assistant_id": False})
+        if not agent_id:
+            return self.write({"agent_id": False})
 
-        # Get the assistant record
-        assistant = self.env["llm.assistant"].browse(assistant_id)
-        if not assistant.exists():
+        # Get the agent record
+        agent = self.env["llm.agent"].browse(agent_id)
+        if not agent.exists():
             return False
 
-        # Update the thread with the assistant and related fields
+        # Update the thread with the agent and related fields
         update_vals = {
-            "assistant_id": assistant_id,
-            "tool_ids": [(6, 0, assistant.tool_ids.ids)],
+            "agent_id": agent_id,
+            "tool_ids": [(6, 0, agent.tool_ids.ids)],
         }
-        if assistant.provider_id.id:
-            update_vals["provider_id"] = assistant.provider_id.id
-        if assistant.model_id.id:
-            update_vals["model_id"] = assistant.model_id.id
+        if agent.provider_id.id:
+            update_vals["provider_id"] = agent.provider_id.id
+        if agent.model_id.id:
+            update_vals["model_id"] = agent.model_id.id
         return self.write(update_vals)
 
     def action_open_thread(self):
@@ -291,33 +291,33 @@ class LLMThread(models.Model):
         return thread, None
 
     @api.model
-    def get_thread_and_assistant(self, thread_id, assistant_id=False):
-        """Get thread and assistant records by their IDs
+    def get_thread_and_agent(self, thread_id, agent_id=False):
+        """Get thread and agent records by their IDs
 
         Args:
             thread_id (int): ID of the thread
-            assistant_id (int, optional): ID of the assistant, or False to clear
+            agent_id (int, optional): ID of the agent, or False to clear
 
         Returns:
-            tuple: (thread, assistant, error_response)
+            tuple: (thread, agent, error_response)
                   If successful, error_response will be None
-                  If error, thread and/or assistant will be None
+                  If error, thread and/or agent will be None
         """
         # Get thread
         thread, error = self.get_thread_by_id(thread_id)
         if error:
             return None, None, error
 
-        # If no assistant_id, return just the thread
-        if not assistant_id:
+        # If no agent_id, return just the thread
+        if not agent_id:
             return thread, None, None
 
-        # Get assistant from the assistant model
-        assistant, error = self.env["llm.assistant"].get_assistant_by_id(assistant_id)
+        # Get agent from the agent model
+        agent, error = self.env["llm.agent"].get_agent_by_id(agent_id)
         if error:
             return thread, None, error
 
-        return thread, assistant, None
+        return thread, agent, None
 
     # ============================================================================
     # MESSAGE POST OVERRIDES - Clean integration with mail.thread
@@ -357,7 +357,7 @@ class LLMThread(models.Model):
                 llm_role,
             )
 
-        # Convert markdown to HTML if needed (only for assistant messages)
+        # Convert markdown to HTML if needed (only for agent messages)
         # User messages should be plain text, tool messages use body_json
         if kwargs.get("body") and llm_role == "assistant":
             kwargs["body"] = self._process_llm_body(kwargs["body"])
@@ -453,7 +453,7 @@ class LLMThread(models.Model):
                 yield {"type": "error", "error": chunk["error"]}
                 return message
 
-        # Final update for assistant message
+        # Final update for agent message
         if message and accumulated_content:
             message.write({"body": self._process_llm_body(accumulated_content)})
             yield {"type": "message_update", "message": message.to_store_format()}
@@ -659,11 +659,11 @@ class LLMThread(models.Model):
     ):
         """Generate messages with actual AI intelligence.
 
-        Drives the user → assistant → tool round-trip loop for a thread, using
-        the assistant's prompt template (if any) and enforcing a cap on
-        consecutive tool-call rounds via ``assistant_id.tool_calls_max``.
+        Drives the user → agent → tool round-trip loop for a thread, using
+        the agent's prompt template (if any) and enforcing a cap on
+        consecutive tool-call rounds via ``agent_id.tool_calls_max``.
         The explicit streaming mode and additional caller context are reused
-        for every assistant round, including rounds following tool calls.
+        for every agent round, including rounds following tool calls.
         """
         self.ensure_one()
 
@@ -697,11 +697,11 @@ class LLMThread(models.Model):
                     # No user message in prepended messages either
                     raise
 
-        # Cap on consecutive assistant→tool→assistant rounds. Without it the
+        # Cap on consecutive agent→tool→agent rounds. Without it the
         # model can spam tool calls indefinitely.
         tool_call_rounds = 0
         max_tool_call_rounds = (
-            self.assistant_id.tool_calls_max if self.assistant_id else 0
+            self.agent_id.tool_calls_max if self.agent_id else 0
         )
 
         # Continue generation loop
@@ -710,13 +710,13 @@ class LLMThread(models.Model):
                 if self.model_id.sudo().model_use in ("image_generation", "generation"):
                     last_message = yield from self._generate_response(last_message)
                 else:
-                    # Generate assistant response
-                    last_message = yield from self._generate_assistant_response(
+                    # Generate agent response
+                    last_message = yield from self._generate_agent_response(
                         use_streaming=use_streaming,
                         additional_messages=additional_messages,
                     )
             elif last_message.llm_role == "assistant" and last_message.has_tool_calls():
-                # Execute ALL tool calls from assistant message
+                # Execute ALL tool calls from agent message
                 tool_calls = last_message.get_tool_calls()
                 for tool_call in tool_calls:
                     tool_message = yield from self._execute_tool_call(
@@ -732,15 +732,15 @@ class LLMThread(models.Model):
 
                 tool_call_rounds += 1
                 if max_tool_call_rounds and tool_call_rounds >= max_tool_call_rounds:
-                    assistant_label = (
-                        self.assistant_id.code or self.assistant_id.name
-                        if self.assistant_id else "<no assistant>"
+                    agent_label = (
+                        self.agent_id.code or self.agent_id.name
+                        if self.agent_id else "<no agent>"
                     )
                     _logger.warning(
-                        "[generate_messages] thread_id=%d assistant=%r hit "
+                        "[generate_messages] thread_id=%d agent=%r hit "
                         "tool_calls_max=%d after %d round(s); breaking loop. "
                         "The model will not be called again for this turn.",
-                        self.id, assistant_label,
+                        self.id, agent_label,
                         max_tool_call_rounds, tool_call_rounds,
                     )
                     yield {
@@ -762,8 +762,8 @@ class LLMThread(models.Model):
     def _generate_response(self, last_message):
         raise NotImplementedError
 
-    def _generate_assistant_response(self, use_streaming=None, additional_messages=None):
-        """Generate an assistant response and handle tool calls.
+    def _generate_agent_response(self, use_streaming=None, additional_messages=None):
+        """Generate an agent response and handle tool calls.
 
         ``use_streaming`` is caller-controlled when not ``None``. API failures
         remain visible in interactive LLM threads as error messages; programmatic
@@ -784,12 +784,12 @@ class LLMThread(models.Model):
             provider_model = self.sudo().model_id
             if use_streaming:
                 stream_response = provider_model.chat(**chat_kwargs)
-                assistant_message = yield from self._handle_streaming_response(
+                agent_message = yield from self._handle_streaming_response(
                     stream_response,
                 )
             else:
                 response = provider_model.chat(**chat_kwargs)
-                assistant_message = yield from self._handle_non_streaming_response(
+                agent_message = yield from self._handle_non_streaming_response(
                     response,
                 )
         except Exception as e:
@@ -801,7 +801,7 @@ class LLMThread(models.Model):
             yield event
             return error_message
 
-        return assistant_message
+        return agent_message
 
     def _prepare_chat_kwargs(
         self,
@@ -894,9 +894,9 @@ class LLMThread(models.Model):
             return False
 
         # Continue if:
-        # 1. Last message is user message → generate assistant response
-        # 2. Last message is tool message → generate assistant response
-        # 3. Last message is assistant with tool calls → execute tools
+        # 1. Last message is user message → generate agent response
+        # 2. Last message is tool message → generate agent response
+        # 3. Last message is agent with tool calls → execute tools
         if last_message.llm_role in ("user", "tool") or (
             last_message.llm_role == "assistant" and last_message.has_tool_calls()
         ):
@@ -954,7 +954,7 @@ class LLMThread(models.Model):
 
         if collected_tool_calls:
             if not message:
-                # Create assistant message with body_json (handled by message_post override)
+                # Create agent message with body_json (handled by message_post override)
                 message = self.message_post(
                     body="",  # Empty body for tool-only responses
                     body_json=body_json,
@@ -970,7 +970,7 @@ class LLMThread(models.Model):
                 self.env.flush_all()
                 yield {"type": "message_update", "message": message.to_store_format()}
         elif message and accumulated_content:
-            # Final update for assistant message without tool calls — write
+            # Final update for agent message without tool calls — write
             # both the rendered HTML body (for UI) and the raw markdown content
             # (in body_json, for programmatic callers).
             message.write({
@@ -1004,8 +1004,8 @@ class LLMThread(models.Model):
         if tool_calls:
             body_json["tool_calls"] = tool_calls
 
-        # Create assistant message with body_json (handled by message_post override)
-        assistant_message = self.message_post(
+        # Create agent message with body_json (handled by message_post override)
+        agent_message = self.message_post(
             body=self._process_llm_body(content) if content else "",
             body_json=body_json or None,
             llm_role="assistant",
@@ -1013,13 +1013,13 @@ class LLMThread(models.Model):
         )
 
         if images:
-            self._save_response_images(images, assistant_message)
+            self._save_response_images(images, agent_message)
 
         yield {
             "type": "message_create",
-            "message": assistant_message.to_store_format(),
+            "message": agent_message.to_store_format(),
         }
-        return assistant_message
+        return agent_message
 
     def _save_response_images(self, images, message):
         """Save LLM-generated images as attachments on the given message.
@@ -1050,12 +1050,12 @@ class LLMThread(models.Model):
         if attachments:
             message.write({"attachment_ids": [(4, a.id) for a in attachments]})
 
-    def _execute_tool_call(self, tool_call, assistant_message):
+    def _execute_tool_call(self, tool_call, agent_message):
         """Execute a single tool call and return the tool message.
 
         Args:
-            tool_call (dict): Tool call data from assistant message
-            assistant_message (mail.message): The assistant message that contains the tool calls
+            tool_call (dict): Tool call data from agent message
+            agent_message (mail.message): The agent message that contains the tool calls
 
         Yields:
             dict: Status updates for streaming
@@ -1113,28 +1113,28 @@ class LLMThread(models.Model):
     def get_prepend_messages(self):
         """Hook: return a list of formatted messages to prepend to the conversation.
 
-        If the thread has an assistant, returns its prompt template (via
-        ``llm.assistant.get_messages``).
+        If the thread has an agent, returns its prompt template (via
+        ``llm.agent.get_messages``).
         """
         self.ensure_one()
 
-        if self.assistant_id:
+        if self.agent_id:
             try:
-                return self.assistant_id.get_messages()
+                return self.agent_id.get_messages()
             except Exception as e:
                 _logger.error(
-                    "Error rendering the prompt of assistant '%s': %s",
-                    self.assistant_id.name,
+                    "Error rendering the prompt of agent '%s': %s",
+                    self.agent_id.name,
                     e,
                 )
                 # Continue without the prompt rather than failing the whole
                 # conversation, but tell the user.
                 self.message_post(
                     body=_(
-                        "Note: the prompt of assistant '%s' could not be "
+                        "Note: the prompt of agent '%s' could not be "
                         "rendered. Continuing without it. (Error: %s)",
                     )
-                    % (self.assistant_id.name, str(e)),
+                    % (self.agent_id.name, str(e)),
                 )
 
         return []
@@ -1275,12 +1275,12 @@ class LLMThread(models.Model):
                 "name": thread.name,  # Essential for UI display
                 "write_date": thread.write_date,  # For sorting in thread list
                 "channel_type": "llm_chat",  # Custom type for LLM threads
-                "assistant_id": {
-                    "id": thread.assistant_id.id,
-                    "name": thread.assistant_id.name,
-                    "model": "llm.assistant",
+                "agent_id": {
+                    "id": thread.agent_id.id,
+                    "name": thread.agent_id.name,
+                    "model": "llm.agent",
                 }
-                if thread.assistant_id
+                if thread.agent_id
                 else False,
             }
 

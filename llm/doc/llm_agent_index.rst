@@ -6,7 +6,7 @@ Advanced AI assistant management with integrated prompt templates, testing capab
 
 **Module Type:** 🚀 Entry Point
 
-.. image:: ../static/description/llm_assistant_architecture.png
+.. image:: ../static/description/llm_agent_architecture.png
    :alt: LLM Assistant Architecture
    :width: 100%
 
@@ -22,7 +22,7 @@ This is the **main entry point** for AI chat features in Odoo.
 
 .. code-block:: bash
 
-    odoo-bin -d your_db -i llm_assistant,llm_openai
+    odoo-bin -d your_db -i llm_agent,llm_openai
 
 Auto-Installed Dependencies
 ---------------------------
@@ -53,15 +53,15 @@ Common Setups
 +----------------------------------+------------------------------------------------------+
 | I want to...                     | Install                                              |
 +==================================+======================================================+
-| Chat with GPT-4 in Odoo          | ``llm_assistant`` + ``llm_openai``                   |
+| Chat with GPT-4 in Odoo          | ``llm_agent`` + ``llm_openai``                   |
 +----------------------------------+------------------------------------------------------+
-| Use local AI (privacy)           | ``llm_assistant`` + ``llm_ollama``                   |
+| Use local AI (privacy)           | ``llm_agent`` + ``llm_ollama``                   |
 +----------------------------------+------------------------------------------------------+
 | Add document search (RAG)        | Above + ``llm_knowledge`` + ``llm_pgvector``         |
 +----------------------------------+------------------------------------------------------+
 | Connect Claude Desktop           | Above + ``llm_mcp_server``                           |
 +----------------------------------+------------------------------------------------------+
-| Build domain-specific assistant  | Extend (see ``llm_assistant_account_invoice``)       |
+| Build domain-specific agent  | Extend (see ``llm_agent_account_invoice``)       |
 +----------------------------------+------------------------------------------------------+
 
 Overview
@@ -98,7 +98,7 @@ Chat Assistants
 
 .. code-block:: python
 
-    assistant = env['llm.assistant'].create({
+    agent = env['llm.agent'].create({
         'name': 'Customer Support Bot',
         'role': 'Customer Service Representative',
         'goal': 'Provide helpful and accurate customer support',
@@ -116,7 +116,7 @@ Content Generation Assistants
 
 .. code-block:: python
 
-    assistant = env['llm.assistant'].create({
+    agent = env['llm.agent'].create({
         'name': 'Marketing Content Creator',
         'role': 'Marketing Specialist',
         'goal': 'Create compelling marketing content',
@@ -154,8 +154,8 @@ Testing & Validation
 
 .. code-block:: python
 
-    wizard = env['llm.assistant.test.wizard'].create({
-        'assistant_id': assistant.id,
+    wizard = env['llm.agent.test.wizard'].create({
+        'agent_id': agent.id,
         'test_context': {
             'customer_name': 'John Smith',
             'product_name': 'Enterprise Software'
@@ -195,18 +195,18 @@ Assistant Methods
 .. code-block:: python
 
     # Get system prompt with context
-    system_prompt = assistant.get_system_prompt(context={
+    system_prompt = agent.get_system_prompt(context={
         'customer_name': 'John Doe'
     })
 
     # Prepare conversation context
-    context = assistant.prepare_context(
+    context = agent.prepare_context(
         record=sale_order,
         user_input="Tell me about pricing"
     )
 
     # Get available tools
-    tools = assistant.get_available_tools()
+    tools = agent.get_available_tools()
 
 Technical Specifications
 ========================
@@ -224,10 +224,10 @@ Module Information
 Key Models
 ----------
 
-- **``llm.assistant``**: Main assistant configuration
+- **``llm.agent``**: Main agent configuration
 - **``llm.prompt``**: Integrated prompt template management
 - **``llm.prompt.category``**: Template categorization
-- **``llm.assistant.test.wizard``**: Testing and validation
+- **``llm.agent.test.wizard``**: Testing and validation
 
 Related Modules
 ===============
@@ -237,7 +237,7 @@ Related Modules
 - **``llm_tool``** - Function calling and Odoo integration
 - **``llm_generate``** - Content generation with assistant integration
 - **``llm_knowledge``** - RAG and knowledge base integration
-- **``llm_assistant_account_invoice``** - Example domain-specific assistant
+- **``llm_agent_account_invoice``** - Example domain-specific agent
 
 Resources
 =========

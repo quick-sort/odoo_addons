@@ -9,7 +9,7 @@
       by matching (res_model, res_method).
 
       These records exist rather than letting the scan create them because their
-      xmlids are referenced from llm_assistant/data/llm_assistant_data.xml.
+      xmlids are referenced from llm_agent/data/llm_agent_data.xml.
     -->
 
     <record id="llm_tool_odoo_record_retriever" model="llm.tool">

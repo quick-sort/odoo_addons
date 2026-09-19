@@ -9,7 +9,7 @@ import { useService } from "@web/core/utils/hooks";
 
 /**
  * Thread Header Component
- * Displays thread name and provides a dropdown for assistant selection
+ * Displays thread name and provides a dropdown for agent selection
  */
 export class LLMThreadHeader extends Component {
   static template = "llm.LLMThreadHeader";
@@ -51,7 +51,7 @@ export class LLMThreadHeader extends Component {
       const data = await this.orm.read("llm.thread", [thread.id], fields);
       if (data && data.length) {
         const raw = data[0];
-        for (const f of ["assistant_id", "provider_id", "model_id"]) {
+        for (const f of ["agent_id", "provider_id", "model_id"]) {
           if (Array.isArray(raw[f])) {
             raw[f] = { id: raw[f][0], name: raw[f][1] };
           }
@@ -69,24 +69,24 @@ export class LLMThreadHeader extends Component {
   }
 
   /**
-   * Get current assistant
+   * Get current agent
    */
-  get currentAssistant() {
+  get currentAgent() {
     if (!this.hasActiveThread) return null;
 
-    const assistantId =
-      this.activeThread.assistant_id?.id || this.activeThread.assistant_id;
-    if (!assistantId) return null;
+    const agentId =
+      this.activeThread.agent_id?.id || this.activeThread.agent_id;
+    if (!agentId) return null;
 
-    return this.llmStore.llmAssistants?.get(assistantId) || this.activeThread.assistant_id;
+    return this.llmStore.llmAgents?.get(agentId) || this.activeThread.agent_id;
   }
 
   /**
-   * Get available assistants
+   * Get available agents
    */
   get availableAssistants() {
-    return this.llmStore.llmAssistants
-      ? Array.from(this.llmStore.llmAssistants.values())
+    return this.llmStore.llmAgents
+      ? Array.from(this.llmStore.llmAgents.values())
       : [];
   }
 
@@ -167,27 +167,27 @@ export class LLMThreadHeader extends Component {
     }
   }
 
-  // Assistant Management
+  // Agent Management
 
   /**
-   * Select an assistant
-   * @param {Object} assistant - Assistant object to select
+   * Select an agent
+   * @param {Object} agent - Agent object to select
    */
-  async selectAssistant(assistant) {
-    const assistantId = assistant ? assistant.id : null;
-    if (assistantId === this.currentAssistant?.id) return;
+  async selectAgent(agent) {
+    const agentId = agent ? agent.id : null;
+    if (agentId === this.currentAgent?.id) return;
 
     try {
       this.state.isLoadingUpdate = true;
-      await this.llmStore.selectAssistant(assistantId);
+      await this.llmStore.selectAgent(agentId);
     } catch (error) {
       this.notification.add(
-        _t("Could not change the assistant. Please try again."),
+        _t("Could not change the agent. Please try again."),
         {
           type: "danger",
         }
       );
-      console.error("Error updating assistant:", error);
+      console.error("Error updating agent:", error);
     } finally {
       this.state.isLoadingUpdate = false;
     }

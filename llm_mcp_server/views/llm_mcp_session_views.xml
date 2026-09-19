@@ -74,7 +74,7 @@
     id="menu_llm_mcp_session"
     name="MCP Sessions"
     action="llm_mcp_session_action"
-    parent="llm.menu_llm_config"
+    parent="llm.menu_llm_basic"
     sequence="55"
   />
 
