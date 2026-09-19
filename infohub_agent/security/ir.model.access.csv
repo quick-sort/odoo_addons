@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_infohub_tag_user,infohub.tag user,model_infohub_tag,infohub.group_infohub_user,1,0,0,0
+access_infohub_tag_manager,infohub.tag manager,model_infohub_tag,infohub.group_infohub_manager,1,1,1,1

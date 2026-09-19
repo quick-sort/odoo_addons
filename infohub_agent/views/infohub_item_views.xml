@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="view_infohub_item_list_inherit_agent" model="ir.ui.view">
+        <field name="name">infohub.item.list.inherit.agent</field>
+        <field name="model">infohub.item</field>
+        <field name="inherit_id" ref="infohub.view_infohub_item_list" />
+        <field name="arch" type="xml">
+            <field name="state" position="after">
+                <field
+                    name="tagging_state"
+                    widget="badge"
+                    decoration-success="tagging_state == 'done'"
+                    decoration-danger="tagging_state == 'error'"
+                    decoration-info="tagging_state == 'queued'"
+                />
+                <field name="tag_ids" widget="many2many_tags" optional="show" />
+            </field>
+        </field>
+    </record>
+
+    <record id="view_infohub_item_form_inherit_agent" model="ir.ui.view">
+        <field name="name">infohub.item.form.inherit.agent</field>
+        <field name="model">infohub.item</field>
+        <field name="inherit_id" ref="infohub.view_infohub_item_form" />
+        <field name="arch" type="xml">
+            <button name="action_open_url" position="after">
+                <button
+                    name="action_requeue_tagging"
+                    type="object"
+                    class="oe_stat_button"
+                    icon="fa-tags"
+                    invisible="tagging_state == 'pending'"
+                >
+                    <div class="o_stat_info">
+                        <span class="o_stat_text">Re-tag</span>
+                    </div>
+                </button>
+            </button>
+            <field name="state" position="after">
+                <field
+                    name="tagging_state"
+                    widget="badge"
+                    decoration-success="tagging_state == 'done'"
+                    decoration-danger="tagging_state == 'error'"
+                    decoration-info="tagging_state == 'queued'"
+                />
+                <field
+                    name="tagging_error"
+                    invisible="tagging_state != 'error'"
+                    nolabel="1"
+                />
+            </field>
+            <field name="title" position="after">
+                <field name="tag_ids" widget="many2many_tags" />
+            </field>
+        </field>
+    </record>
+
+    <record id="view_infohub_item_search_inherit_agent" model="ir.ui.view">
+        <field name="name">infohub.item.search.inherit.agent</field>
+        <field name="model">infohub.item</field>
+        <field name="inherit_id" ref="infohub.view_infohub_item_search" />
+        <field name="arch" type="xml">
+            <filter name="state_accepted" position="after">
+                <field name="tag_ids" />
+                <filter
+                    name="tagging_error"
+                    string="Tagging Errors"
+                    domain="[('tagging_state', '=', 'error')]"
+                />
+                <filter
+                    name="tagging_pending"
+                    string="To Tag"
+                    domain="[('tagging_state', 'in', ('pending', 'queued'))]"
+                />
+                <filter
+                    name="has_tags"
+                    string="Has Tags"
+                    domain="[('tag_ids', '!=', False)]"
+                />
+            </filter>
+            <filter name="group_type" position="after">
+                <filter
+                    name="group_tagging_state"
+                    string="Tagging State"
+                    context="{'group_by': 'tagging_state'}"
+                />
+            </filter>
+        </field>
+    </record>
+</odoo>
