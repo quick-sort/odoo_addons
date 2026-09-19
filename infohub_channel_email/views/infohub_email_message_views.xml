@@ -85,9 +85,9 @@
 
     <record id="menu_infohub_email_message" model="ir.ui.menu">
         <field name="name">Inbound Email</field>
-        <field name="parent_id" ref="infohub.menu_infohub_root" />
+        <field name="parent_id" ref="infohub.menu_infohub_channel" />
         <field name="action" ref="action_infohub_email_message" />
-        <field name="sequence">40</field>
+        <field name="sequence">10</field>
         <field name="group_ids" eval="[(4, ref('infohub.group_infohub_manager'))]" />
     </record>
 </odoo>
