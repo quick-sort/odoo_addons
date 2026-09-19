@@ -1,11 +1,11 @@
 """OpenAI service adapter.
 
 Implements the ``llm.provider.adapter`` contract for ``service == "openai"``,
-following the official OpenAI API only. Third-party endpoints that speak the
-same wire format but smuggle vendor extensions into the response (image parts
-inline in a chat completion, for instance) are covered by
-``llm_openai_compatible``, which inherits this adapter and overrides only what
-differs.
+strictly following the official OpenAI Chat Completions API. Third-party
+endpoints that speak the same wire format but deviate from it (image parts
+inline in a chat completion, tool-call fragments without an ``index``, ...)
+are covered by ``llm_openai_compatible``, which inherits this adapter and
+overrides only what differs.
 
 Every method takes the ``llm.provider`` record as its first argument instead of
 reading ``self.collection``, which keeps the parsing and formatting logic
@@ -14,7 +14,7 @@ testable without a database (see ``llm_openai/tests/``).
 Two branches make this adapter larger than a plain chat client:
 
 - **streaming tool calls** -- arguments arrive fragmented across chunks and
-  have to be reassembled (:meth:`_update_tool_call_chunk`)
+  have to be reassembled (:meth:`_accumulate_tool_call_fragment`)
 - **history repair** -- a tool message with no preceding assistant
   ``tool_calls`` is rejected by the API, so the history is cleaned first
   (:meth:`_validate_and_clean_messages`)
@@ -22,7 +22,6 @@ Two branches make this adapter larger than a plain chat client:
 
 import json
 import logging
-import uuid
 
 from openai import OpenAI
 
@@ -118,8 +117,6 @@ class OpenAIProviderAdapter(Component):
             _logger.warning("Could not generate schema for tool %s, skipping.", tool.name)
             return None
 
-        self._patch_schema_items(schema)
-
         return {
             "type": "function",
             "function": {
@@ -132,31 +129,6 @@ class OpenAIProviderAdapter(Component):
                 },
             },
         }
-
-    def _patch_schema_items(self, schema_node):
-        """Give every nested ``items`` an explicit ``type``.
-
-        Some endpoints reject an array schema whose ``items`` has no ``type``.
-        Mutates ``schema_node`` in place.
-        """
-        if not isinstance(schema_node, dict):
-            return
-
-        items = schema_node.get("items")
-        if isinstance(items, dict):
-            items.setdefault("type", "string")
-            self._patch_schema_items(items)
-
-        properties = schema_node.get("properties")
-        if isinstance(properties, dict):
-            for prop_schema in properties.values():
-                self._patch_schema_items(prop_schema)
-
-        for combiner in ("anyOf", "allOf", "oneOf"):
-            branches = schema_node.get(combiner)
-            if isinstance(branches, list):
-                for sub_schema in branches:
-                    self._patch_schema_items(sub_schema)
 
     # ------------------------------------------------------------------
     # Chat
@@ -231,11 +203,12 @@ class OpenAIProviderAdapter(Component):
     def _process_streaming_response(self, provider, response_stream):
         """Yield ``content`` / ``tool_calls`` / ``error`` dicts from a stream.
 
-        Text is forwarded as it arrives; tool calls are buffered because their
-        arguments come fragmented, and are emitted once the stream ends.
+        Text is forwarded as it arrives. Tool calls are buffered because their
+        arguments come fragmented, and are emitted once the stream ends:
+        per the API contract, ``finish_reason == "tool_calls"`` guarantees the
+        concatenated fragments form complete calls.
         """
         assembled_tool_calls = {}
-        stream_has_tools = False
         finish_reason = None
 
         try:
@@ -251,104 +224,68 @@ class OpenAIProviderAdapter(Component):
                 if delta.content:
                     yield {"content": delta.content}
 
-                if delta.tool_calls:
-                    stream_has_tools = True
-                    for call_counter, tool_call_chunk in enumerate(delta.tool_calls):
-                        # Some endpoints omit the index; fall back to the
-                        # position. Test explicitly for None: index 0 is valid
-                        # and must not be replaced by the counter.
-                        index = tool_call_chunk.index
-                        if index is None:
-                            index = call_counter
-                        self._update_tool_call_chunk(
-                            provider,
-                            assembled_tool_calls,
-                            tool_call_chunk,
-                            index,
-                        )
+                for tool_call_chunk in delta.tool_calls or []:
+                    self._accumulate_tool_call_fragment(
+                        assembled_tool_calls,
+                        tool_call_chunk,
+                    )
 
-            if not stream_has_tools:
+            if not assembled_tool_calls:
                 return
 
-            if finish_reason != "tool_calls" and (
-                finish_reason == "error" or not assembled_tool_calls
-            ):
+            if finish_reason != "tool_calls":
                 _logger.warning(
-                    "OpenAI stream had tool chunks but finished with reason '%s'. "
-                    "Not yielding tool calls.",
+                    "OpenAI stream had tool call fragments but finished with "
+                    "reason '%s'. Not yielding tool calls.",
                     finish_reason,
                 )
                 return
 
-            final_tool_calls = []
-            for index, call_data in sorted(assembled_tool_calls.items()):
-                if not call_data.get("_complete"):
-                    yield {
-                        "error": "Received incomplete tool call data from provider "
-                        f"for tool index {index}.",
-                    }
-                    continue
-                final_tool_calls.append(
+            yield {
+                "tool_calls": [
                     {
-                        # Some endpoints (e.g. Google) omit the id: generate one
-                        # so the tool result can be correlated back.
-                        "id": call_data.get("id", "").strip() or str(uuid.uuid4()),
-                        "type": call_data.get("type", "function"),
+                        "id": call_data["id"],
+                        "type": call_data["type"],
                         "function": {
                             "name": call_data["function"]["name"],
                             "arguments": call_data["function"]["arguments"],
                         },
-                    },
-                )
-
-            if final_tool_calls:
-                yield {"tool_calls": final_tool_calls}
-            elif assembled_tool_calls:
-                _logger.warning(
-                    "Stream indicated tool calls, but none were successfully assembled.",
-                )
+                    }
+                    for _, call_data in sorted(assembled_tool_calls.items())
+                ],
+            }
 
         except Exception as error:  # noqa: BLE001 - surfaced to the thread
             yield {"error": f"Internal error processing stream: {error}"}
 
-    def _update_tool_call_chunk(
-        self,
-        provider,
-        tool_call_chunks,
-        tool_call_chunk,
-        index,
-    ):
-        """Accumulate one streamed tool-call fragment, in place."""
-        current_call = tool_call_chunks.setdefault(
-            index,
+    @staticmethod
+    def _accumulate_tool_call_fragment(assembled_tool_calls, fragment):
+        """Accumulate one streamed tool-call fragment, in place.
+
+        Per the API contract every fragment carries the call ``index``, the
+        first fragment carries ``id``/``type``, and later ones append to the
+        ``arguments`` string.
+        """
+        current_call = assembled_tool_calls.setdefault(
+            fragment.index,
             {
-                "id": tool_call_chunk.id,
-                "type": tool_call_chunk.type,
+                "id": fragment.id,
+                "type": fragment.type,
                 "function": {"name": "", "arguments": ""},
-                "_complete": False,
             },
         )
 
-        if tool_call_chunk.id:
-            current_call["id"] = tool_call_chunk.id
-        if tool_call_chunk.type:
-            current_call["type"] = tool_call_chunk.type
+        if fragment.id:
+            current_call["id"] = fragment.id
+        if fragment.type:
+            current_call["type"] = fragment.type
 
-        func_chunk = tool_call_chunk.function
+        func_chunk = fragment.function
         if func_chunk:
             if func_chunk.name:
                 current_call["function"]["name"] = func_chunk.name
             if func_chunk.arguments:
                 current_call["function"]["arguments"] += func_chunk.arguments
-
-        # _is_tool_call_complete is a service-neutral helper contributed to
-        # llm.provider by the llm_tool addon.
-        current_call["_complete"] = provider._is_tool_call_complete(
-            current_call["function"],
-            expected_endings=("]", "}"),
-        )
-
-        return tool_call_chunks
 
     # ------------------------------------------------------------------
     # Embeddings

@@ -54,6 +54,106 @@ def tool_call(name="do_it", arguments='{"a": 1}', call_id="call_1"):
     }
 
 
+class TestDropOrphanedToolBlocks(BaseCase):
+    """The API rejects an unpaired tool_result or an unanswered tool_use."""
+
+    def setUp(self):
+        super().setUp()
+        self.adapter = make_adapter()
+
+    @staticmethod
+    def tool_result(tool_use_id, content="ok"):
+        return {
+            "role": "user",
+            "content": [
+                {"type": "tool_result", "tool_use_id": tool_use_id, "content": content},
+            ],
+        }
+
+    @staticmethod
+    def tool_use(block_id, name="search"):
+        return {
+            "role": "assistant",
+            "content": [
+                {"type": "tool_use", "id": block_id, "name": name, "input": {}},
+            ],
+        }
+
+    def test_paired_blocks_are_kept(self):
+        messages = [
+            self.tool_use("c1"),
+            self.tool_result("c1"),
+        ]
+
+        self.assertEqual(
+            self.adapter._drop_orphaned_tool_blocks(messages),
+            messages,
+        )
+
+    def test_orphaned_tool_result_is_dropped(self):
+        """E.g. a thread truncated in the middle of a tool round."""
+        messages = [
+            self.tool_result("c1"),  # its assistant tool_use was truncated away
+            {"role": "user", "content": "hello"},
+        ]
+
+        result = self.adapter._drop_orphaned_tool_blocks(messages)
+
+        self.assertEqual(result, [{"role": "user", "content": "hello"}])
+
+    def test_unanswered_tool_use_is_dropped(self):
+        messages = [
+            {"role": "user", "content": "hello"},
+            {
+                "role": "assistant",
+                "content": [
+                    {"type": "text", "text": "on it"},
+                    {"type": "tool_use", "id": "c1", "name": "search", "input": {}},
+                ],
+            },
+        ]
+
+        result = self.adapter._drop_orphaned_tool_blocks(messages)
+
+        self.assertEqual(
+            result,
+            [
+                {"role": "user", "content": "hello"},
+                {"role": "assistant", "content": [{"type": "text", "text": "on it"}]},
+            ],
+        )
+
+    def test_assistant_left_empty_by_cleanup_is_dropped(self):
+        messages = [
+            self.tool_use("c1"),
+        ]
+
+        self.assertEqual(self.adapter._drop_orphaned_tool_blocks(messages), [])
+
+    def test_duplicate_tool_result_keeps_the_first(self):
+        messages = [
+            self.tool_use("c1"),
+            self.tool_result("c1", "first"),
+            self.tool_result("c1", "second"),
+        ]
+
+        result = self.adapter._drop_orphaned_tool_blocks(messages)
+
+        self.assertEqual(result[1]["content"][0]["content"], "first")
+        self.assertEqual(len(result), 2)
+
+    def test_plain_messages_pass_through(self):
+        messages = [
+            {"role": "user", "content": "hi"},
+            {"role": "assistant", "content": "hello"},
+        ]
+
+        self.assertEqual(
+            self.adapter._drop_orphaned_tool_blocks(messages),
+            messages,
+        )
+
+
 class TestMergeConsecutiveUserMessages(BaseCase):
     """Anthropic requires alternating roles, so adjacent user turns merge."""
 
@@ -267,6 +367,17 @@ class TestFormatMessage(BaseCase):
         block = self.adapter._format_message(message)["content"][0]
 
         self.assertEqual(json.loads(block["content"]), {"error": "boom"})
+        self.assertTrue(block["is_error"])
+
+    def test_successful_tool_result_has_no_is_error(self):
+        message = make_message(
+            role="tool",
+            body_json={"tool_call_id": "call_1", "result": 1},
+        )
+
+        block = self.adapter._format_message(message)["content"][0]
+
+        self.assertNotIn("is_error", block)
 
     def test_tool_message_without_data_is_dropped(self):
         self.assertIsNone(
@@ -313,7 +424,7 @@ class TestFormatMessages(BaseCase):
         result = self.adapter.format_messages(
             provider=None,
             messages=messages,
-            model=SimpleNamespace(model_use="multimodal"),
+            model=SimpleNamespace(supports_image_input=True),
         )
 
         self.assertEqual(result[0]["content"][0]["type"], "image")
@@ -423,23 +534,6 @@ class TestModelParsing(BaseCase):
         parsed = self.adapter._parse_model(SimpleNamespace(id="claude-x"))
 
         self.assertEqual(parsed["details"]["display_name"], "claude-x")
-
-    def test_determine_model_use(self):
-        self.assertEqual(
-            self.adapter.determine_model_use(None, "claude-x", ["chat", "multimodal"]),
-            "multimodal",
-        )
-        self.assertEqual(
-            self.adapter.determine_model_use(None, "claude-x", ["chat"]),
-            "chat",
-        )
-
-    def test_determine_model_use_never_returns_embedding(self):
-        """Anthropic ships no embedding model, unlike the generic rules."""
-        self.assertEqual(
-            self.adapter.determine_model_use(None, "text-embedding-3", ["embedding"]),
-            "chat",
-        )
 
 
 class TestFormatTools(BaseCase):
@@ -552,6 +646,21 @@ class TestChatRequest(BaseCase):
         self.assertEqual(params["messages"], [{"role": "user", "content": "context"}])
         self.assertNotIn("system", [m["role"] for m in params["messages"]])
 
+    def test_multiple_system_prepends_are_joined(self):
+        """Dropping all but the first would silently lose prompts."""
+        self.adapter.chat(
+            self.provider,
+            [],
+            prepend_messages=[
+                {"role": "system", "content": "be nice"},
+                {"role": "system", "content": "be brief"},
+            ],
+        )
+
+        params = self._params()
+        self.assertEqual(params["system"], "be nice\n\nbe brief")
+        self.assertEqual(params["messages"], [])
+
     def test_default_max_tokens(self):
         self.adapter.chat(self.provider, [])
 
@@ -574,6 +683,23 @@ class TestChatRequest(BaseCase):
             self._params()["thinking"],
             {"type": "enabled", "budget_tokens": 10000},
         )
+
+    def test_extended_thinking_raises_max_tokens_above_budget(self):
+        """The API rejects ``max_tokens <= thinking.budget_tokens``."""
+        self.adapter.chat(self.provider, [], extended_thinking=True)
+
+        params = self._params()
+        self.assertGreater(params["max_tokens"], params["thinking"]["budget_tokens"])
+
+    def test_extended_thinking_respects_an_explicit_larger_max_tokens(self):
+        self.adapter.chat(
+            self.provider,
+            [],
+            extended_thinking=True,
+            max_tokens=50000,
+        )
+
+        self.assertEqual(self._params()["max_tokens"], 50000)
 
     def test_no_tools_key_without_tools(self):
         self.adapter.chat(self.provider, [])

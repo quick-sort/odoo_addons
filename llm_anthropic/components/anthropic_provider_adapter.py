@@ -1,6 +1,7 @@
 """Anthropic Claude service adapter.
 
-Implements the ``llm.provider.adapter`` contract for ``service == "anthropic"``.
+Implements the ``llm.provider.adapter`` contract for ``service == "anthropic"``,
+strictly following the official Anthropic Messages API.
 
 Every method takes the ``llm.provider`` record as its first argument instead of
 reading ``self.collection``, which keeps the pure formatting and parsing logic
@@ -12,7 +13,9 @@ Key differences from the OpenAI-shaped protocol:
 - tools use ``{"name", "description", "input_schema"}``
 - responses are an array of content blocks, not a single content string
 - tool calls arrive as a ``tool_use`` block, tool results are sent back as a
-  ``tool_result`` block inside a ``user`` message
+  ``tool_result`` block inside a ``user`` message (failed tools set
+  ``is_error``), and orphaned blocks are dropped because the API rejects an
+  unpaired ``tool_result`` or unanswered ``tool_use``
 - consecutive user messages must be merged
 """
 
@@ -88,24 +91,28 @@ class AnthropicProviderAdapter(Component):
         model = provider.get_model(model, "chat")
         formatted_messages = self.format_messages(provider, messages, model=model)
 
+        max_tokens = kwargs.get("max_tokens", DEFAULT_MAX_TOKENS)
         system_content = None
-        if prepend_messages:
-            for msg in prepend_messages:
-                if msg.get("role") == "system":
-                    system_content = provider._extract_content_text(
-                        msg.get("content", ""),
-                    )
-                    break
 
+        if prepend_messages:
+            # The system prompt is a request parameter, not a message: every
+            # system entry is lifted out of the list and joined.
+            system_parts = [
+                provider._extract_content_text(msg.get("content", ""))
+                for msg in prepend_messages
+                if msg.get("role") == "system"
+            ]
             non_system_prepend = [
                 m for m in prepend_messages if m.get("role") != "system"
             ]
             formatted_messages = non_system_prepend + formatted_messages
+            if any(system_parts):
+                system_content = "\n\n".join(p for p in system_parts if p)
 
         params = {
             "model": model.name,
             "messages": formatted_messages,
-            "max_tokens": kwargs.get("max_tokens", DEFAULT_MAX_TOKENS),
+            "max_tokens": max_tokens,
         }
 
         if system_content:
@@ -117,13 +124,15 @@ class AnthropicProviderAdapter(Component):
                 params["tools"] = formatted_tools
 
         if kwargs.get("extended_thinking"):
+            budget_tokens = kwargs.get("thinking_budget", DEFAULT_THINKING_BUDGET)
             params["thinking"] = {
                 "type": "enabled",
-                "budget_tokens": kwargs.get(
-                    "thinking_budget",
-                    DEFAULT_THINKING_BUDGET,
-                ),
+                "budget_tokens": budget_tokens,
             }
+            # The API rejects ``max_tokens <= thinking.budget_tokens``.
+            if max_tokens <= budget_tokens:
+                max_tokens = budget_tokens + DEFAULT_MAX_TOKENS
+                params["max_tokens"] = max_tokens
 
         client = provider.client
         if stream:
@@ -256,7 +265,73 @@ class AnthropicProviderAdapter(Component):
             if (formatted := self._format_message(message, is_multimodal))
         ]
 
-        return self._merge_consecutive_user_messages(formatted_messages)
+        cleaned = self._drop_orphaned_tool_blocks(formatted_messages)
+        return self._merge_consecutive_user_messages(cleaned)
+
+    @staticmethod
+    def _drop_orphaned_tool_blocks(messages):
+        """Enforce the ``tool_use``/``tool_result`` pairing the API requires.
+
+        A ``tool_result`` whose ``tool_use`` is missing (thread truncated in
+        the middle of a tool round) and an unanswered ``tool_use`` both make
+        the API reject the whole request. Orphaned blocks are dropped, along
+        with messages left empty by the cleanup. Duplicate results for the
+        same ``tool_use`` are rejected as well -- the first one wins.
+        """
+        use_ids = {
+            block["id"]
+            for msg in messages
+            if msg.get("role") == "assistant" and isinstance(msg.get("content"), list)
+            for block in msg["content"]
+            if block.get("type") == "tool_use"
+        }
+        result_ids = {
+            block["tool_use_id"]
+            for msg in messages
+            if msg.get("role") == "user" and isinstance(msg.get("content"), list)
+            for block in msg["content"]
+            if block.get("type") == "tool_result"
+        }
+
+        seen_result_ids = set()
+        cleaned = []
+
+        for msg in messages:
+            content = msg.get("content")
+            if not isinstance(content, list):
+                cleaned.append(msg)
+                continue
+
+            kept_blocks = []
+            for block in content:
+                block_type = block.get("type")
+                if block_type == "tool_result":
+                    tool_use_id = block.get("tool_use_id")
+                    if (
+                        tool_use_id not in use_ids
+                        or tool_use_id in seen_result_ids
+                    ):
+                        _logger.warning(
+                            "Anthropic Format: dropping tool_result %s (%s).",
+                            tool_use_id,
+                            "duplicate" if tool_use_id in seen_result_ids
+                            else "no matching tool_use",
+                        )
+                        continue
+                    seen_result_ids.add(tool_use_id)
+                elif block_type == "tool_use":
+                    if block.get("id") not in result_ids:
+                        _logger.warning(
+                            "Anthropic Format: dropping unanswered tool_use %s.",
+                            block.get("id"),
+                        )
+                        continue
+                kept_blocks.append(block)
+
+            if kept_blocks:
+                cleaned.append({**msg, "content": kept_blocks})
+
+        return cleaned
 
     def _format_message(self, message, is_multimodal=False):
         """Format one ``mail.message`` record, or ``None`` when it has no payload.
@@ -371,23 +446,17 @@ class AnthropicProviderAdapter(Component):
             )
             return None
 
+        block = {"type": "tool_result", "tool_use_id": tool_call_id}
         if "result" in tool_data:
-            content = json.dumps(tool_data["result"])
+            block["content"] = json.dumps(tool_data["result"])
         elif "error" in tool_data:
-            content = json.dumps({"error": tool_data["error"]})
+            # ``is_error`` is the protocol's way to report a failed tool.
+            block["content"] = json.dumps({"error": tool_data["error"]})
+            block["is_error"] = True
         else:
-            content = ""
+            block["content"] = ""
 
-        return {
-            "role": "user",
-            "content": [
-                {
-                    "type": "tool_result",
-                    "tool_use_id": tool_call_id,
-                    "content": content,
-                },
-            ],
-        }
+        return {"role": "user", "content": [block]}
 
     @staticmethod
     def _merge_consecutive_user_messages(messages):
@@ -449,7 +518,3 @@ class AnthropicProviderAdapter(Component):
                 "created_at": str(getattr(model, "created_at", "")),
             },
         }
-
-    def determine_model_use(self, provider, name, capabilities):
-        """Classify an Anthropic model. No embedding models are offered."""
-        return "chat"

@@ -5,9 +5,8 @@ instantiated with ``object.__new__`` and fed mock records.
 
 The focus is the two branches that make this adapter non-trivial -- streaming
 tool-call reassembly and history repair -- plus the message formatting moved
-off ``mail.message``. Chat-completions-protocol image output (a vendor
-extension, not part of the official API) lives in
-``llm_openai_compatible/tests/`` instead.
+off ``mail.message``. Third-party-endpoint tolerance (null indexes, generated
+ids, schema patching, image output) lives in ``llm_openai_compatible/tests/``.
 """
 
 import json
@@ -73,20 +72,6 @@ class TestStreamingToolCalls(BaseCase):
         super().setUp()
         self.adapter = make_adapter()
         self.provider = mock.MagicMock()
-        # Mirror llm_tool's helper: complete once the arguments parse as JSON.
-        self.provider._is_tool_call_complete.side_effect = self._is_complete
-
-    @staticmethod
-    def _is_complete(function_data, expected_endings=("]", "}")):
-        name = function_data.get("name")
-        args = (function_data.get("arguments") or "").strip()
-        if not name or not args:
-            return False
-        try:
-            json.loads(args)
-        except json.JSONDecodeError:
-            return False
-        return args.endswith(expected_endings)
 
     def test_text_only_stream(self):
         chunks = [stream_chunk(content="he"), stream_chunk(content="llo")]
@@ -113,34 +98,20 @@ class TestStreamingToolCalls(BaseCase):
         self.assertEqual(call["function"]["name"], "search")
         self.assertEqual(json.loads(call["function"]["arguments"]), {"q": "x"})
 
-    def test_missing_id_gets_a_generated_one(self):
+    def test_tool_fragments_without_tool_calls_finish_reason_are_dropped(self):
+        """Only ``finish_reason == "tool_calls"`` guarantees complete calls."""
         chunks = [
             stream_chunk(
                 tool_calls=[
-                    delta_tool_call(call_id="", name="search", arguments='{"q": 1}'),
+                    delta_tool_call(call_id="c1", name="search", arguments='{"q": 1}'),
                 ],
             ),
-            stream_chunk(finish_reason="tool_calls"),
+            stream_chunk(finish_reason="stop"),
         ]
 
         result = list(self.adapter._process_streaming_response(self.provider, chunks))
 
-        self.assertTrue(result[0]["tool_calls"][0]["id"])
-
-    def test_incomplete_tool_call_yields_an_error(self):
-        chunks = [
-            stream_chunk(
-                tool_calls=[
-                    delta_tool_call(call_id="c1", name="search", arguments='{"q":'),
-                ],
-            ),
-            stream_chunk(finish_reason="tool_calls"),
-        ]
-
-        result = list(self.adapter._process_streaming_response(self.provider, chunks))
-
-        self.assertEqual(len(result), 1)
-        self.assertIn("incomplete tool call", result[0]["error"])
+        self.assertEqual(result, [])
 
     def test_multiple_calls_keep_index_order(self):
         chunks = [
@@ -158,8 +129,7 @@ class TestStreamingToolCalls(BaseCase):
         names = [c["function"]["name"] for c in result[0]["tool_calls"]]
         self.assertEqual(names, ["a", "b"])
 
-    def test_index_zero_is_not_replaced_by_the_counter(self):
-        """``index or counter`` would collapse index 0 onto the second slot."""
+    def test_index_zero_is_not_dropped(self):
         chunks = [
             stream_chunk(
                 tool_calls=[
@@ -175,21 +145,6 @@ class TestStreamingToolCalls(BaseCase):
         calls = result[0]["tool_calls"]
         self.assertEqual(len(calls), 2)
         self.assertEqual([c["id"] for c in calls], ["c1", "c2"])
-
-    def test_null_index_falls_back_to_the_counter(self):
-        chunks = [
-            stream_chunk(
-                tool_calls=[
-                    delta_tool_call(index=None, call_id="c1", name="a", arguments="{}"),
-                    delta_tool_call(index=None, call_id="c2", name="b", arguments="{}"),
-                ],
-            ),
-            stream_chunk(finish_reason="tool_calls"),
-        ]
-
-        result = list(self.adapter._process_streaming_response(self.provider, chunks))
-
-        self.assertEqual([c["id"] for c in result[0]["tool_calls"]], ["c1", "c2"])
 
     def test_stream_without_tools_yields_nothing_extra(self):
         chunks = [stream_chunk(content="hi"), stream_chunk(finish_reason="stop")]
@@ -415,51 +370,6 @@ class TestAudioModelDetection(BaseCase):
     def test_missing_model_or_name(self):
         self.assertFalse(self.adapter._is_audio_model(None))
         self.assertFalse(self.adapter._is_audio_model(SimpleNamespace(name=None)))
-
-
-class TestSchemaPatching(BaseCase):
-    """Some endpoints reject an array schema whose items has no type."""
-
-    def setUp(self):
-        super().setUp()
-        self.adapter = make_adapter()
-
-    def test_bare_items_get_a_type(self):
-        schema = {"properties": {"tags": {"type": "array", "items": {}}}}
-
-        self.adapter._patch_schema_items(schema)
-
-        self.assertEqual(schema["properties"]["tags"]["items"]["type"], "string")
-
-    def test_existing_type_is_kept(self):
-        schema = {"properties": {"n": {"type": "array", "items": {"type": "integer"}}}}
-
-        self.adapter._patch_schema_items(schema)
-
-        self.assertEqual(schema["properties"]["n"]["items"]["type"], "integer")
-
-    def test_nested_and_combiners(self):
-        schema = {
-            "properties": {
-                "outer": {
-                    "type": "array",
-                    "items": {"type": "array", "items": {}},
-                },
-            },
-            "anyOf": [{"type": "array", "items": {}}],
-        }
-
-        self.adapter._patch_schema_items(schema)
-
-        self.assertEqual(
-            schema["properties"]["outer"]["items"]["items"]["type"],
-            "string",
-        )
-        self.assertEqual(schema["anyOf"][0]["items"]["type"], "string")
-
-    def test_non_dict_input_is_ignored(self):
-        self.adapter._patch_schema_items(None)
-        self.adapter._patch_schema_items(["not", "a", "dict"])
 
 
 class TestFormatTools(BaseCase):
