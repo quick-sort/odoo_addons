@@ -11,7 +11,12 @@
         "llm",
     ],
     "external_dependencies": {},
-    "data": [],
+    "data": [
+        "security/ir.model.access.csv",
+        "data/ir_config_parameter.xml",
+        "data/ir_cron_data.xml",
+        "views/storage_backend_views.xml",
+    ],
     "demo": [],
     "application": False,
     "auto_install": False,
