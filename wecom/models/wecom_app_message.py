@@ -6,6 +6,90 @@ from odoo import fields, models, api, exceptions
 _logger = logging.getLogger(__name__)
 
 
+class WecomAppMessageArticle(models.Model):
+    _name = 'wecom.app.message.article'
+    _description = '企微应用消息文章'
+    _order = 'sequence, id'
+
+    message_id = fields.Many2one('wecom.app.message', string="消息", required=True, ondelete='cascade')
+    sequence = fields.Integer(default=10)
+
+    title = fields.Char(string="标题", required=True)
+
+    # news（图文消息，跳转外部链接）
+    description = fields.Text(string="描述")
+    url = fields.Char(string="链接")
+    image_url = fields.Char(string="缩略图链接")
+
+    # mpnews（图文素材消息，HTML 正文）
+    content = fields.Text(string="正文内容（HTML源码）",
+                          help="图文素材消息的正文，直接粘贴/编写HTML源码即可，发布时原样发给企业微信；"
+                               "正文中的图片需使用上传得到的URL，否则会被企业微信屏蔽")
+    author = fields.Char(string="作者")
+    digest = fields.Text(string="摘要", help="不填则企业微信自动从正文截取")
+    content_source_url = fields.Char(string="阅读原文链接", help="可选，点击“阅读原文”跳转的链接")
+    show_cover_pic = fields.Boolean(string="显示封面图", default=True)
+    thumb_image = fields.Binary(string="封面图", attachment=True, help="图文素材消息的封面图，发布时会自动上传获取素材ID")
+    thumb_image_filename = fields.Char(string="封面图文件名")
+    thumb_media_id = fields.Char(string="封面图素材ID", readonly=True, copy=False,
+                                 help="发布时上传封面图得到的企业微信临时素材ID，仅用于排查问题")
+    content_image = fields.Binary(string="正文图片", attachment=True,
+                                  help="可选。发布时自动上传该图片取得企业微信图片URL，并替换正文中的 "
+                                       "{content_image_url}；正文为空时正文就是这张图片。")
+    content_image_filename = fields.Char(string="正文图片文件名")
+
+    @api.constrains('url', 'image_url', 'content', 'content_image', 'thumb_image')
+    def _check_by_type(self):
+        for art in self:
+            msg_type = art.message_id.msg_type
+            if msg_type == 'news':
+                if not art.url:
+                    raise exceptions.ValidationError("图文消息(news)每篇文章都必须填写链接。")
+                if not art.image_url:
+                    raise exceptions.ValidationError("图文消息(news)每篇文章都必须填写缩略图链接。")
+            elif msg_type == 'mpnews':
+                if not art.content and not art.content_image:
+                    raise exceptions.ValidationError("图文素材消息(mpnews)每篇文章都必须填写正文内容或上传正文图片。")
+                if not art.thumb_image:
+                    raise exceptions.ValidationError("图文素材消息(mpnews)每篇文章都必须上传封面图。")
+
+    def action_preview_content(self):
+        """
+        子表单“预览正文”按钮：在新标签页打开正文HTML的近似渲染效果。
+        注意：预览仅在浏览器中渲染当前HTML源码，不会模拟企业微信服务端的清洗逻辑。
+        """
+        self.ensure_one()
+        if self.message_id.msg_type != 'mpnews':
+            raise exceptions.UserError("仅“图文素材消息(mpnews)”的HTML正文支持预览。")
+        if not self.content:
+            raise exceptions.UserError("请先填写正文内容后再预览。")
+        return {
+            'type': 'ir.actions.act_url',
+            'url': f'/wecom/app_message/article/{self.id}/preview',
+            'target': 'new',
+        }
+
+    def _get_content(self):
+        """
+        取 mpnews 的最终正文：上传了正文图片时，先换取企业微信图片URL，
+        再替换正文中的 {content_image_url} 占位符；正文为空则整篇正文就是这张图片。
+        上传后的正文会回写到记录上，便于在发布历史里看到实际发送的内容。
+        """
+        self.ensure_one()
+        if not self.content_image:
+            return self.content
+        image_url = self.message_id.app_id._upload_content_image(
+            base64.b64decode(self.content_image), self.content_image_filename)
+        if self.content and '{content_image_url}' in self.content:
+            content = self.content.replace('{content_image_url}', image_url)
+        elif self.content:
+            content = f'{self.content}<p><img src="{image_url}" style="width:100%" /></p>'
+        else:
+            content = f'<p><img src="{image_url}" style="width:100%" /></p>'
+        self.content = content
+        return content
+
+
 class WecomAppMessage(models.Model):
     _name = 'wecom.app.message'
     _description = '企微应用消息发布'
@@ -23,29 +107,12 @@ class WecomAppMessage(models.Model):
         ('mpnews', '图文素材消息（HTML正文，企业微信内直接阅读）'),
     ], string="消息类型", default='textcard', required=True)
 
-    # textcard / news 用：跳转到外部H5页面
-    description = fields.Text(string="描述", help="文本卡片消息/图文消息的描述文字")
-    url = fields.Char(string="H5页面链接", help="点击消息后跳转打开的H5页面地址，文本卡片消息/图文消息必填")
-    image_url = fields.Char(string="缩略图链接", help="图文消息(news)展示用的缩略图URL")
+    # textcard 用：跳转到外部H5页面
+    description = fields.Text(string="描述", help="文本卡片消息的描述文字")
+    url = fields.Char(string="H5页面链接", help="点击消息后跳转打开的H5页面地址，文本卡片消息必填")
     btn_text = fields.Char(string="按钮文字", default="详情", help="仅文本卡片消息使用")
 
-    # mpnews 用：正文直接是HTML，在企业微信内阅读，不跳转外部页面
-    content = fields.Text(string="正文内容（HTML源码）",
-                           help="图文素材消息的正文，直接粘贴/编写HTML源码即可，发布时原样发给企业微信；"
-                                "正文中的图片需使用下方“正文图片上传”得到的URL，否则会被企业微信屏蔽")
-    author = fields.Char(string="作者")
-    digest = fields.Text(string="摘要", help="不填则企业微信自动从正文截取")
-    content_source_url = fields.Char(string="阅读原文链接", help="可选，点击“阅读原文”跳转的链接")
-    show_cover_pic = fields.Boolean(string="显示封面图", default=True)
-    thumb_image = fields.Binary(string="封面图", attachment=True, help="图文素材消息的封面图，发布时会自动上传获取素材ID")
-    thumb_image_filename = fields.Char(string="封面图文件名")
-    thumb_media_id = fields.Char(string="封面图素材ID", readonly=True, copy=False,
-                                  help="发布时上传封面图得到的企业微信临时素材ID，仅用于排查问题")
-    content_image = fields.Binary(string="正文图片", attachment=True,
-                                   help="可选。发布时自动上传该图片取得企业微信图片URL，并替换正文中的 "
-                                        "{content_image_url}；正文为空时正文就是这张图片。"
-                                        "主要供其他模块通过对外接口发送“整页图片”类消息使用")
-    content_image_filename = fields.Char(string="正文图片文件名")
+    article_ids = fields.One2many('wecom.app.message.article', 'message_id', string="文章")
 
     send_to_all = fields.Boolean(string="发送给全部成员")
     user_ids = fields.Many2many('wecom.user', string="接收成员",
@@ -83,35 +150,13 @@ class WecomAppMessage(models.Model):
                                             rec.touser or rec.toparty or rec.totag):
                 raise exceptions.ValidationError("请至少指定一个接收成员/部门/标签，或者勾选“发送给全部成员”。")
 
-    @api.constrains('msg_type', 'url', 'image_url', 'content', 'content_image', 'thumb_image')
+    @api.constrains('msg_type', 'url', 'article_ids')
     def _check_content_by_type(self):
         for rec in self:
-            if rec.msg_type in ('textcard', 'news') and not rec.url:
-                raise exceptions.ValidationError("文本卡片消息/图文消息必须填写H5页面链接。")
-            if rec.msg_type == 'news' and not rec.image_url:
-                raise exceptions.ValidationError("图文消息(news)必须填写缩略图链接。")
-            if rec.msg_type == 'mpnews':
-                if not rec.content and not rec.content_image:
-                    raise exceptions.ValidationError("图文素材消息(mpnews)必须填写正文内容或上传正文图片。")
-                if not rec.thumb_image:
-                    raise exceptions.ValidationError("图文素材消息(mpnews)必须上传封面图。")
-
-    def action_preview_content(self):
-        """
-        表单“预览正文”按钮：在新标签页打开正文HTML的近似渲染效果，方便发布前检查排版样式。
-        注意：预览仅在浏览器中渲染当前HTML源码，不会模拟企业微信服务端的清洗逻辑
-        （例如自动去除<script>、<style>、对图片URL来源的校验等），最终效果仍需以真实设备收到的消息为准。
-        """
-        self.ensure_one()
-        if self.msg_type != 'mpnews':
-            raise exceptions.UserError("仅“图文素材消息(mpnews)”的HTML正文支持预览。")
-        if not self.content:
-            raise exceptions.UserError("请先填写正文内容后再预览。")
-        return {
-            'type': 'ir.actions.act_url',
-            'url': f'/wecom/app_message/{self.id}/preview',
-            'target': 'new',
-        }
+            if rec.msg_type == 'textcard' and not rec.url:
+                raise exceptions.ValidationError("文本卡片消息必须填写H5页面链接。")
+            if rec.msg_type in ('news', 'mpnews') and not rec.article_ids:
+                raise exceptions.ValidationError("图文消息/图文素材消息必须至少添加一篇文章。")
 
     def action_publish(self):
         """
@@ -152,40 +197,59 @@ class WecomAppMessage(models.Model):
 
     def _send_to_wecom(self):
         """
-        按消息类型上传素材并调用企微应用的内部发送接口，返回企业微信的原始结果。
+        按消息类型上传素材并调用企微应用的发送接口，返回企业微信的原始结果（多篇时合并）。
         """
         self.ensure_one()
         touser, toparty = self._get_receivers()
-        if self.msg_type == 'mpnews':
-            thumb_media_id = self.app_id._upload_media(
-                'image', base64.b64decode(self.thumb_image), self.thumb_image_filename)
-            self.thumb_media_id = thumb_media_id
+        if self.msg_type == 'textcard':
             return self.app_id._send_message(
                 title=self.name,
-                msg_type='mpnews',
-                content=self._get_mpnews_content(),
-                author=self.author,
-                digest=self.digest,
-                content_source_url=self.content_source_url,
-                thumb_media_id=thumb_media_id,
-                show_cover_pic=self.show_cover_pic,
+                url=self.url,
+                description=self.description,
+                btn_text=self.btn_text,
                 touser=touser,
                 toparty=toparty,
                 totag=self.totag,
                 send_to_all=self.send_to_all,
             )
-        return self.app_id._send_message(
-            title=self.name,
-            url=self.url,
-            msg_type=self.msg_type,
-            description=self.description,
-            image_url=self.image_url,
-            btn_text=self.btn_text,
+        return self.app_id._send_articles(
+            self.msg_type,
+            self._prepare_articles(),
             touser=touser,
             toparty=toparty,
             totag=self.totag,
             send_to_all=self.send_to_all,
         )
+
+    def _prepare_articles(self):
+        """
+        把 article_ids 组装成 wechatpy 需要的文章 dict 列表。
+        mpnews 需先逐篇上传封面图换取 thumb_media_id。
+        """
+        self.ensure_one()
+        if self.msg_type == 'news':
+            return [{
+                'title': art.title,
+                'description': art.description or '',
+                'url': art.url,
+                'image': art.image_url,
+            } for art in self.article_ids]
+
+        articles = []
+        for art in self.article_ids:
+            thumb_media_id = self.app_id._upload_media(
+                'image', base64.b64decode(art.thumb_image), art.thumb_image_filename)
+            art.thumb_media_id = thumb_media_id
+            articles.append({
+                'thumb_media_id': thumb_media_id,
+                'author': art.author or '',
+                'title': art.title,
+                'content': art._get_content(),
+                'content_source_url': art.content_source_url or '',
+                'digest': art.digest or '',
+                'show_cover_pic': 1 if art.show_cover_pic else 0,
+            })
+        return articles
 
     def _get_receivers(self):
         """
@@ -196,23 +260,3 @@ class WecomAppMessage(models.Model):
         users = self.user_ids.mapped('wecom_id') + (self.touser or '').split('|')
         parties = [str(wid) for wid in self.department_ids.mapped('wecom_id')] + (self.toparty or '').split('|')
         return '|'.join(dict.fromkeys(filter(None, users))), '|'.join(dict.fromkeys(filter(None, parties)))
-
-    def _get_mpnews_content(self):
-        """
-        取 mpnews 的最终正文：上传了正文图片时，先换取企业微信图片URL，
-        再替换正文中的 {content_image_url} 占位符；正文为空则整篇正文就是这张图片。
-        上传后的正文会回写到记录上，便于在发布历史里看到实际发送的内容。
-        """
-        self.ensure_one()
-        if not self.content_image:
-            return self.content
-        image_url = self.app_id._upload_content_image(
-            base64.b64decode(self.content_image), self.content_image_filename)
-        if self.content and '{content_image_url}' in self.content:
-            content = self.content.replace('{content_image_url}', image_url)
-        elif self.content:
-            content = f'{self.content}<p><img src="{image_url}" style="width:100%" /></p>'
-        else:
-            content = f'<p><img src="{image_url}" style="width:100%" /></p>'
-        self.content = content
-        return content

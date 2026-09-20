@@ -1,5 +1,6 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_wecom_app,wecom.app,model_wecom_app,base.group_system,1,1,1,1
 access_wecom_app_message,wecom.app.message,model_wecom_app_message,base.group_system,1,1,1,1
+access_wecom_app_message_article,wecom.app.message.article,model_wecom_app_message_article,base.group_system,1,1,1,1
 access_wecom_department,wecom.department,model_wecom_department,base.group_system,1,1,1,1
 access_wecom_user,wecom.user,model_wecom_user,base.group_system,1,1,1,1
