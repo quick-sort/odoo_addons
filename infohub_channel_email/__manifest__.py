@@ -6,10 +6,11 @@
     "website": "quick-sort@outlook.com",
     "license": "LGPL-3",
     "category": "Productivity",
-    "depends": ["infohub", "mail"],
+    "depends": ["infohub", "mail", "infohub_agent"],
     "data": [
         "security/ir.model.access.csv",
         "data/mail_alias.xml",
+        "data/llm_agent_data.xml",
         "views/infohub_channel_views.xml",
         "views/infohub_email_message_views.xml",
     ],

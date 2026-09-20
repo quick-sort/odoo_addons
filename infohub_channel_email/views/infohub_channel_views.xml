@@ -12,6 +12,10 @@
                     invisible="channel_type != 'email'"
                     required="channel_type == 'email'"
                 />
+                <field
+                    name="split_items"
+                    invisible="channel_type != 'email'"
+                />
             </field>
         </field>
     </record>
