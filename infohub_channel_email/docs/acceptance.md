@@ -25,6 +25,31 @@
 
 来源按发件人匹配（匹配不上留空）；`fetch_news` 返回空（邮件不轮询）。 — `test_source_is_matched_from_sender_name`、`test_fetch_returns_nothing_for_email`
 
+## AC-7 拆分开关与调度
+
+`split_items` 存在且默认关；打开且 agent 已配时，入站邮件置 `queued`、建 queue_job、
+暂不建 item。 — `test_split_channel_queues_instead_of_syncing`
+
+## AC-8 agent 未配回退
+
+`split_items` 开但 agent 未配 provider/model 时，回退为同步单条路径，不丢邮件。 — `test_split_without_configured_agent_falls_back`
+
+## AC-9 拆分入库
+
+agent 回 N 条时建 N 个 item，标题/正文正确，正文进 `content_text`。 — `test_job_splits_digest_into_items`
+
+## AC-10 空结果回退
+
+agent 回 0 条时退化为单条（整封邮件）。 — `test_job_falls_back_to_single_item_when_no_items`
+
+## AC-11 错误留档
+
+agent 报错或答案非法时，中转记录置 `error` 并带 `error_message`。 — `test_job_records_agent_error`、`test_job_records_malformed_answer`
+
+## AC-12 幂等重放
+
+同一封邮件重放不产生重复 item（靠 `external_id` 去重）。 — `test_job_reprocessing_is_idempotent`
+
 ## 运行方式
 
 ```bash

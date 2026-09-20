@@ -17,3 +17,9 @@ class InfohubChannel(models.Model):
         help="Address incoming newsletter emails are sent to. One channel per "
         "receiving inbox.",
     )
+    split_items = fields.Boolean(
+        string="Split into Items",
+        default=False,
+        help="Run the email splitter agent to break a digest email into one "
+        "item per article. Leave off to store the whole email as a single item.",
+    )

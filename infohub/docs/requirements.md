@@ -26,7 +26,7 @@
 **不做**（core 明确不包含，由其他 addon 承担）：
 
 - 任何具体渠道的实现（RSS / email / MCP 各是一个独立 addon）
-- 任何 LLM 依赖（只有 `infohub_channel_mcp` 依赖 `llm`，core 不）
+- 任何 LLM 依赖（渠道 addon 按需依赖 llm：mcp 直接、email 经 `infohub_agent`，core 不）
 - 订阅、读者管理、阅读状态、摘要邮件、前端阅读页面——这些是未来独立 addon 的事
 
 ## 非功能要求

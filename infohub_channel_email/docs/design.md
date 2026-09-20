@@ -26,10 +26,29 @@
 - `infohub.fetch.email`：返回 `({}, [])`——邮件是被推入的，不轮询
 - `infohub.content.email`：`subject`/`source`（发件人）/`date` 从邮件 raw dict 取
 
+## 摘要拆分 agent
+
+订阅 newsletter 一封邮件通常聚合多条新闻。默认仍把整封邮件合成一条 item；渠道打开
+`split_items` 后，入站邮件交给 `infohub_email_splitter` agent 拆成多条 item。
+
+- **agent**：`llm.agent`（code `infohub_email_splitter`），无 tool 的纯转换，
+  provider/model 由管理员配置（同 `infohub_agent` 的 `infohub_tagger`）。
+- **流程**：`message_new` → `_to_item()` 分发。`split_items` 开且 agent 已配 →
+  置 `state=queued` 并 `with_delay(channel="root.infohub")` 派发
+  `_job_split_and_ingest`；否则走同步单条路径 `_ingest_single`。
+- **输入/输出**：agent 只收正文纯文本，返回 `{"items":[{title,summary,url}]}`；
+  逐条经 `channel._ingest` 复用核心入库管线（过滤/去重/source 匹配/正文渲染）。
+- **去重身份**：单条 `external_id = <message-id>`，拆分条目
+  `external_id = "<message-id>#<index>"`，靠 `(channel, external_id)` 唯一约束幂等。
+- **回退语义**：agent 未配 / 返回 0 条 / split 已关 → 退化为单条路径，不丢邮件；
+  agent 报错或答案非法 → `state=error` 留档。
+
 ## 被否决的方案
 
 | 方案 | 否决理由 |
 |---|---|
+| 所有 email 都拆 | 单条新闻邮件也会被 agent 处理；按渠道开关更可控。 |
+| `message_new` 里同步调 agent | 会阻塞 fetchmail/SMTP 网关在一次 LLM 调用上；与打标 agent 一致走 queue_job。 |
 | 给 `infohub.item` 加 `mail.thread` | chatter 表随新闻条数膨胀（见上）。 |
 | 每个 newsletter 一个 alias | 来源一多 alias 爆炸；收件人匹配更简单。 |
 | 邮件也走 cron 轮询 | 邮件是推送的，无"拉取"语义；fetchmail 已经负责拉。 |
