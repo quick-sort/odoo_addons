@@ -6,7 +6,7 @@
         <field name="model">llm.tool</field>
         <field name="inherit_id" ref="llm.view_llm_tool_form" />
         <field name="arch" type="xml">
-            <xpath expr="//group[@string='Policy']" position="inside">
+            <xpath expr="//field[@name='requires_user_consent']" position="after">
                 <field name="allowed_group_ids" widget="many2many_tags" options="{'no_create': True}" />
             </xpath>
         </field>
