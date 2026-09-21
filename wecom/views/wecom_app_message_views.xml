@@ -33,8 +33,7 @@
                             <field name="app_id"/>
                             <field name="name"/>
                             <field name="msg_type"/>
-                            <field name="url" invisible="msg_type == 'mpnews'" required="msg_type != 'mpnews'"/>
-                            <field name="image_url" invisible="msg_type != 'news'" required="msg_type == 'news'"/>
+                            <field name="url" invisible="msg_type != 'textcard'" required="msg_type == 'textcard'"/>
                             <field name="btn_text" invisible="msg_type != 'textcard'"/>
                             <field name="source" invisible="source == 'manual'"/>
                             <field name="source_ref" invisible="not source_ref"/>
@@ -52,50 +51,67 @@
                             <field name="totag" invisible="send_to_all == True"/>
                         </group>
                     </group>
-                    <group string="描述" invisible="msg_type == 'mpnews'">
+                    <group string="描述" invisible="msg_type != 'textcard'">
                         <field name="description" nolabel="1" placeholder="消息描述内容..."/>
                     </group>
-                    <group string="图文素材内容" invisible="msg_type != 'mpnews'">
-                        <group>
-                            <field name="thumb_image" widget="image" options="{'size': [0, 200], 'zoom': true}"
-                                   filename="thumb_image_filename" readonly="state == 'sent'"
-                                   required="msg_type == 'mpnews'"/>
-                            <field name="thumb_image_filename" invisible="1"/>
-                            <field name="author"/>
-                            <field name="show_cover_pic"/>
-                            <field name="content_source_url"/>
-                            <field name="digest"/>
-                            <field name="content_image" widget="image" options="{'size': [0, 200], 'zoom': true}"
-                                   filename="content_image_filename" readonly="state == 'sent'"
-                                   invisible="not content_image"/>
-                            <field name="content_image_filename" invisible="1"/>
-                        </group>
+                    <group string="文章" invisible="msg_type == 'textcard'">
                         <div class="alert alert-info mb-2" role="alert" invisible="state == 'sent'">
-                            企业微信正文渲染要求较严格：仅支持内联(inline)样式，不支持 &lt;style&gt;/&lt;script&gt;/外部CSS；
-                            图片必须使用下方“正文图片上传”得到的URL；避免使用 position:fixed、flex/grid 等复杂布局
-                            （企微PC客户端内置浏览器较旧，兼容性差），建议使用简单的 div/table + 行内style排版。
-                            点击右侧“预览正文”可在浏览器中查看近似渲染效果（不会模拟企微服务端的过滤逻辑）。
+                            图文消息(news)每篇需填标题/链接/缩略图；图文素材消息(mpnews)每篇需填标题、
+                            HTML正文与封面图。企业微信一次最多发 8 篇，超过会自动分多条发送。
                         </div>
-                        <div class="mb-2">
-                            <button string="预览正文" name="action_preview_content" type="object"
-                                    class="btn btn-secondary" icon="fa-eye"/>
-                        </div>
-                        <!-- 草稿/发送失败：编辑HTML源码；已发送：直接渲染正文，不再显示编辑器 -->
-                        <field name="content" widget="ace" options="{'mode': 'xml'}"
-                               invisible="state == 'sent'"
-                               required="msg_type == 'mpnews' and not content_image"/>
-                        <field name="content" widget="wecom_html_preview" nolabel="1" readonly="1"
-                               options="{'height': 700}" invisible="state != 'sent'"/>
+                        <field name="article_ids" readonly="state == 'sent'">
+                            <list editable="bottom">
+                                <field name="sequence" widget="handle"/>
+                                <field name="title"/>
+                                <field name="url" invisible="parent.msg_type != 'news'"/>
+                                <field name="image_url" invisible="parent.msg_type != 'news'"/>
+                                <field name="author" invisible="parent.msg_type != 'mpnews'"/>
+                            </list>
+                        </field>
                     </group>
                     <group string="发送结果" invisible="state == 'draft'">
                         <field name="send_date"/>
-                        <field name="thumb_media_id" invisible="msg_type != 'mpnews'"/>
                         <field name="invalid_user"/>
                         <field name="invalid_party"/>
                         <field name="invalid_tag"/>
                         <field name="result"/>
                     </group>
                 </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_wecom_app_message_article_form" model="ir.ui.view">
+        <field name="name">wecom.app.message.article.form</field>
+        <field name="model">wecom.app.message.article</field>
+        <field name="arch" type="xml">
+            <form>
+                <group>
+                    <field name="title"/>
+                    <field name="url" invisible="parent.msg_type != 'news'" required="parent.msg_type == 'news'"/>
+                    <field name="image_url" invisible="parent.msg_type != 'news'" required="parent.msg_type == 'news'"/>
+                    <field name="description" invisible="parent.msg_type != 'news'"/>
+                </group>
+                <group invisible="parent.msg_type != 'mpnews'">
+                    <field name="thumb_image" widget="image" options="{'size': [0, 200], 'zoom': true}"
+                           filename="thumb_image_filename" required="parent.msg_type == 'mpnews'"/>
+                    <field name="thumb_image_filename" invisible="1"/>
+                    <field name="author"/>
+                    <field name="show_cover_pic"/>
+                    <field name="content_source_url"/>
+                    <field name="digest"/>
+                    <field name="content_image" widget="image" options="{'size': [0, 200], 'zoom': true}"
+                           filename="content_image_filename" invisible="not content_image"/>
+                    <field name="content_image_filename" invisible="1"/>
+                </group>
+                <group invisible="parent.msg_type != 'mpnews'">
+                    <field name="content" widget="ace" options="{'mode': 'xml'}"
+                           required="parent.msg_type == 'mpnews' and not content_image"/>
+                </group>
+                <div class="mb-2" invisible="parent.msg_type != 'mpnews'">
+                    <button string="预览正文" name="action_preview_content" type="object"
+                            class="btn btn-secondary" icon="fa-eye"/>
+                </div>
             </form>
         </field>
     </record>

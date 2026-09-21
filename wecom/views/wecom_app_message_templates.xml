@@ -22,7 +22,7 @@
 <head>
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
-    <title>正文预览 - <t t-esc="message.name"/></title>
+    <title>正文预览 - <t t-esc="article.title"/></title>
     <style>
         * { box-sizing: border-box; }
         body {
@@ -86,7 +86,7 @@
 </head>
 <body>
     <div class="toolbar">
-        <span class="title">正文预览：<t t-esc="message.name"/></span>
+        <span class="title">正文预览：<t t-esc="article.title"/></span>
         <button type="button" class="active" onclick="setViewport(this, 'mobile')">手机宽度</button>
         <button type="button" onclick="setViewport(this, 'tablet')">平板宽度</button>
         <button type="button" onclick="setViewport(this, 'desktop')">桌面宽度</button>
@@ -103,7 +103,7 @@
     <div class="stage">
         <iframe id="previewFrame" class="viewport-mobile" sandbox="allow-same-origin"></iframe>
     </div>
-    <script type="text/plain" id="rawContent"><t t-esc="message.content or ''"/></script>
+    <script type="text/plain" id="rawContent"><t t-esc="article.content or ''"/></script>
     <script><![CDATA[
         (function () {
             var raw = document.getElementById('rawContent').textContent;

@@ -18,19 +18,19 @@ class WecomApi(Controller):
             raise NotFound()
         return base64.b64decode(app.wecom_js_sdk_file.decode('utf-8'))
 
-    @route('/wecom/app_message/<int:message_id>/preview', type='http', auth="user", methods=['GET'])
-    def wecom_app_message_preview(self, message_id, **kw):
+    @route('/wecom/app_message/article/<int:article_id>/preview', type='http', auth="user", methods=['GET'])
+    def wecom_app_message_article_preview(self, article_id, **kw):
         """
-        预览「图文素材消息(mpnews)」正文的HTML渲染效果。
+        预览「图文素材消息(mpnews)」某篇文章正文的HTML渲染效果。
         仅做浏览器近似渲染，不会模拟企业微信服务端的清洗/过滤逻辑（如自动去除JS等），
         发布前的最终效果仍以真实设备收到的消息为准。
         """
-        message = request.env['wecom.app.message'].browse(message_id)
-        if not message.exists():
+        article = request.env['wecom.app.message.article'].browse(article_id)
+        if not article.exists():
             raise NotFound()
-        message.check_access('read')
+        article.check_access('read')
         html = request.env['ir.qweb']._render('wecom.wecom_app_message_preview_page', {
-            'message': message,
+            'article': article,
         })
         return request.make_response(
             "<!DOCTYPE html>\n" + html,
