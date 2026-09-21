@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="page_template" name="LLM Page">
+        <t t-call="website.layout">
+            <div id="wrap">
+                <t t-out="html"/>
+            </div>
+        </t>
+    </template>
+</odoo>

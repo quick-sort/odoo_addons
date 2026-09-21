@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="llm_page_view_form" model="ir.ui.view">
+        <field name="name">llm.page.form</field>
+        <field name="model">llm.page</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_submit" type="object" string="Submit for Review"
+                            invisible="state not in ('draft', 'rejected')" class="btn-primary"/>
+                    <button name="action_approve" type="object" string="Approve"
+                            invisible="state != 'pending'" class="btn-primary"
+                            groups="llm_page.group_reviewer"/>
+                    <button name="action_reject" type="object" string="Reject"
+                            invisible="state != 'pending'" groups="llm_page.group_reviewer"/>
+                    <button name="action_unpublish" type="object" string="Unpublish"
+                            invisible="state != 'published'" groups="llm_page.group_reviewer"/>
+                    <button name="action_preview" type="object" string="Preview"
+                            class="btn-secondary"/>
+                    <field name="state" widget="statusbar"
+                           statusbar_visible="draft,pending,published"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name" placeholder="Page title"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="slug"/>
+                            <field name="website_id"/>
+                            <field name="group_id"/>
+                            <field name="reject_reason" invisible="state != 'rejected'"/>
+                        </group>
+                        <group>
+                            <field name="create_uid"/>
+                            <field name="date_submit"/>
+                            <field name="date_publish"/>
+                            <field name="date_reject"/>
+                            <field name="source_backend_id"/>
+                            <field name="source_sha256"/>
+                            <field name="source_size_bytes"/>
+                        </group>
+                    </group>
+                    <group string="HTML (raw)">
+                        <field name="html" nolabel="1" readonly="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="llm_page_view_list" model="ir.ui.view">
+        <field name="name">llm.page.list</field>
+        <field name="model">llm.page</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="slug"/>
+                <field name="state" widget="badge"/>
+                <field name="group_id"/>
+                <field name="website_id"/>
+                <field name="date_publish"/>
+                <field name="create_uid"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="llm_page_view_kanban" model="ir.ui.view">
+        <field name="name">llm.page.kanban</field>
+        <field name="model">llm.page</field>
+        <field name="arch" type="xml">
+            <kanban default_group_by="state">
+                <field name="name"/>
+                <field name="slug"/>
+                <field name="state"/>
+                <field name="group_id"/>
+                <templates>
+                    <t t-name="kanban-box">
+                        <div class="oe_kanban_global_click">
+                            <div class="o_kanban_record_title">
+                                <field name="name"/>
+                            </div>
+                            <div class="text-muted">
+                                /static/<field name="slug"/>
+                            </div>
+                            <div>
+                                <field name="group_id"/>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <record id="llm_page_view_search" model="ir.ui.view">
+        <field name="name">llm.page.search</field>
+        <field name="model">llm.page</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="slug"/>
+                <field name="state"/>
+                <filter name="state_draft" string="Draft"
+                        domain="[('state','=','draft')]"/>
+                <filter name="state_pending" string="Pending Review"
+                        domain="[('state','=','pending')]"/>
+                <filter name="state_published" string="Published"
+                        domain="[('state','=','published')]"/>
+                <filter name="state_rejected" string="Rejected"
+                        domain="[('state','=','rejected')]"/>
+                <group>
+                    <filter name="by_state" string="State"
+                            context="{'group_by': 'state'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="llm_page_action" model="ir.actions.act_window">
+        <field name="name">LLM Pages</field>
+        <field name="res_model">llm.page</field>
+        <field name="view_mode">kanban,list,form</field>
+    </record>
+
+    <menuitem id="menu_llm_page_root" name="LLM Pages" sequence="40"/>
+    <menuitem id="menu_llm_page" name="Pages" parent="menu_llm_page_root"
+              action="llm_page_action" sequence="10"/>
+
+</odoo>
