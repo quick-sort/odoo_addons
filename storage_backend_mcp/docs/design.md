@@ -21,10 +21,16 @@ agent ──tools/call──▶ storage_get_upload_url(backend, path)
 
 ## 多态维度：URL 生成策略
 
+**设计考虑：Odoo 不成为文件传输瓶颈。** 下载/上传能直连对象存储就直连
+（presigned URL），Odoo 只签发 URL、不搬运字节；只有无原生签名能力的后端
+（filesystem/sftp/ftp）才走中转 controller——那是必要的兜底，因为文件就在
+Odoo 侧、没有第三方可直连的 URL 可给。
+
 同一"给我临时上传/下载 URL"的请求，由后端类型决定落点：
 
-- 组件层扩展点：core 提供默认组件（`presign_upload/presign_download → None`，
-  语义"无原生签名能力，走中转"）；`storage_backend_s3_mcp` bridge 覆盖为 boto3
+- 组件层扩展点：adapter 按需实现 `presign_upload/presign_download`；未实现
+  （模型层 `hasattr` 判断为否）语义即"无原生签名能力，走中转"。
+  `storage_backend_s3_mcp` bridge 通过 `_inherit = "s3.adapter"` 覆盖为 boto3
   presign。
 - `storage.backend` 模型层公共方法 `presign_upload/presign_download`：先过
   `_gzip_physical`（保持 `.gz` 物理后缀映射一致——presign 出的 key 必须和
