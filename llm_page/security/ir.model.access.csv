@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_llm_page_viewer,llm.page.viewer,model_llm_page,llm_page.group_viewer,1,0,0,0
+access_llm_page_reviewer,llm.page.reviewer,model_llm_page,llm_page.group_reviewer,1,1,1,1
