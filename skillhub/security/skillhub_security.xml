@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="skill_rule_read" model="ir.rule">
+        <field name="name">Skill: read own, shared and public</field>
+        <field name="model_id" ref="model_skillhub_skill" />
+        <field name="domain_force">['|','|',('create_uid','=',user.id),('shared_user_ids','in',user.id),('is_public','=',True)]</field>
+        <field name="perm_read" eval="True" />
+        <field name="groups" eval="[(4, ref('base.group_user'))]" />
+    </record>
+
+    <record id="skill_rule_owner_write" model="ir.rule">
+        <field name="name">Skill: write/delete only by owner</field>
+        <field name="model_id" ref="model_skillhub_skill" />
+        <field name="domain_force">[('create_uid','=',user.id)]</field>
+        <field name="perm_write" eval="True" />
+        <field name="perm_create" eval="True" />
+        <field name="perm_unlink" eval="True" />
+        <field name="groups" eval="[(4, ref('base.group_user'))]" />
+    </record>
+</odoo>
