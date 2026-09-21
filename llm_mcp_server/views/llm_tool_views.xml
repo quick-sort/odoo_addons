@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <!-- Add MCP access control to the llm.tool form. -->
+    <record id="view_llm_tool_form_mcp_access" model="ir.ui.view">
+        <field name="name">llm.tool.form.mcp.access</field>
+        <field name="model">llm.tool</field>
+        <field name="inherit_id" ref="llm.view_llm_tool_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//group[@string='Policy']" position="inside">
+                <field name="allowed_group_ids" widget="many2many_tags" options="{'no_create': True}" />
+            </xpath>
+        </field>
+    </record>
+</odoo>

@@ -3,7 +3,7 @@ import time
 
 from mcp.types import CallToolResult, ListToolsResult, TextContent, Tool
 
-from odoo import _, api, models
+from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
@@ -14,12 +14,35 @@ RESULT_SUMMARY_MAX = 2000
 class LLMTool(models.Model):
     _inherit = "llm.tool"
 
+    allowed_group_ids = fields.Many2many(
+        "res.groups",
+        string="Allowed Groups",
+        help="Only users in one of these groups see and call this tool via MCP. "
+        "Leave empty to expose it to everyone.",
+    )
+
+    def _mcp_visibility_domain(self):
+        """Domain fragment restricting tools to the authenticated user.
+
+        A tool with no ``allowed_group_ids`` is visible to everyone; otherwise
+        it is visible only to users sharing at least one of those groups.
+        Superusers see everything.
+        """
+        if self.env.su or self.env.user.has_group("base.group_system"):
+            return []
+        return [
+            "|",
+            ("allowed_group_ids", "=", False),
+            ("allowed_group_ids", "in", self.env.user.groups_id.ids),
+        ]
+
     @api.model
     def get_mcp_tools_list(self, params=None):
         """Handle MCP tools/list request - return MCP ListToolsResult"""
         import ast
         config = self.env["llm.mcp.server.config"].get_active_config()
         domain = ast.literal_eval(config.tool_domain or "[('active', '=', True)]")
+        domain += self._mcp_visibility_domain()
         active_tools = self.sudo().search(domain)
         mcp_tools = []
 
@@ -44,8 +67,12 @@ class LLMTool(models.Model):
 
         tool_arguments = params.get("arguments", {})
 
-        # Find the tool by name
-        tool = self.search([("name", "=", tool_name), ("active", "=", True)], limit=1)
+        # Find the tool by name, restricted to what the user is allowed to see.
+        tool = self.search(
+            [("name", "=", tool_name), ("active", "=", True)]
+            + self._mcp_visibility_domain(),
+            limit=1,
+        )
         if not tool:
             raise UserError(_("Tool '%s' not found or inactive") % tool_name)
 
