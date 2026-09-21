@@ -21,15 +21,22 @@ class StorageBackend(models.Model):
         """Return a native signed upload URL, or ``None`` to use the relay.
 
         The physical (gzip-mapped) key is what the adapter signs, so the URL
-        writes the same key ``open()`` reads. The default adapter returns
-        ``None``; a bridge (``storage_backend_s3_mcp``) overrides it.
+        writes the same key ``open()`` reads. Adapters without a
+        ``presign_upload`` method return ``None``; a bridge
+        (``storage_backend_s3_mcp``) provides it.
         """
         self.ensure_one()
         physical, _ = self._gzip_physical(relative_path)
-        return self._forward("presign_upload", physical, expires_in=expires_in)
+        adapter = self._get_adapter()
+        if not hasattr(adapter, "presign_upload"):
+            return None
+        return adapter.presign_upload(physical, expires_in=expires_in)
 
     def presign_download(self, relative_path, expires_in=600):
         """Return a native signed download URL, or ``None`` to use the relay."""
         self.ensure_one()
         physical, _ = self._gzip_physical(relative_path)
-        return self._forward("presign_download", physical, expires_in=expires_in)
+        adapter = self._get_adapter()
+        if not hasattr(adapter, "presign_download"):
+            return None
+        return adapter.presign_download(physical, expires_in=expires_in)
