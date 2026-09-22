@@ -46,7 +46,6 @@ hr.department / hr.employee     ← Odoo 标准 HR
 | `wecom.user.position` | `hr.employee.job_title` | 原样 |
 | `wecom.user.mobile` | `hr.employee.mobile_phone` | 原样 |
 | `wecom.user.email` | `hr.employee.work_email` | 原样 |
-| `wecom.user.gender` | `hr.employee.gender` | `'1'`→male，`'2'`→female，否则 other |
 | `wecom.user.main_department` | `hr.employee.department_id` | 按 `hr.department.wecom_id` 解析 |
 | `wecom.user.company_id` | `hr.employee.company_id` | 原样 |
 | `wecom.user.wecom_id`（userid） | `hr.employee.wecom_userid` | 原样 |

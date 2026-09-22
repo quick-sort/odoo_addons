@@ -63,6 +63,7 @@ PYPI_NAMES = {
     "bs4": "beautifulsoup4",
     "sphinx_bootstrap_theme": "sphinx-bootstrap-theme",
     "vcr": "vcrpy",
+    "vcr_unittest": "vcrpy-unittest",
 }
 
 #: Modules provided by Odoo itself, or by the base image as part of the

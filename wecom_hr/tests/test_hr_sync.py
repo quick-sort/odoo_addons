@@ -60,7 +60,6 @@ class TestWecomHrSync(TransactionCase):
             position="工程师",
             mobile="13800000000",
             email="zhangsan@example.com",
-            gender="1",
         )
         user.sync_to_hr()
 
@@ -70,7 +69,6 @@ class TestWecomHrSync(TransactionCase):
         self.assertEqual(emp.job_title, "工程师")
         self.assertEqual(emp.mobile_phone, "13800000000")
         self.assertEqual(emp.work_email, "zhangsan@example.com")
-        self.assertEqual(emp.gender, "male")
         self.assertEqual(emp.company_id, user.company_id)
         self.assertEqual(
             emp.department_id.wecom_id, 10, "department_id 应映射到对应 hr.department"
@@ -111,7 +109,6 @@ class TestWecomHrSync(TransactionCase):
                 "position": "工程师",
                 "mobile": "13800000000",
                 "email": "zhangsan@example.com",
-                "gender": "1",
                 "department": [2],
                 "main_department": 2,
                 "extattr": {"attrs": []},

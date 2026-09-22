@@ -1,8 +1,9 @@
 import hashlib
 
 from odoo import Command
-from odoo.exceptions import UserError, ValidationError
+from odoo.exceptions import UserError
 from odoo.tests.common import TransactionCase, tagged
+from psycopg2 import errors
 
 
 @tagged("post_install", "-at_install")
@@ -68,7 +69,7 @@ class TestSkillHub(TransactionCase):
 
     def test_code_unique_and_slug(self):
         self._publish(self.owner_user, "dup", "Dup")
-        with self.assertRaises(ValidationError):
+        with self.assertRaises(errors.UniqueViolation):
             self.env["skillhub.skill"].create({
                 "code": "dup",
                 "title": "X",
