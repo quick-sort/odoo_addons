@@ -157,7 +157,8 @@ jobs:
           print("Packages to install:", " ".join(out) if out else "(none)")
           PY
           if [ -s /tmp/ci-reqs.txt ]; then
-            python3 -m pip install --no-cache-dir --break-system-packages -r /tmp/ci-reqs.txt
+            mkdir -p /opt/python-deps
+            python3 -m pip install --no-cache-dir --target /opt/python-deps -r /tmp/ci-reqs.txt
           fi
 
       - name: mcp metadata stub
@@ -169,7 +170,7 @@ jobs:
           mkdir -p /opt/mcp-stub/mcp-1.0.0.dist-info
           printf 'Metadata-Version: 2.1\nName: mcp\nVersion: 1.0.0\n' \
             > /opt/mcp-stub/mcp-1.0.0.dist-info/METADATA
-          echo "PYTHONPATH=/opt/mcp-stub:${PYTHONPATH:-}" >> "$GITHUB_ENV"
+          echo "PYTHONPATH=/opt/mcp-stub:/opt/python-deps:${PYTHONPATH:-}" >> "$GITHUB_ENV"
 
       - name: Run Odoo tests
         run: |
