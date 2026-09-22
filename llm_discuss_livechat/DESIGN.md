@@ -1,7 +1,7 @@
 # LLM Discuss Live Chat — Design Document
 
 Status: implemented (v19.0.3.0.0)
-Depends on: `llm_discuss` (see its `DESIGN.md` for the base architecture),
+Depends on: `llm_discuss` (see its `docs/design.md` for the base architecture),
 `im_livechat`
 
 ## 1. Problem
@@ -82,8 +82,8 @@ own.
 - Session assignment happens through the same `_get_operator()` load
   balancer as human agents (§3); this module does not add a "prefer bot"
   weighting.
-- Same conversation-history limitation as `llm_discuss` (§8 in its
-  `DESIGN.md`): each visitor message is answered independently.
+- Same conversation-history limitation as `llm_discuss` (see its
+  `docs/design.md`): each visitor message is answered independently.
 
 ## 6. Module layout
 
