@@ -66,6 +66,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       addons: ${{ steps.detect.outputs.addons }}
+      install: ${{ steps.detect.outputs.install }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -78,9 +79,13 @@ jobs:
           else
             BASE="${{ github.event.before }}"
           fi
-          ADDONS="$(git diff --name-only "$BASE"...HEAD | python3 scripts/ci_affected.py)"
+          git diff --name-only "$BASE"...HEAD > /tmp/changed.txt
+          ADDONS="$(cat /tmp/changed.txt | python3 scripts/ci_affected.py)"
+          INSTALL="$(cat /tmp/changed.txt | python3 scripts/ci_affected.py --install)"
           echo "Affected addons: ${ADDONS:-<none>}"
+          echo "Install closure: ${INSTALL:-<none>}"
           echo "addons=${ADDONS}" >> "$GITHUB_OUTPUT"
+          echo "install=${INSTALL}" >> "$GITHUB_OUTPUT"
 
   # ---------------------------------------------------------------------
   # Install the affected addons (plus their dependency closure) into a
@@ -97,6 +102,7 @@ jobs:
       options: --user root
     env:
       AFFECTED_ADDONS: ${{ needs.detect.outputs.addons }}
+      INSTALL_ADDONS: ${{ needs.detect.outputs.install }}
     services:
       postgres:
         image: postgres:16
@@ -117,7 +123,7 @@ jobs:
 
       - name: Install addon dependencies
         run: |
-          python3 - "$AFFECTED_ADDONS" <<'PY'
+          python3 - "$INSTALL_ADDONS" <<'PY'
           import os, sys
           addons = sys.argv[1].split()
           # Provided by the odoo base image already; re-installing would

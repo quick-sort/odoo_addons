@@ -14,9 +14,18 @@ declared in ``depends`` that live outside this repo (``base``, ``mail``,
 ``web``, …) are ignored here — they are Odoo core/enterprise and never change
 with this repository.
 
+Two output modes:
+
+- ``affected`` (default) — the addons whose *tests* must run: the directly
+  changed addons plus their reverse dependents.
+- ``install`` — the affected set plus everything they transitively depend on.
+  Odoo auto-installs the ``depends`` closure, so those modules' external
+  dependencies must be pip-installed too.
+
 Example::
 
     git diff --name-only origin/19.0...HEAD | python3 scripts/ci_affected.py
+    git diff --name-only origin/19.0...HEAD | python3 scripts/ci_affected.py --install
 """
 
 import ast
@@ -93,11 +102,32 @@ def affected_addons(changed_files):
     return affected
 
 
+def install_closure(affected):
+    """The affected set plus everything they transitively depend on.
+
+    Odoo auto-installs the ``depends`` closure when the affected addons are
+    installed, so those modules' external dependencies must be pip-installed
+    too — not just the affected addons' own requirements.
+    """
+    graph = build_dependency_graph()
+    closure = set(affected)
+    stack = list(affected)
+    while stack:
+        node = stack.pop()
+        for dep in graph.get(node, ()):
+            if dep not in closure:
+                closure.add(dep)
+                stack.append(dep)
+    return closure
+
+
 def main():
+    mode = sys.argv[1].lstrip("-") if len(sys.argv) > 1 else "affected"
     changed_files = [line.strip() for line in sys.stdin if line.strip()]
     affected = affected_addons(changed_files)
-    if affected:
-        print(" ".join(sorted(affected)))
+    result = install_closure(affected) if mode == "install" else affected
+    if result:
+        print(" ".join(sorted(result)))
 
 
 if __name__ == "__main__":
