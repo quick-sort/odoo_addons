@@ -1,0 +1,5 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_agenthub_channel,agenthub.channel,model_agenthub_channel,base.group_system,1,1,1,1
+access_agenthub_agent,agenthub.agent,model_agenthub_agent,base.group_system,1,1,1,1
+access_agenthub_thread,agenthub.thread,model_agenthub_thread,base.group_user,1,1,1,0
+access_agenthub_thread_manager,agenthub.thread manager,model_agenthub_thread,base.group_system,1,1,1,1
