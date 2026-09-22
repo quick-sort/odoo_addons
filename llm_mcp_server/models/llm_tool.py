@@ -33,7 +33,7 @@ class LLMTool(models.Model):
         return [
             "|",
             ("allowed_group_ids", "=", False),
-            ("allowed_group_ids", "in", self.env.user.groups_id.ids),
+            ("allowed_group_ids", "in", self.env.user.group_ids.ids),
         ]
 
     @api.model
