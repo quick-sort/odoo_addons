@@ -1,0 +1,179 @@
+name: Test
+
+on:
+  pull_request:
+  push:
+    branches: ["19.0"]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------
+  # Fast, container-free gates. Run on every PR/push regardless of which
+  # addons changed.
+  # ---------------------------------------------------------------------
+  static:
+    name: Static checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: requirements.txt in sync with manifests
+        run: python3 scripts/generate_requirements.py --check
+
+      - name: Collect changed files
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+          else
+            BASE="${{ github.event.before }}"
+          fi
+          git diff --name-only "$BASE"...HEAD > /tmp/changed.txt
+          echo "changed files: $(wc -l < /tmp/changed.txt)"
+
+      - name: XML well-formed (changed files)
+        run: |
+          while IFS= read -r f; do
+            [ -f "$f" ] || continue
+            case "$f" in
+              *.xml) python3 -c "import xml.dom.minidom as m; m.parse('$f')" || exit 1 ;;
+            esac
+          done < /tmp/changed.txt
+
+      - name: Python syntax (changed files)
+        run: |
+          while IFS= read -r f; do
+            [ -f "$f" ] || continue
+            case "$f" in
+              *.py) python3 -m py_compile "$f" || exit 1 ;;
+            esac
+          done < /tmp/changed.txt
+
+  # ---------------------------------------------------------------------
+  # Map the change to the addons whose tests must run (reverse-dependency
+  # closure, per docs/development-governance.md §4).
+  # ---------------------------------------------------------------------
+  detect:
+    name: Detect affected addons
+    runs-on: ubuntu-latest
+    outputs:
+      addons: ${{ steps.detect.outputs.addons }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: detect
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+          else
+            BASE="${{ github.event.before }}"
+          fi
+          ADDONS="$(git diff --name-only "$BASE"...HEAD | python3 scripts/ci_affected.py)"
+          echo "Affected addons: ${ADDONS:-<none>}"
+          echo "addons=${ADDONS}" >> "$GITHUB_OUTPUT"
+
+  # ---------------------------------------------------------------------
+  # Install the affected addons (plus their dependency closure) into a
+  # throwaway database and run their Odoo test suites.
+  # ---------------------------------------------------------------------
+  test:
+    name: Odoo tests
+    needs: detect
+    if: needs.detect.outputs.addons != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    container:
+      image: odoo:19.0-20260908
+      options: --user root
+    env:
+      AFFECTED_ADDONS: ${{ needs.detect.outputs.addons }}
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: ci_db
+          POSTGRES_USER: odoo
+          POSTGRES_PASSWORD: odoo
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U odoo -d ci_db"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install addon dependencies
+        run: |
+          python3 - "$AFFECTED_ADDONS" <<'PY'
+          import os, sys
+          addons = sys.argv[1].split()
+          # Provided by the odoo base image already; re-installing would
+          # attempt a psycopg2 source build. `mcp` is handled by a metadata
+          # stub in the next step (its real package is never imported).
+          skip = {"psycopg2", "mcp"}
+          seen, out = set(), []
+          for a in addons:
+              path = os.path.join(a, "requirements.txt")
+              if not os.path.isfile(path):
+                  continue
+              for line in open(path):
+                  req = line.split("#", 1)[0].strip()
+                  if not req:
+                      continue
+                  name = (
+                      req.split(">=")[0]
+                      .split("==")[0]
+                      .split("!=")[0]
+                      .split("<")[0]
+                      .split(">")[0]
+                      .split("[")[0]
+                      .strip()
+                      .lower()
+                  )
+                  if name in skip or name in seen:
+                      continue
+                  seen.add(name)
+                  out.append(req)
+          open("/tmp/ci-reqs.txt", "w").write("\n".join(out) + ("\n" if out else ""))
+          print("Packages to install:", " ".join(out) if out else "(none)")
+          PY
+          if [ -s /tmp/ci-reqs.txt ]; then
+            python3 -m pip install --no-cache-dir --break-system-packages -r /tmp/ci-reqs.txt
+          fi
+
+      - name: mcp metadata stub
+        run: |
+          # llm / llm_mcp_server only probe `importlib.metadata.version('mcp')`
+          # and lazy-load the real package. Installing the real `mcp` pulls a
+          # newer `cryptography` that breaks the image's pyOpenSSL, so a
+          # dist-info stub satisfies the probe without the dependency churn.
+          mkdir -p /opt/mcp-stub/mcp-1.0.0.dist-info
+          printf 'Metadata-Version: 2.1\nName: mcp\nVersion: 1.0.0\n' \
+            > /opt/mcp-stub/mcp-1.0.0.dist-info/METADATA
+          echo "PYTHONPATH=/opt/mcp-stub:${PYTHONPATH:-}" >> "$GITHUB_ENV"
+
+      - name: Run Odoo tests
+        run: |
+          ADDONS_CSV="$(echo "$AFFECTED_ADDONS" | tr ' ' ',')"
+          TAGS="/$(echo "$AFFECTED_ADDONS" | sed 's/ /,\//g')"
+          CORE_ADDONS="$(python3 -c "import odoo, os; print(os.path.join(os.path.dirname(odoo.__file__), 'addons'))")"
+          echo "Installing: $AFFECTED_ADDONS"
+          echo "Test tags:  $TAGS"
+          odoo -d ci_db -i "$ADDONS_CSV" \
+            --addons-path="$GITHUB_WORKSPACE,$CORE_ADDONS" \
+            --db_host=postgres --db_port=5432 --db_user=odoo --db_password=odoo \
+            --test-enable --test-tags "$TAGS" \
+            --stop-after-init --workers=0 --no-http --http-port=0
