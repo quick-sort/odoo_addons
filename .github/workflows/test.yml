@@ -123,39 +123,8 @@ jobs:
 
       - name: Install addon dependencies
         run: |
-          python3 - "$INSTALL_ADDONS" <<'PY'
-          import os, sys
-          addons = sys.argv[1].split()
-          # Provided by the odoo base image already; re-installing would
-          # attempt a psycopg2 source build. `mcp` is handled by a metadata
-          # stub in the next step (its real package is never imported).
-          skip = {"psycopg2", "mcp"}
-          seen, out = set(), []
-          for a in addons:
-              path = os.path.join(a, "requirements.txt")
-              if not os.path.isfile(path):
-                  continue
-              for line in open(path):
-                  req = line.split("#", 1)[0].strip()
-                  if not req:
-                      continue
-                  name = (
-                      req.split(">=")[0]
-                      .split("==")[0]
-                      .split("!=")[0]
-                      .split("<")[0]
-                      .split(">")[0]
-                      .split("[")[0]
-                      .strip()
-                      .lower()
-                  )
-                  if name in skip or name in seen:
-                      continue
-                  seen.add(name)
-                  out.append(req)
-          open("/tmp/ci-reqs.txt", "w").write("\n".join(out) + ("\n" if out else ""))
-          print("Packages to install:", " ".join(out) if out else "(none)")
-          PY
+          python3 scripts/ci_requirements.py $INSTALL_ADDONS > /tmp/ci-reqs.txt
+          cat /tmp/ci-reqs.txt
           if [ -s /tmp/ci-reqs.txt ]; then
             mkdir -p /opt/python-deps
             python3 -m pip install --no-cache-dir --target /opt/python-deps -r /tmp/ci-reqs.txt
