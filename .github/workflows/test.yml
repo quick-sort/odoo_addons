@@ -169,7 +169,7 @@ jobs:
         run: |
           ADDONS_CSV="$(echo "$AFFECTED_ADDONS" | tr ' ' ',')"
           TAGS="/$(echo "$AFFECTED_ADDONS" | sed 's/ /,\//g')"
-          CORE_ADDONS="$(python3 -c "import odoo, os; print(os.path.join(os.path.dirname(odoo.__file__), 'addons'))")"
+          CORE_ADDONS="$(python3 -c "import odoo, os; print(os.path.join(odoo.__path__[0], 'addons'))")"
           echo "Installing: $AFFECTED_ADDONS"
           echo "Test tags:  $TAGS"
           odoo -d ci_db -i "$ADDONS_CSV" \
