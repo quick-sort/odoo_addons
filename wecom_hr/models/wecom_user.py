@@ -1,7 +1,5 @@
 from odoo import models
 
-_GENDER_MAP = {"1": "male", "2": "female"}
-
 
 class WecomUser(models.Model):
     _inherit = "wecom.user"
@@ -31,7 +29,6 @@ class WecomUser(models.Model):
                 "job_title": user.position or False,
                 "mobile_phone": user.mobile or False,
                 "work_email": user.email or False,
-                "gender": _GENDER_MAP.get(user.gender, "other"),
                 "department_id": dept_id,
                 "company_id": user.company_id.id,
                 "wecom_userid": user.wecom_id,

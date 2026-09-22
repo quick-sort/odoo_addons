@@ -20,7 +20,7 @@
 ## AC-4 成员创建
 
 `wecom.user.sync_to_hr()` 把缓存成员建成 `hr.employee`，写入
-name / job_title / mobile_phone / work_email / gender / department_id / company_id / wecom_userid。
+name / job_title / mobile_phone / work_email / department_id / company_id / wecom_userid。
 — `test_employee_sync_creates_and_maps_department`
 
 ## AC-5 成员幂等
