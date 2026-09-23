@@ -24,9 +24,20 @@
         id="menu_infohub_channel"
         name="Channels"
         parent="menu_infohub_settings"
+        sequence="10"
+    />
+    <menuitem
+        id="menu_infohub_channel_list"
+        name="Channels"
+        parent="menu_infohub_channel"
         action="action_infohub_channel"
         sequence="10"
     />
+    <!-- <menuitem> alone leaves a previously-set action in place on upgrade,
+         so clear it explicitly now that it moved to the child menu. -->
+    <record id="menu_infohub_channel" model="ir.ui.menu">
+        <field name="action" eval="False" />
+    </record>
     <menuitem
         id="menu_infohub_source"
         name="Sources"
