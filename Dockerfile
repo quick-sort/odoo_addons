@@ -26,12 +26,6 @@ FROM odoo:19.0-20260908
 # bind mount -- mount the repository at this path to override it at runtime.
 COPY --chown=odoo:odoo . /mnt/extra-addons/odoo_addons
 
-# `legacy/` holds the retired three-axis implementation. It is kept for
-# reference and is inert: Odoo scans addons_path with a non-recursive listdir,
-# and `legacy/` has no __manifest__.py at its root, so none of it is loadable.
-# It is shipped because it costs a few hundred kilobytes and losing the
-# reference material is worse than carrying it.
-
 # Nothing to install, so no `USER root` section. The image runs as `odoo`.
 # Verify with:
 #     docker build -t odoo-addons:19.0 .

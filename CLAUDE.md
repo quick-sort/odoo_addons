@@ -71,7 +71,7 @@ For one-shot commands add `--workers=0 --no-http --http-port=0`; without `--http
 
 ## Addon families and architecture
 
-Three in-house stacks plus vendored OCA addons:
+Four in-house stacks plus vendored OCA addons:
 
 **LLM stack** — the largest active area:
 - `llm` — core: provider/model abstraction (dispatch via `llm_provider_adapter` component), chat threads, assistants, tool framework incl. the `@llm_tool` decorator (`llm/decorators.py`, see `llm/DECORATOR.md`) and built-in CRUD tools, MCP client. Formerly split into `llm_thread`/`llm_tool`/`llm_assistant` — merged into `llm`.
@@ -88,7 +88,10 @@ Three in-house stacks plus vendored OCA addons:
 - **The core never depends on `llm`.** Only `infohub_channel_mcp` does. A test asserts the core's dependency list, and the split is verified by installing core + rss + email in a database with no `llm`.
 - Inbound email routes through the `infohub.email.message` relay (it inherits `mail.thread`), never through `infohub.item` — that keeps chatter tables from growing with the number of pooled items.
 - Failure bookkeeping (`error_count` / `last_error`) is written on a **separate cursor**, because a queue_job failure rolls the caller's transaction back and would otherwise discard it. Odoo's test `assertRaises` rolls back the same way.
-- The previous three-axis design (`medium × transport × provider`) is retired; its 10 modules are kept under `legacy/` for reference and are not loaded by Odoo (`legacy/` has no root `__manifest__.py`, and the addons scan is a non-recursive `os.listdir`).
+
+**AgentHub stack** — Odoo ↔ external AI agent runtimes (WeCom, OpenClaw, …):
+- `agenthub` — core abstractions only, no concrete implementation: two orthogonal axes, *channel* (transport — which line messages arrive on / leave by) and *agent* (responder — who answers). `agenthub.thread` binds one of each at runtime and is the conversation carrier (`mail.thread`, reusing the Discuss UI). Core keeps `channel_type`/`agent_type` as empty selections and does not depend on `llm`.
+- A channel or agent is added as its own addon: `_inherit` for config fields + `selection_add` for the type + an `agenthub.channel.<type>` / `agenthub.agent.<type>` component. Implementations: `agenthub_wecom` (WeCom aibot WebSocket server), `agenthub_openclaw` (OpenClaw conversation semantics).
 
 **Storage/cloud stack**:
 - `storage_backend` (OCA) + `storage_backend_{s3,sftp,ftp}` adapters; `one_storage` — VFS layer over storage backends (see `one_storage/README.rst`); `one_cloud*` — cloud account/firewall integrations.
