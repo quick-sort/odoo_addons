@@ -19,6 +19,8 @@
 - 下载：返回临时 URL（presign，bypass Odoo）
 - 授权：owner（create_uid）/ `shared_user_ids`（分享给指定人）/ `is_public`（全局公开）
 - 元数据：code / title / description / version / size / sha256
+- 后端 UI：Odoo 应用入口 + skill 列表浏览/搜索/筛选；owner 可在表单编辑元数据
+  （title/description/version/is_public/shared_user_ids/state）
 
 **不做**：
 
@@ -26,6 +28,8 @@
 - 不做版本历史（单版本覆盖，`version` 字段只作展示标签）
 - 不做标签/分类搜索（只按名字/描述）
 - 不集成进本仓库 `llm` 模块的 agent 运行时（本模块面向第三方 MCP 客户端）
+- UI 不提供新建：记录必须由 `skill_publish` 产生（否则没有对应 blob）
+- UI 不提供删除：删除记录会留下 storage 里的孤儿 blob；归档（`state`）才是生命周期
 
 ## 非功能要求
 

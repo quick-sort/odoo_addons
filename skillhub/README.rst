@@ -16,6 +16,16 @@
   传包 → ``skill_publish(file_id, ...)`` 消费并落库到稳定路径。
 - 下载返回 presign URL（bypass Odoo），按 owner / shared / public 三层授权。
 
+界面
+====
+
+- SkillHub 以独立应用出现在 Odoo 后台，Skills 菜单列出全部可见（owner/分享给
+  自己/公开）的 skill，可搜索、按状态/后端/owner 筛选分组。
+- owner 可在表单里编辑元数据（title/description/version/is_public/分享用户/归档
+  状态）；技术字段（code/backend/路径/校验和）只读。
+- 界面不提供新建与删除：记录由 ``skill_publish`` 产生，删除会留下孤儿 blob，归档
+  才是生命周期出口。
+
 安装
 ====
 

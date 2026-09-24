@@ -34,3 +34,11 @@ owner / shared / public 可见；其他用户不可见（record rule）。 — `
 ## AC-8 下载鉴权
 
 非 owner/shared/public 调 `skill_download` 被拒。 — `test_download_requires_access`
+
+## AC-9 后端 UI
+
+应用入口/菜单/action/视图（list/form/search）可解析；列表禁止新建与删除；表单中
+技术字段（code/backend_id/storage_path/size/sha256/owner）只读，元数据字段
+（title/description/version/is_public/shared_user_ids/state）可编辑。 —
+`test_ui_views_resolve` / `test_list_blocks_create_delete` /
+`test_form_readonly_matrix` / `test_menu_structure_and_icon`
