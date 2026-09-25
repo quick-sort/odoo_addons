@@ -34,8 +34,14 @@ class LLMTool(models.Model):
     def _compute_authorized_user_ids(self):
         for tool in self:
             if tool.allowed_group_ids:
-                tool.authorized_user_ids = tool.allowed_group_ids.users.filtered(
-                    "active"
+                # Search by group membership rather than traversing an
+                # inverse one2many: res.groups has no `users` field in
+                # Odoo 19.
+                tool.authorized_user_ids = self.env["res.users"].search(
+                    [
+                        ("group_ids", "in", tool.allowed_group_ids.ids),
+                        ("active", "=", True),
+                    ]
                 )
             else:
                 tool.authorized_user_ids = False
