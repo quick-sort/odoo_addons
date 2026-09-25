@@ -78,6 +78,15 @@ class TestSharepointBackend(TransactionCase):
     # AC-3
 
     def test_current_user_authorized_compute(self):
+        # The compute has no @api.depends (it counts another model's rows),
+        # so the env caches its value per record: within one request the
+        # value is only as fresh as the first read. Production sees a new
+        # env per request; here we invalidate to observe recomputes.
+        def refresh():
+            self.backend.invalidate_recordset(
+                ["sharepoint_current_user_authorized"]
+            )
+
         self.assertFalse(self.backend.sharepoint_current_user_authorized)
         self.env["microsoft.graph.credential"].sudo().create(
             {
@@ -86,6 +95,7 @@ class TestSharepointBackend(TransactionCase):
                 "refresh_token": "rt",
             }
         )
+        refresh()
         self.assertTrue(self.backend.sharepoint_current_user_authorized)
         # a credential bound to another user does not authorize the current one
         other = self.env["res.users"].create(
@@ -108,6 +118,7 @@ class TestSharepointBackend(TransactionCase):
                 "refresh_token": "rt-other",
             }
         )
+        refresh()
         self.assertFalse(self.backend.sharepoint_current_user_authorized)
 
     # AC-4
