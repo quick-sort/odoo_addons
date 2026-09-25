@@ -27,8 +27,10 @@ sys.path.insert(0, SCRIPTS_DIR)
 import generate_requirements as g  # noqa: E402
 
 #: Provided by the odoo base image already; re-installing would attempt a
-#: psycopg2 source build. ``mcp`` is satisfied by a metadata stub in CI — its
-#: real package is never imported.
+#: psycopg2 source build. ``mcp`` is installed by the CI workflow as the real
+#: package with its compiled wheels (cryptography/cffi) stripped afterwards —
+#: keeping it out of the merged requirements avoids resolving that dependency
+#: chain twice.
 SKIP = {"psycopg2", "mcp"}
 
 

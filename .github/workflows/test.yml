@@ -130,16 +130,20 @@ jobs:
             python3 -m pip install --no-cache-dir --target /opt/python-deps -r /tmp/ci-reqs.txt
           fi
 
-      - name: mcp metadata stub
+      - name: Install mcp (real package, compiled deps stripped)
         run: |
-          # llm / llm_mcp_server only probe `importlib.metadata.version('mcp')`
-          # and lazy-load the real package. Installing the real `mcp` pulls a
-          # newer `cryptography` that breaks the image's pyOpenSSL, so a
-          # dist-info stub satisfies the probe without the dependency churn.
-          mkdir -p /opt/mcp-stub/mcp-1.0.0.dist-info
-          printf 'Metadata-Version: 2.1\nName: mcp\nVersion: 1.0.0\n' \
-            > /opt/mcp-stub/mcp-1.0.0.dist-info/METADATA
-          echo "PYTHONPATH=/opt/mcp-stub:/opt/python-deps:${PYTHONPATH:-}" >> "$GITHUB_ENV"
+          # llm_mcp_server imports `mcp.types` at module level, so the real
+          # package must be importable — a dist-info metadata stub is not
+          # enough (llm core lazy-loads, llm_mcp_server does not). Install
+          # the real package with its dependency tree, then remove the wheels
+          # that must not shadow the Debian system versions: a pip-installed
+          # `cryptography` breaks the image's pyOpenSSL pairing. `import mcp`
+          # only needs `cryptography.exceptions` at import time, which the
+          # system package provides; everything else mcp pulls in is pure
+          # Python and safe on PYTHONPATH.
+          python3 -m pip install --no-cache-dir --target /opt/python-deps mcp
+          rm -rf /opt/python-deps/cryptography* /opt/python-deps/cffi*
+          echo "PYTHONPATH=/opt/python-deps:${PYTHONPATH:-}" >> "$GITHUB_ENV"
 
       - name: Run Odoo tests
         run: |
