@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="view_skillhub_skill_list" model="ir.ui.view">
+        <field name="name">skillhub.skill.list</field>
+        <field name="model">skillhub.skill</field>
+        <field name="arch" type="xml">
+            <list string="Skills" create="false" delete="false" decoration-muted="state == 'archived'">
+                <field name="code" />
+                <field name="title" />
+                <field name="version" optional="show" />
+                <field name="is_public" optional="show" />
+                <field name="shared_user_ids" widget="many2many_tags" optional="hide" />
+                <field name="create_uid" optional="hide" />
+                <field name="state" widget="badge" decoration-muted="state == 'archived'" />
+            </list>
+        </field>
+    </record>
+
+    <record id="view_skillhub_skill_form" model="ir.ui.view">
+        <field name="name">skillhub.skill.form</field>
+        <field name="model">skillhub.skill</field>
+        <field name="arch" type="xml">
+            <form string="Skill" create="false" delete="false">
+                <header>
+                    <field name="state" widget="statusbar" />
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="title" placeholder="Skill title" /></h1>
+                    </div>
+                    <group>
+                        <group string="Metadata" name="metadata">
+                            <field name="version" />
+                            <field name="is_public" />
+                            <field name="shared_user_ids" widget="many2many_tags" />
+                        </group>
+                        <group string="Technical" name="technical">
+                            <field name="code" readonly="1" />
+                            <field name="backend_id" readonly="1" />
+                            <field name="storage_path" readonly="1" />
+                            <field name="size" readonly="1" />
+                            <field name="sha256" readonly="1" />
+                            <field name="create_uid" readonly="1" string="Owner" />
+                        </group>
+                    </group>
+                    <group string="Description">
+                        <field name="description" nolabel="1" placeholder="What this skill does" />
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_skillhub_skill_search" model="ir.ui.view">
+        <field name="name">skillhub.skill.search</field>
+        <field name="model">skillhub.skill</field>
+        <field name="arch" type="xml">
+            <search string="Skills">
+                <field name="code" />
+                <field name="title" />
+                <field name="description" />
+                <filter name="state_archived" string="Archived" domain="[('state', '=', 'archived')]" />
+                <filter name="my_skills" string="My Skills" domain="[('create_uid', '=', uid)]" />
+                <filter name="shared_with_me" string="Shared With Me" domain="[('shared_user_ids', 'in', uid)]" />
+                <filter name="is_public" string="Public" domain="[('is_public', '=', True)]" />
+                <separator />
+                <group>
+                    <filter name="group_state" string="State" context="{'group_by': 'state'}" />
+                    <filter name="group_backend" string="Storage Backend" context="{'group_by': 'backend_id'}" />
+                    <filter name="group_owner" string="Owner" context="{'group_by': 'create_uid'}" />
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_skillhub_skill" model="ir.actions.act_window">
+        <field name="name">Skills</field>
+        <field name="res_model">skillhub.skill</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_skillhub_skill_search" />
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No skills yet</p>
+            <p>Publish a skill package from an MCP client (skill_publish) and it appears here.</p>
+        </field>
+    </record>
+</odoo>

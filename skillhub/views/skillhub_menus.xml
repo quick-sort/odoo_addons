@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <menuitem
+        id="menu_skillhub_root"
+        name="SkillHub"
+        web_icon="skillhub,static/description/icon.svg"
+        sequence="86"
+    />
+    <menuitem
+        id="menu_skillhub_skill"
+        name="Skills"
+        parent="menu_skillhub_root"
+        action="action_skillhub_skill"
+        sequence="10"
+    />
+</odoo>

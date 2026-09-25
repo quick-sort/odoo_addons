@@ -48,6 +48,31 @@
 - `skill_share(skill_id, user_ids)` / `skill_unshare(skill_id, user_ids)`（仅 owner）
 - `skill_archive(skill_id)`（仅 owner）
 
+## 后端 UI
+
+定位：**浏览 + 元数据编辑**。发布/下载生命周期仍归 MCP 工具，UI 不参与 blob 读写。
+
+- 菜单：根菜单 `menu_skillhub_root`（SkillHub，挂 `web_icon`，无 action）+ 子菜单
+  `menu_skillhub_skill`（Skills，挂 action）。Odoo 19 中根菜单同时挂 action 和子菜单
+  会渲染成文件夹、action 不可达（见 infohub commit 41a265a 的教训），故 action 只在
+  叶子菜单上。
+- 列表（`view_skillhub_skill_list`）：`create="false" delete="false"`。理由：UI 新建
+  的记录没有对应 blob（`skillhub.skill` 的 `backend_id`/`storage_path` 只有
+  `skill_publish` 能合法产生）；UI 删除会留下 storage 孤儿 blob。归档（`state`）是
+  生命周期出口。
+- 表单（`view_skillhub_skill_form`）可编辑矩阵：
+
+  | 字段 | 表单 |
+  |---|---|
+  | title / description / version / is_public / shared_user_ids / state | 可编辑（仅 owner，record rule 兜底） |
+  | code / backend_id / storage_path / size / sha256 / create_uid | 只读 |
+
+  `state` 用 statusbar 呈现（owner 可归档/恢复）。
+- 搜索（`view_skillhub_skill_search`）：按 code/title/description 搜；过滤 Archived /
+  My Skills / Shared With Me / Public；按 state/backend/owner 分组。
+- 可见性：菜单不挂 groups——读隔离已由 record rules（owner/shared/public）落地，
+  非 owner 打开表单自然只读。
+
 ## 关键取舍
 
 ### 为什么存 `storage_path` 指针而不是 zip 进 DB
