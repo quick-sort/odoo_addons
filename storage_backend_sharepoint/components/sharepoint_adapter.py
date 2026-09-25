@@ -25,10 +25,20 @@ class SharePointStorageAdapter(Component):
     _usage = "sharepoint"
 
     def _service(self):
-        return self.env["sharepoint.graph.service"]
+        return self.env["microsoft.graph.service"]
+
+    def _application(self):
+        application = self.collection.sudo().sharepoint_application_id
+        if not application:
+            raise AccessError(
+                _("This SharePoint backend has no Microsoft Graph application.")
+            )
+        return application
 
     def _request(self, method, path, **kwargs):
-        return self._service()._request(self.collection, method, path, **kwargs)
+        return self._service()._request(
+            self._application(), method, path, **kwargs
+        )
 
     def _drive_id(self):
         drive_id = self.collection.sudo().sharepoint_drive_id

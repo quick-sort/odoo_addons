@@ -1,21 +1,22 @@
 from odoo import fields, models
 
 
-class SharePointCredential(models.Model):
-    _name = "storage.sharepoint.credential"
-    _description = "Per-user SharePoint Delegated Credential"
-    _order = "backend_id, user_id"
+class MicrosoftGraphCredential(models.Model):
+    _name = "microsoft.graph.credential"
+    _description = "Per-user Microsoft Graph Delegated Credential"
+    _order = "application_id, user_id"
 
-    backend_id = fields.Many2one(
-        "storage.backend", required=True, index=True, ondelete="cascade"
+    application_id = fields.Many2one(
+        "microsoft.graph.application",
+        required=True,
+        index=True,
+        ondelete="cascade",
     )
     user_id = fields.Many2one(
         "res.users", required=True, index=True, ondelete="cascade"
     )
     entra_oid = fields.Char(string="Entra Object ID", readonly=True, index=True)
-    access_token = fields.Char(
-        copy=False, prefetch=False, groups=fields.NO_ACCESS
-    )
+    access_token = fields.Char(copy=False, prefetch=False, groups=fields.NO_ACCESS)
     refresh_token = fields.Char(
         copy=False, prefetch=False, groups=fields.NO_ACCESS
     )
@@ -28,8 +29,9 @@ class SharePointCredential(models.Model):
     oauth_code_verifier = fields.Char(
         copy=False, prefetch=False, groups=fields.NO_ACCESS
     )
+    post_auth_redirect = fields.Char(copy=False, prefetch=False, groups=fields.NO_ACCESS)
 
-    _backend_user_unique = models.Constraint(
-        "unique(backend_id, user_id)",
-        "A user can only have one delegated credential per SharePoint backend.",
+    _application_user_unique = models.Constraint(
+        "unique(application_id, user_id)",
+        "A user can only have one delegated credential per application.",
     )

@@ -29,20 +29,10 @@
                 >
                     <group>
                         <field
-                            name="sharepoint_tenant_id"
-                            required="backend_type == 'sharepoint'"
-                        />
-                        <field
-                            name="sharepoint_client_id"
-                            required="backend_type == 'sharepoint'"
-                        />
-                        <field name="sharepoint_client_secret" password="True" />
-                        <field
-                            name="sharepoint_scope"
+                            name="sharepoint_application_id"
                             required="backend_type == 'sharepoint'"
                         />
                         <field name="sharepoint_read_only" />
-                        <field name="sharepoint_allow_user_authorization" />
                     </group>
                     <group>
                         <field name="sharepoint_site_id" />

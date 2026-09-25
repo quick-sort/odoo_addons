@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <menuitem
+        id="menu_microsoft_graph_root"
+        name="Microsoft Graph"
+        sequence="95"
+        groups="base.group_system"
+    />
+    <menuitem
+        id="menu_microsoft_graph_applications"
+        name="Applications"
+        parent="menu_microsoft_graph_root"
+        sequence="10"
+        action="action_microsoft_graph_application"
+    />
+</odoo>

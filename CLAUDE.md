@@ -94,7 +94,7 @@ Four in-house stacks plus vendored OCA addons:
 - A channel or agent is added as its own addon: `_inherit` for config fields + `selection_add` for the type + an `agenthub.channel.<type>` / `agenthub.agent.<type>` component. Implementations: `agenthub_wecom` (WeCom aibot WebSocket server), `agenthub_openclaw` (OpenClaw conversation semantics).
 
 **Storage/cloud stack**:
-- `storage_backend` (OCA) + `storage_backend_{s3,sftp,ftp}` adapters; `one_storage` — VFS layer over storage backends (see `one_storage/README.rst`); `one_cloud*` — cloud account/firewall integrations.
+- `storage_backend` (OCA) + `storage_backend_{s3,sftp,ftp}` adapters; `storage_backend_sharepoint` — SharePoint drive adapter on the `microsoft_graph` auth core (Entra app registrations, per-user delegated OAuth, Graph client); `one_storage` — VFS layer over storage backends (see `one_storage/README.rst`); `one_cloud*` — cloud account/firewall integrations.
 
 **Vendored OCA addons** (avoid gratuitous changes): `component`, `component_event`, `connector`, `queue_job*`, `server_environment`, `spreadsheet_oca`, `spreadsheet_dashboard_oca`, `web_*`, `base_pgvector` (in-house but foundational).
 
