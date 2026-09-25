@@ -5,9 +5,9 @@ from odoo.exceptions import AccessError
 class ResUsers(models.Model):
     _inherit = "res.users"
 
-    def _set_sharepoint_auth_tokens(
+    def _set_microsoft_graph_tokens(
         self,
-        backend,
+        application,
         access_token,
         refresh_token=None,
         expires_in=None,
@@ -21,19 +21,21 @@ class ResUsers(models.Model):
         """
         self.ensure_one()
         if self != self.env.user and not self.env.user.has_group("base.group_system"):
-            raise AccessError(_("You can only bind your own SharePoint credential."))
+            raise AccessError(_("You can only bind your own Microsoft credential."))
         token_data = {
             "access_token": access_token,
             "refresh_token": refresh_token,
             "expires_in": expires_in,
             "scope": scope,
         }
-        return self.env["sharepoint.graph.service"]._store_user_tokens(
-            backend, self, token_data, entra_oid=entra_oid
+        return self.env["microsoft.graph.service"]._store_user_tokens(
+            application, self, token_data, entra_oid=entra_oid
         )
 
-    def _get_sharepoint_access_token(self, backend):
+    def _get_microsoft_graph_access_token(self, application):
         self.ensure_one()
         if self != self.env.user and not self.env.user.has_group("base.group_system"):
-            raise AccessError(_("You can only use your own SharePoint credential."))
-        return self.env["sharepoint.graph.service"]._get_access_token(backend, self)
+            raise AccessError(_("You can only use your own Microsoft credential."))
+        return self.env["microsoft.graph.service"]._get_access_token(
+            application, self
+        )

@@ -12,39 +12,43 @@ from odoo.exceptions import AccessError, UserError
 
 
 _GRAPH_ROOT = "https://graph.microsoft.com"
-_OAUTH_CALLBACK = "/storage_backend_sharepoint/oauth/callback"
+_OAUTH_CALLBACK = "/microsoft_graph/oauth/callback"
 _TOKEN_TIMEOUT = 20
 _GRAPH_TIMEOUT = 60
+_STATE_TTL_MINUTES = 10
+_TOKEN_MARGIN_SECONDS = 120
 
 
-class SharePointTokenError(UserError):
+class GraphTokenError(UserError):
     def __init__(self, message, error_code=None):
         super().__init__(message)
         self.error_code = error_code
 
 
-class SharePointGraphService(models.AbstractModel):
-    _name = "sharepoint.graph.service"
-    _description = "Microsoft Graph Service for SharePoint Storage"
+class MicrosoftGraphService(models.AbstractModel):
+    _name = "microsoft.graph.service"
+    _description = "Microsoft Graph OAuth and API Client"
 
     @api.model
-    def _credential(self, backend, user, create=False):
-        backend.ensure_one()
+    def _credential(self, application, user, create=False):
+        application.ensure_one()
         user.ensure_one()
-        Credential = self.env["storage.sharepoint.credential"].sudo()
+        Credential = self.env["microsoft.graph.credential"].sudo()
         credential = Credential.search(
-            [("backend_id", "=", backend.id), ("user_id", "=", user.id)],
+            [("application_id", "=", application.id), ("user_id", "=", user.id)],
             limit=1,
         )
         if not credential and create:
             credential = Credential.create(
-                {"backend_id": backend.id, "user_id": user.id}
+                {"application_id": application.id, "user_id": user.id}
             )
         return credential
 
     @api.model
-    def _tenant_endpoint(self, backend, endpoint):
-        tenant = quote(backend.sudo().sharepoint_tenant_id.strip(), safe="")
+    def _tenant_endpoint(self, application, endpoint):
+        tenant = quote(
+            application.sudo().graph_tenant_id.strip(), safe=""
+        )
         return f"https://login.microsoftonline.com/{tenant}/oauth2/v2.0/{endpoint}"
 
     @api.model
@@ -57,10 +61,18 @@ class SharePointGraphService(models.AbstractModel):
         return f"{base_url}{_OAUTH_CALLBACK}"
 
     @api.model
-    def _authorization_action(self, backend):
-        backend.ensure_one()
-        backend._sharepoint_validate_configuration()
-        credential = self._credential(backend, self.env.user, create=True)
+    def _sanitize_post_auth_redirect(self, value):
+        if not value:
+            return False
+        if not value.startswith("/") or value.startswith("//") or "\\" in value:
+            raise AccessError(_("The post-authorization redirect URL is not safe."))
+        return value
+
+    @api.model
+    def _authorization_action(self, application, redirect_to=None):
+        application.ensure_one()
+        application._graph_validate_configuration()
+        credential = self._credential(application, self.env.user, create=True)
         verifier = secrets.token_urlsafe(64)
         challenge = base64.urlsafe_b64encode(
             hashlib.sha256(verifier.encode()).digest()
@@ -69,38 +81,43 @@ class SharePointGraphService(models.AbstractModel):
         credential.write(
             {
                 "oauth_state": state,
-                "oauth_state_expiry": fields.Datetime.now() + timedelta(minutes=10),
+                "oauth_state_expiry": fields.Datetime.now()
+                + timedelta(minutes=_STATE_TTL_MINUTES),
                 "oauth_code_verifier": verifier,
+                "post_auth_redirect": self._sanitize_post_auth_redirect(
+                    redirect_to
+                )
+                or False,
             }
         )
         params = {
-            "client_id": backend.sudo().sharepoint_client_id,
+            "client_id": application.sudo().graph_client_id,
             "response_type": "code",
             "redirect_uri": self._redirect_uri(),
             "response_mode": "query",
-            "scope": backend.sudo().sharepoint_scope,
+            "scope": application.sudo().graph_scope,
             "state": state,
             "code_challenge": challenge,
             "code_challenge_method": "S256",
         }
         return {
             "type": "ir.actions.act_url",
-            "url": f"{self._tenant_endpoint(backend, 'authorize')}?{urlencode(params)}",
+            "url": f"{self._tenant_endpoint(application, 'authorize')}?{urlencode(params)}",
             "target": "self",
         }
 
     @api.model
-    def _token_request(self, backend, data):
-        backend_sudo = backend.sudo()
+    def _token_request(self, application, data):
+        application_sudo = application.sudo()
         payload = {
-            "client_id": backend_sudo.sharepoint_client_id,
+            "client_id": application_sudo.graph_client_id,
             **data,
         }
-        if backend_sudo.sharepoint_client_secret:
-            payload["client_secret"] = backend_sudo.sharepoint_client_secret
+        if application_sudo.graph_client_secret:
+            payload["client_secret"] = application_sudo.graph_client_secret
         try:
             response = requests.post(
-                self._tenant_endpoint(backend, "token"),
+                self._tenant_endpoint(application, "token"),
                 data=payload,
                 timeout=_TOKEN_TIMEOUT,
             )
@@ -111,7 +128,7 @@ class SharePointGraphService(models.AbstractModel):
                 error_code = response.json().get("error", "token_error")
             except ValueError:
                 error_code = "token_error"
-            raise SharePointTokenError(
+            raise GraphTokenError(
                 _("Microsoft token request failed: %s", error_code),
                 error_code=error_code,
             )
@@ -135,8 +152,8 @@ class SharePointGraphService(models.AbstractModel):
         return response.json()
 
     @api.model
-    def _store_user_tokens(self, backend, user, token_data, entra_oid=None):
-        backend.ensure_one()
+    def _store_user_tokens(self, application, user, token_data, entra_oid=None):
+        application.ensure_one()
         user.ensure_one()
         access_token = token_data.get("access_token")
         if not access_token:
@@ -144,7 +161,7 @@ class SharePointGraphService(models.AbstractModel):
         entra_oid = entra_oid or self._graph_me(access_token).get("id")
         if not entra_oid:
             raise UserError(_("Microsoft Graph did not return an Entra object ID."))
-        credential = self._credential(backend, user, create=True)
+        credential = self._credential(application, user, create=True)
         if credential.entra_oid and credential.entra_oid != entra_oid:
             raise AccessError(
                 _("This Odoo user is already bound to another Entra identity.")
@@ -171,12 +188,12 @@ class SharePointGraphService(models.AbstractModel):
 
     @api.model
     def _complete_authorization(self, state, code, user):
-        Credential = self.env["storage.sharepoint.credential"].sudo()
+        Credential = self.env["microsoft.graph.credential"].sudo()
         credential = Credential.search(
             [("oauth_state", "=", state), ("user_id", "=", user.id)], limit=1
         )
         if not credential:
-            raise AccessError(_("The SharePoint authorization state is invalid."))
+            raise AccessError(_("The Microsoft authorization state is invalid."))
         if (
             not credential.oauth_state_expiry
             or credential.oauth_state_expiry < fields.Datetime.now()
@@ -188,39 +205,39 @@ class SharePointGraphService(models.AbstractModel):
                     "oauth_code_verifier": False,
                 }
             )
-            raise AccessError(_("The SharePoint authorization state has expired."))
-        backend = credential.backend_id
-        backend._sharepoint_validate_configuration()
+            raise AccessError(_("The Microsoft authorization state has expired."))
+        application = credential.application_id
+        application._graph_validate_configuration()
         token_data = self._token_request(
-            backend,
+            application,
             {
                 "grant_type": "authorization_code",
                 "code": code,
                 "redirect_uri": self._redirect_uri(),
-                "scope": backend.sudo().sharepoint_scope,
+                "scope": application.sudo().graph_scope,
                 "code_verifier": credential.oauth_code_verifier,
             },
         )
-        self._store_user_tokens(backend, user, token_data)
-        return backend
+        self._store_user_tokens(application, user, token_data)
+        return credential
 
     @api.model
-    def _refresh_access_token(self, backend, user):
-        credential = self._credential(backend, user)
+    def _refresh_access_token(self, application, user):
+        credential = self._credential(application, user)
         if not credential or not credential.refresh_token:
             raise AccessError(
-                _("Your SharePoint authorization is missing or has expired.")
+                _("Your Microsoft authorization is missing or has expired.")
             )
         try:
             token_data = self._token_request(
-                backend,
+                application,
                 {
                     "grant_type": "refresh_token",
                     "refresh_token": credential.refresh_token,
-                    "scope": backend.sudo().sharepoint_scope,
+                    "scope": application.sudo().graph_scope,
                 },
             )
-        except SharePointTokenError as error:
+        except GraphTokenError as error:
             if error.error_code == "invalid_grant":
                 credential.write(
                     {
@@ -231,25 +248,27 @@ class SharePointGraphService(models.AbstractModel):
                 )
             raise
         self._store_user_tokens(
-            backend, user, token_data, entra_oid=credential.entra_oid
+            application, user, token_data, entra_oid=credential.entra_oid
         )
         return credential.access_token
 
     @api.model
-    def _get_access_token(self, backend, user=None, force_refresh=False):
-        backend.ensure_one()
+    def _get_access_token(self, application, user=None, force_refresh=False):
+        application.ensure_one()
         user = user or self.env.user
         user.ensure_one()
-        credential = self._credential(backend, user)
+        credential = self._credential(application, user)
         if not credential:
             raise AccessError(
                 _(
-                    "Connect your Microsoft account to use SharePoint: "
-                    "/storage_backend_sharepoint/connect/%s",
-                    backend.id,
+                    "Connect your Microsoft account to continue: "
+                    "/microsoft_graph/connect/%s",
+                    application.id,
                 )
             )
-        valid_until = fields.Datetime.now() + timedelta(minutes=2)
+        valid_until = fields.Datetime.now() + timedelta(
+            seconds=_TOKEN_MARGIN_SECONDS
+        )
         if (
             not force_refresh
             and credential.access_token
@@ -257,11 +276,11 @@ class SharePointGraphService(models.AbstractModel):
             and credential.token_expiry >= valid_until
         ):
             return credential.access_token
-        return self._refresh_access_token(backend, user)
+        return self._refresh_access_token(application, user)
 
     @api.model
-    def _disconnect(self, backend, user):
-        credential = self._credential(backend, user)
+    def _disconnect(self, application, user):
+        credential = self._credential(application, user)
         if credential:
             credential.unlink()
         return True
@@ -280,7 +299,7 @@ class SharePointGraphService(models.AbstractModel):
     @api.model
     def _request(
         self,
-        backend,
+        application,
         method,
         path,
         *,
@@ -292,21 +311,21 @@ class SharePointGraphService(models.AbstractModel):
         stream=False,
         timeout=_GRAPH_TIMEOUT,
     ):
-        backend.ensure_one()
+        application.ensure_one()
         user = user or self.env.user
         if path.startswith("http"):
             parsed = urlparse(path)
             if parsed.scheme != "https" or parsed.hostname != "graph.microsoft.com":
-                raise AccessError(_("Microsoft Graph returned an unsafe continuation URL."))
+                raise AccessError(
+                    _("Microsoft Graph returned an unsafe continuation URL.")
+                )
             url = path
         else:
             url = f"{_GRAPH_ROOT}{path}"
 
         force_refresh = False
         for attempt in range(2):
-            token = self._get_access_token(
-                backend, user, force_refresh=force_refresh
-            )
+            token = self._get_access_token(application, user, force_refresh=force_refresh)
             request_headers = {
                 "Authorization": f"Bearer {token}",
                 "Accept": "application/json",
@@ -343,13 +362,17 @@ class SharePointGraphService(models.AbstractModel):
                 raise FileNotFoundError(path)
             if response.status_code == 403:
                 response.close()
-                raise AccessError(_("SharePoint denied access to this item."))
+                raise AccessError(_("Microsoft Graph denied access to this resource."))
             if not response.ok:
                 message = self._error_message(response)
                 status = response.status_code
                 response.close()
                 raise UserError(
-                    _("Microsoft Graph request failed (%(status)s): %(message)s", status=status, message=message)
+                    _(
+                        "Microsoft Graph request failed (%(status)s): %(message)s",
+                        status=status,
+                        message=message,
+                    )
                 )
             if stream:
                 return response

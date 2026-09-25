@@ -1,69 +1,63 @@
 Storage Backend SharePoint
 ==========================
 
-Odoo 19 ``storage.backend`` provider for SharePoint document libraries. It
-does not depend on ``one_storage`` and does not replace ``ir.attachment``.
+Odoo 19 ``storage.backend`` provider for SharePoint document libraries, built
+on the shared ``microsoft_graph`` authentication core. It does not depend on
+``one_storage`` and does not replace ``ir.attachment``.
 
-Every Graph request uses the delegated credential of the current Odoo user.
-Microsoft Graph and SharePoint therefore apply the same permissions as the
-user has in SharePoint itself.
+Every Graph request uses the delegated credential of the current Odoo user
+(see ``microsoft_graph``). Microsoft Graph and SharePoint therefore apply the
+same permissions as the user has in SharePoint itself.
 
 Backend configuration
 ---------------------
 
-Create a storage backend with type **Microsoft SharePoint** and configure:
+First configure a **Microsoft Graph > Applications** record (tenant, client
+ID, secret, delegated scopes). The scopes must cover what this backend needs:
+the read-only default ``Files.Read.All Sites.Read.All`` works for read-only
+backends; grant the corresponding delegated ``ReadWrite`` scopes in Entra for
+writable backends. Never use application/client-credentials permissions for
+per-user access.
 
-* Entra tenant ID or verified tenant domain;
-* Entra application/client ID;
-* client secret (prefer ``server_environment``);
-* delegated OAuth scopes;
+Then create a storage backend with type **Microsoft SharePoint** and
+configure:
+
+* the Microsoft Graph application;
 * SharePoint document library Graph drive ID;
 * optional root driveItem ID;
 * optional ``directory_path`` below that root.
 
-The default scopes are read-only::
+One Entra application can back several backends; users authorize once per
+application and every backend on it reuses that credential. Applications that
+must stay read-only should use a separate application record with read-only
+scopes, or rely on the backend-level **Read Only** flag, which blocks uploads,
+renames, moves and deletions in Odoo.
 
-    offline_access openid profile Files.Read.All Sites.Read.All
+The OAuth redirect URI (register it in the Entra application) is the one of
+``microsoft_graph``::
 
-For a writable backend, disable **Read Only** and grant the corresponding
-delegated ``ReadWrite`` scopes in Entra. Never use application/client-
-credentials permissions for per-user access.
-
-The OAuth redirect URI is::
-
-    https://<odoo-host>/storage_backend_sharepoint/oauth/callback
-
-Register this exact Web redirect URI in the Entra application.
+    https://<odoo-host>/microsoft_graph/oauth/callback
 
 User authorization
 ------------------
 
-The backend form has **Connect Microsoft Account**. Because the user already
-has an Entra browser session, authorization normally reuses SSO without
-another password prompt. The callback uses authorization code with PKCE,
-binds the returned Graph identity to the current Odoo user, and stores a
-per-user refresh token. A storage consumer can start the same flow for a
-normal internal user by redirecting to::
+Users click **Connect Microsoft Account** — either on the application form
+(``microsoft_graph``) or on the backend form. Because the user already has an
+Entra browser session, authorization normally reuses SSO without another
+password prompt. The callback binds the returned Graph identity to the
+current Odoo user and stores a per-user refresh token.
+
+A storage consumer can start the same flow for a normal internal user by
+redirecting to::
 
     /storage_backend_sharepoint/connect/<backend_id>
 
-Administrators can disable that self-service route per backend with **Allow
-User Authorization**.
+Administrators can disable that self-service route per application with the
+application's **Allow User Authorization** flag.
 
 An existing Entra SSO addon can persist the tokens obtained during login
-instead of using the button::
-
-    request.env.user._set_sharepoint_auth_tokens(
-        backend,
-        access_token=token_response["access_token"],
-        refresh_token=token_response.get("refresh_token"),
-        expires_in=token_response.get("expires_in"),
-        scope=token_response.get("scope"),
-        entra_oid=graph_user_id,
-    )
-
-The access token must have Microsoft Graph as its audience and contain
-delegated SharePoint/Files permissions. A login-only ID token cannot be used.
+instead of using the button — see the ``microsoft_graph`` README for the
+``_set_microsoft_graph_tokens`` hook.
 
 Storage API
 -----------
@@ -83,10 +77,8 @@ upload session with sequential chunks.
 Security notes
 --------------
 
-* Tokens are never stored on ``storage.backend`` and are not returned through
-  normal ORM field access. They are stored in the Odoo database like Odoo's
-  built-in Microsoft credentials, so database encryption, backup protection
-  and restricted database administration remain required.
+* Tokens live on ``microsoft.graph.credential`` and are never returned through
+  normal ORM field access (see ``microsoft_graph`` security notes).
 * The adapter always resolves credentials from the active Odoo user; callers
   must use ``with_user(original_user)`` for background jobs.
 * A backend maps one document library and optional root. Configure multiple
@@ -94,3 +86,13 @@ Security notes
 * Graph HTTP 403 remains an Odoo access error. HTTP 404 is treated as missing
   because SharePoint may conceal unauthorized items as not found.
 * Temporary download and upload URLs are never persisted or logged.
+
+Upgrade notes
+-------------
+
+Version 19.0.2.0.0 splits authentication into the ``microsoft_graph`` addon.
+The ``sharepoint_tenant_id`` / ``sharepoint_client_id`` /
+``sharepoint_client_secret`` / ``sharepoint_scope`` backend fields and the
+``storage.sharepoint.credential`` model are gone: create a
+``microsoft.graph.application`` from the former values, point the backend at
+it, and let users re-connect once.
