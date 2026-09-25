@@ -12,20 +12,29 @@ class TestSharepointBackend(TransactionCase):
         cls.env["ir.config_parameter"].sudo().set_param(
             "web.base.url", "https://odoo.example.com"
         )
+        # server.env.mixin fields (graph_*, backend_type, sharepoint_* config)
+        # only persist through write() — values passed to create() are cached
+        # but never reach the sparse storage, so recomputes after cache
+        # invalidation (or from a sudo env) would fall back to the field
+        # defaults. Create bare, then write. Backend: the demo record, like
+        # storage_backend_s3_mcp does.
         cls.application = cls.env["microsoft.graph.application"].create(
+            {"name": "Contoso Graph App"}
+        )
+        cls.application.write(
             {
-                "name": "Contoso Graph App",
                 "graph_tenant_id": "tenant-guid",
                 "graph_client_id": "client-guid",
                 "graph_client_secret": "sekret",
             }
         )
-        cls.backend = cls.env["storage.backend"].create(
+        cls.backend = cls.env.ref("storage_backend.default_storage_backend")
+        cls.backend.write(
             {
-                "name": "SharePoint Docs",
                 "backend_type": "sharepoint",
                 "sharepoint_application_id": cls.application.id,
                 "sharepoint_drive_id": "drive-1",
+                "sharepoint_read_only": True,
             }
         )
 
@@ -48,9 +57,7 @@ class TestSharepointBackend(TransactionCase):
             self.backend._sharepoint_validate_configuration()
 
     def test_validate_configuration_rejects_other_type(self):
-        other = self.env["storage.backend"].create(
-            {"name": "Local FS", "backend_type": "filesystem"}
-        )
+        other = self.env["storage.backend"].create({"name": "Local FS"})
         with self.assertRaises(UserError):
             other._sharepoint_validate_configuration()
 
@@ -80,12 +87,28 @@ class TestSharepointBackend(TransactionCase):
             }
         )
         self.assertTrue(self.backend.sharepoint_current_user_authorized)
+        # a credential bound to another user does not authorize the current one
         other = self.env["res.users"].create(
-            {"name": "Bob", "login": "bob@example.com", "groups_id": []}
+            {
+                "name": "Bob",
+                "login": "bob@example.com",
+                "group_ids": [(6, 0, [self.env.ref("base.group_user").id])],
+            }
         )
-        self.assertFalse(
-            self.backend.with_user(other).sharepoint_current_user_authorized
+        self.env["microsoft.graph.credential"].sudo().search(
+            [
+                ("application_id", "=", self.application.id),
+                ("user_id", "=", self.env.user.id),
+            ]
+        ).unlink()
+        self.env["microsoft.graph.credential"].sudo().create(
+            {
+                "application_id": self.application.id,
+                "user_id": other.id,
+                "refresh_token": "rt-other",
+            }
         )
+        self.assertFalse(self.backend.sharepoint_current_user_authorized)
 
     # AC-4
 
@@ -101,12 +124,9 @@ class TestSharepointBackend(TransactionCase):
         self.assertEqual(args[2], "/v1.0/drives/drive-1/root:/docs/a.txt:")
 
     def test_adapter_requires_application(self):
-        orphan = self.env["storage.backend"].create(
-            {
-                "name": "No App",
-                "backend_type": "sharepoint",
-                "sharepoint_drive_id": "drive-1",
-            }
+        orphan = self.env["storage.backend"].create({"name": "No App"})
+        orphan.write(
+            {"backend_type": "sharepoint", "sharepoint_drive_id": "drive-1"}
         )
         adapter = orphan._get_adapter()
         with self.assertRaises(AccessError):

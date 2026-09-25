@@ -20,8 +20,8 @@
   委托 scope、自服务授权开关），支持 `server_environment` 提供 secret。
 - `microsoft.graph.credential`：按（应用, 用户）存储的委托凭证与 OAuth 流程
   状态（PKCE state/verifier、回调后跳转目标）。
-- 委托 OAuth v2 授权码流程（PKCE、state 单次有效 10 分钟）、token 刷新、
-  `invalid_grant` 自动清凭证。
+- 委托 OAuth v2 授权码流程（PKCE、state 单次有效 10 分钟）、token 刷新
+  （`invalid_grant` 报错引导用户重新授权）。
 - Microsoft Graph HTTP 客户端 `_request`：401 自动刷新重试、429 按
   `Retry-After` 重试、404→`FileNotFoundError`、403→`AccessError`、
   Graph 错误负载解析、续链 URL 仅限 https+graph.microsoft.com。

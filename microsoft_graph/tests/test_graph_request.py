@@ -18,9 +18,13 @@ class TestMicrosoftGraphRequest(TransactionCase):
         cls.env["ir.config_parameter"].sudo().set_param(
             "web.base.url", "https://odoo.example.com"
         )
+        # server.env.mixin fields only persist through write() — values
+        # passed to create() are cached but never reach the sparse storage.
         cls.application = cls.env["microsoft.graph.application"].create(
+            {"name": "Contoso Graph App"}
+        )
+        cls.application.write(
             {
-                "name": "Contoso Graph App",
                 "graph_tenant_id": "tenant-guid",
                 "graph_client_id": "client-guid",
                 "graph_client_secret": "sekret",

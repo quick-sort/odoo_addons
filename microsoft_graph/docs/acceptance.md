@@ -15,8 +15,8 @@ mock token 端点与 `/me`：`_complete_authorization` 用 state 找到凭证、
 
 ## AC-3 流程状态一次性与时效
 
-state 不存在 → `AccessError`；state 过期 → 清空状态并 `AccessError`。
-— `test_complete_authorization_invalid_state`、
+state 不存在或已过期 → `AccessError`（过期 state 由 10 分钟 TTL 兜底；
+成功路径才清状态）。 — `test_complete_authorization_invalid_state`、
 `test_complete_authorization_expired_state`
 
 ## AC-4 Entra 身份不可换绑
@@ -30,10 +30,11 @@ token 未过期 → 直接返回，不发 HTTP；过期或缺 refresh_token 相�
 走刷新；刷新返回的 refresh_token 为空时保留旧值。 —
 `test_cached_token_avoids_http`、`test_expired_token_refreshes`
 
-## AC-6 invalid_grant 清凭证
+## AC-6 invalid_grant 报错
 
-刷新收到 `invalid_grant` → 凭证的 access/refresh/expiry 清空后抛错。
-— `test_invalid_grant_clears_credential`
+刷新收到 `invalid_grant` → `UserError`（带 error_code）。凭证不做失败时
+清理（见 design.md 被否决表：write-before-raise 在调用方回滚下永不生效）。
+— `test_invalid_grant_raises_error`
 
 ## AC-7 Graph 请求语义
 

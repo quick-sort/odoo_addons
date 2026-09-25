@@ -198,13 +198,6 @@ class MicrosoftGraphService(models.AbstractModel):
             not credential.oauth_state_expiry
             or credential.oauth_state_expiry < fields.Datetime.now()
         ):
-            credential.write(
-                {
-                    "oauth_state": False,
-                    "oauth_state_expiry": False,
-                    "oauth_code_verifier": False,
-                }
-            )
             raise AccessError(_("The Microsoft authorization state has expired."))
         application = credential.application_id
         application._graph_validate_configuration()
@@ -228,25 +221,18 @@ class MicrosoftGraphService(models.AbstractModel):
             raise AccessError(
                 _("Your Microsoft authorization is missing or has expired.")
             )
-        try:
-            token_data = self._token_request(
-                application,
-                {
-                    "grant_type": "refresh_token",
-                    "refresh_token": credential.refresh_token,
-                    "scope": application.sudo().graph_scope,
-                },
-            )
-        except GraphTokenError as error:
-            if error.error_code == "invalid_grant":
-                credential.write(
-                    {
-                        "access_token": False,
-                        "refresh_token": False,
-                        "token_expiry": False,
-                    }
-                )
-            raise
+        # No cleanup write on token failure, on purpose: the caller's
+        # transaction rolls back on any raised error (HTTP request, queue
+        # job, test assertRaises), so a write-before-raise would never
+        # persist. The user disconnects explicitly instead.
+        token_data = self._token_request(
+            application,
+            {
+                "grant_type": "refresh_token",
+                "refresh_token": credential.refresh_token,
+                "scope": application.sudo().graph_scope,
+            },
+        )
         self._store_user_tokens(
             application, user, token_data, entra_oid=credential.entra_oid
         )

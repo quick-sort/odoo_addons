@@ -74,6 +74,7 @@ secret 等可由 ini 提供（与 `storage.backend` 同机制）。
 
 | 方案 | 否决理由 |
 |---|---|
+| 失败时清凭证/清 OAuth state（write-before-raise，v1 行为） | 调用方事务在异常时整体回滚（HTTP 请求、queue_job、测试 assertRaises 同理），这类写在生产上从不生效，属于死代码；与 infohub 失败簿记走独立 cursor 是同一个坑。改为纯报错，由 TTL 与显式断开兜底。 |
 | 配置留在消费者（backend）上，service 参数化传 dict | 凭证被迫按消费者隔离，同一用户对每个消费者重复授权；auth 模块无法独立成注册中心，未来消费者各自复制配置字段。 |
 | 凭证按 (消费者, 用户) 存，token 复制多份 | 刷新要在多处同步；一个 refresh token 只能换一个 access token，多副本天然竞态。 |
 | component 实现 service | 无多态需求，空转抽象；消费者 adapter 已是 component，不冲突。 |
