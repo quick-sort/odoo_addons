@@ -62,3 +62,20 @@ class TestMCPToolVisibility(TransactionCase):
             self.env["llm.tool"].with_user(outsider).execute_mcp_tool(
                 {"name": tool.name, "arguments": {"model": "res.partner", "limit": 1}}
             )
+
+    def test_authorized_users_lists_group_members(self):
+        group = self._make_group("MCP Auth Members")
+        other = self._make_group("MCP Auth Others")
+        tool = self.env["llm.tool"].search([], limit=1)
+        tool.allowed_group_ids = [(6, 0, [group.id])]
+
+        member = self._make_user("mcp_auth_member", group)
+        outsider = self._make_user("mcp_auth_outsider", other)
+
+        self.assertIn(member, tool.authorized_user_ids)
+        self.assertNotIn(outsider, tool.authorized_user_ids)
+
+    def test_unrestricted_tool_has_no_authorized_users(self):
+        tool = self.env["llm.tool"].search([], limit=1)
+        tool.allowed_group_ids = [(5,)]
+        self.assertFalse(tool.authorized_user_ids)

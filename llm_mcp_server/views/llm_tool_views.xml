@@ -8,6 +8,7 @@
         <field name="arch" type="xml">
             <xpath expr="//field[@name='requires_user_consent']" position="after">
                 <field name="allowed_group_ids" widget="many2many_tags" options="{'no_create': True}" />
+                <field name="authorized_user_ids" widget="many2many_tags" options="{'no_create': True}" />
             </xpath>
         </field>
     </record>

@@ -21,6 +21,25 @@ class LLMTool(models.Model):
         "Leave empty to expose it to everyone.",
     )
 
+    authorized_user_ids = fields.Many2many(
+        "res.users",
+        string="Authorized Users",
+        compute="_compute_authorized_user_ids",
+        help="Users who can currently see and call this tool via MCP: the "
+        "members of its allowed groups. With no allowed group the tool is "
+        "open to everyone, and system administrators are never restricted.",
+    )
+
+    @api.depends("allowed_group_ids")
+    def _compute_authorized_user_ids(self):
+        for tool in self:
+            if tool.allowed_group_ids:
+                tool.authorized_user_ids = tool.allowed_group_ids.users.filtered(
+                    "active"
+                )
+            else:
+                tool.authorized_user_ids = False
+
     def _mcp_visibility_domain(self):
         """Domain fragment restricting tools to the authenticated user.
 
