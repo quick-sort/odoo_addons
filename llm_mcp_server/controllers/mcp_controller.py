@@ -48,6 +48,21 @@ def requires_bearer_auth(handler_func):
     return wrapper
 
 
+def _mcp_result_payload(result):
+    """Serialize an MCP pydantic result to its wire-format dict.
+
+    by_alias=True is required: the MCP wire format is camelCase
+    (protocolVersion, serverInfo, inputSchema, ...) and the pydantic
+    mcp.types declare those as field aliases. A plain model_dump() emits
+    the snake_case field names and strict SDK clients (the official
+    TypeScript SDK inside mcp-remote) reject the payload. Same constraint
+    as llm/models/llm_tool.py get_tool_definition.
+    """
+    if hasattr(result, "model_dump"):
+        return result.model_dump(exclude_none=True, by_alias=True)
+    return result or {}
+
+
 class MCPController(http.Controller):
     """
     Ultra-thin MCP Server Controller following Odoo best practices.
@@ -91,10 +106,7 @@ class MCPController(http.Controller):
             result = dispatch_result
 
         # Convert pydantic result object to dict
-        if hasattr(result, "model_dump"):
-            return result.model_dump(exclude_none=True)
-        else:
-            return result or {}
+        return _mcp_result_payload(result)
 
     @http.route("/mcp", type="http", auth="bearer", methods=["DELETE"], csrf=False)
     def mcp_delete_session(self):

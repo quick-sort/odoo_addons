@@ -22,6 +22,7 @@ CLAUDE_SERVER_CONFIG_TEMPLATE = Template("""{
     "-y",
     "mcp-remote",
     "{{ mcp_url }}",
+    {{ allow_http_flag }}
     "--header",
     "Authorization: Bearer {{ api_key }}"
   ],
@@ -392,9 +393,13 @@ class LLMMCPServerConfig(models.Model):
         mcp_url = self.get_mcp_server_url()
         client_name = self._get_client_name()
 
+        # mcp-remote refuses plain HTTP for non-localhost URLs unless
+        # --allow-http is passed; keep generated configs copy-paste runnable.
+        allow_http_flag = '"--allow-http",' if mcp_url.startswith("http://") else ""
+
         # Render Claude server config (shared by Claude Desktop and Claude Code)
         server_config = CLAUDE_SERVER_CONFIG_TEMPLATE.render(
-            mcp_url=mcp_url, api_key=key
+            mcp_url=mcp_url, api_key=key, allow_http_flag=allow_http_flag
         )
 
         template_vars = {
