@@ -241,10 +241,10 @@
     <!-- Menu Item under LLM Configuration -->
     <menuitem
     id="menu_llm_mcp_server_config"
-    name="MCP Server"
+    name="Server"
     action="llm_mcp_server_config_action"
-    parent="llm.menu_llm_basic"
-    sequence="50"
+    parent="menu_mcp_hub_root"
+    sequence="20"
   />
 
 </odoo>

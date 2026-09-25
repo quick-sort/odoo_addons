@@ -95,10 +95,10 @@
 
     <menuitem
     id="menu_llm_mcp_tool_call"
-    name="MCP Tool Calls"
+    name="Tool Calls"
     action="action_llm_mcp_tool_call"
-    parent="llm.menu_llm_basic"
-    sequence="51"
+    parent="menu_mcp_hub_root"
+    sequence="40"
     groups="llm.group_llm_manager"
   />
 

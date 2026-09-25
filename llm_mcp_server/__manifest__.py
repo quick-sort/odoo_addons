@@ -40,6 +40,7 @@
     "data": [
         "security/ir.model.access.csv",
         "data/llm_mcp_server_config.xml",
+        "views/mcp_hub_menus.xml",
         "views/llm_mcp_server_config_views.xml",
         "views/llm_mcp_session_views.xml",
         "views/llm_mcp_tool_call_views.xml",
@@ -59,6 +60,6 @@
         "static/description/client_claude_cowork.png",
     ],
     "auto_install": False,
-    "application": False,
+    "application": True,
     "installable": True,
 }

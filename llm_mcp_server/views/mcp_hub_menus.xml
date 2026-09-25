@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <!-- MCP Hub: management console for what this server exposes over MCP,
+         and to whom. One entry per concern: tools (exposure + access),
+         server configuration, sessions, and the call audit trail. -->
+
+    <menuitem
+        id="menu_mcp_hub_root"
+        name="MCP Hub"
+        web_icon="llm_mcp_server,static/description/icon.png"
+        groups="llm.group_llm_user"
+        sequence="110"
+    />
+
+    <!-- Tools: which llm.tool rows are exposed, and which groups may use them.
+         Inline editing is for administrators (llm.tool write ACL); other
+         users get a read-only view of the exposure matrix. -->
+    <record id="view_llm_tool_hub_list" model="ir.ui.view">
+        <field name="name">llm.tool.hub.list</field>
+        <field name="model">llm.tool</field>
+        <field name="arch" type="xml">
+            <list editable="bottom">
+                <field name="name" readonly="1" />
+                <field name="executor" readonly="1" optional="hide" />
+                <field name="source" readonly="1" optional="hide" />
+                <field name="active" widget="boolean_toggle" />
+                <field
+                    name="allowed_group_ids"
+                    widget="many2many_tags"
+                    options="{'no_create': True}"
+                />
+                <field
+                    name="authorized_user_ids"
+                    widget="many2many_tags"
+                    optional="hide"
+                />
+            </list>
+        </field>
+    </record>
+
+    <record id="view_llm_tool_hub_search" model="ir.ui.view">
+        <field name="name">llm.tool.hub.search</field>
+        <field name="model">llm.tool</field>
+        <field name="arch" type="xml">
+            <search string="Search MCP Tools">
+                <field name="name" />
+                <field name="allowed_group_ids" />
+                <filter
+                    string="Active"
+                    name="active"
+                    domain="[('active', '=', True)]"
+                />
+                <filter
+                    string="Inactive"
+                    name="inactive"
+                    domain="[('active', '=', False)]"
+                />
+                <separator />
+                <filter
+                    string="Open to All Users"
+                    name="open_to_all"
+                    domain="[('allowed_group_ids', '=', False)]"
+                />
+                <filter
+                    string="Group-restricted"
+                    name="restricted"
+                    domain="[('allowed_group_ids', '!=', False)]"
+                />
+                <separator />
+                <filter
+                    string="Group by Executor"
+                    name="group_by_executor"
+                    context="{'group_by': 'executor'}"
+                />
+                <filter
+                    string="Group by Source"
+                    name="group_by_source"
+                    context="{'group_by': 'source'}"
+                />
+            </search>
+        </field>
+    </record>
+
+    <record id="action_llm_tool_hub" model="ir.actions.act_window">
+        <field name="name">MCP Tools</field>
+        <field name="res_model">llm.tool</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No tools found
+            </p>
+            <p>
+                Manage which tools this MCP server exposes. A tool is offered
+                when it is active; restrict it to specific user groups with
+                Allowed Groups (leave empty to expose it to everyone).
+            </p>
+        </field>
+    </record>
+
+    <menuitem
+        id="menu_mcp_hub_tools"
+        name="Tools"
+        action="action_llm_tool_hub"
+        parent="menu_mcp_hub_root"
+        sequence="10"
+    />
+</odoo>

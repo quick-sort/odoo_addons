@@ -72,10 +72,10 @@
     <!-- Menu Item under LLM Configuration -->
     <menuitem
     id="menu_llm_mcp_session"
-    name="MCP Sessions"
+    name="Sessions"
     action="llm_mcp_session_action"
-    parent="llm.menu_llm_basic"
-    sequence="55"
+    parent="menu_mcp_hub_root"
+    sequence="30"
   />
 
 </odoo>
