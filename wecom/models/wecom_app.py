@@ -154,15 +154,15 @@ class WecomApp(models.Model):
         return result.get('url') if isinstance(result, dict) else result
 
     # ------------------------------------------------------------------
-    # 消息发送
+    # 消息发送与撤回
     #
     # 对外接口（其他模块唯一入口）：send_message()
     #     先在企微模块内自动创建一条消息记录(wecom.app.message)作为发送历史，再发送，
     #     保证每一次发送都能在「发布历史」里查到内容、接收范围、发送时间和发送结果。
     #     素材上传（封面图/正文图片）也由该接口内部完成，调用方只需传图片内容。
-    # 内部接口：_send_message()
+    # 内部接口：_send_message() / _send_articles() / _recall_message()
     #     直接调用企业微信服务端接口，不产生任何历史记录，
-    #     仅供 wecom.app.message 记录发送时使用，其他模块不要直接调用。
+    #     仅供 wecom.app.message 记录发送/撤回时使用，其他模块不要直接调用。
     # ------------------------------------------------------------------
 
     def send_message(self, title, msg_type='textcard', url=None, description='', image_url=None,
@@ -210,7 +210,9 @@ class WecomApp(models.Model):
         :param source_ref: 来源标识，建议传调用方的模型与记录，如 'newsletter.digest.post,12'，便于追溯
         :param raise_exception: 发送失败时是否抛出异常。True（默认）抛出异常；
             False 则只把消息记录置为“发送失败”并把错误写入 result 字段，由调用方检查 state
-        :return: 创建的 wecom.app.message 记录，可通过 state / result / invalid_user 等字段查看发送结果
+        :return: 创建的 wecom.app.message 记录，可通过 state / result / msgid / invalid_user
+            等字段查看发送结果；msgid 可用于 24 小时内撤回消息
+            （wecom.app.message.action_recall()）
         """
         self.ensure_one()
         vals = {
@@ -294,7 +296,7 @@ class WecomApp(models.Model):
         :param toparty: 接收部门Id，多个用“|”分隔
         :param totag: 接收标签Id，多个用“|”分隔
         :param send_to_all: True 时发送给企业全部成员，忽略 touser/toparty/totag
-        :return: 企业微信接口返回的原始结果(dict)
+        :return: 企业微信接口返回的原始结果(dict)，含 errcode/errmsg/invalid* 字段和用于撤回的 msgid
         """
         self.ensure_one()
         if not send_to_all and not (touser or toparty or totag):
@@ -314,7 +316,8 @@ class WecomApp(models.Model):
                        send_to_all=False):
         """
         内部发送接口：发送图文消息(news)/图文素材消息(mpnews)，按每批 8 篇分批发送并合并结果，
-        不产生历史记录。仅供企微模块内部使用。
+        不产生历史记录。每批发送返回各自的消息ID，合并结果的 msgid 为换行分隔的全部
+        消息ID，可逐条撤回。仅供企微模块内部使用。
         """
         self.ensure_one()
         if not send_to_all and not (touser or toparty or totag):
@@ -340,6 +343,26 @@ class WecomApp(models.Model):
             results.append(result)
         return self._merge_results(results)
 
+    def _recall_message(self, msgid):
+        """
+        内部撤回接口：按 msgid 撤回一条已发送的应用消息，企业微信会在接收人客户端删除该消息。
+        仅能撤回发送后 24 小时内的消息，超时或 msgid 无效时企业微信返回错误，
+        由 wechatpy 抛出 WeChatClientException。
+
+        wechatpy（1.8.18 及 master 均无）未封装 message/recall 接口，这里用 WeChatClient
+        基类的 post() 直调——它就是所有 send 方法的底层通道，自动携带缓存的
+        access_token（过期自动重试）并把 errcode!=0 翻译成异常。
+
+        仅供企微模块内部（wecom.app.message.action_recall()）调用。
+
+        :param msgid: 企业微信 message/send 接口返回的消息ID
+        :return: 企业微信接口返回的原始结果(dict)
+        """
+        self.ensure_one()
+        if not msgid:
+            raise exceptions.ValidationError("撤回消息必须提供msgid。")
+        return self.get_wecom_client().post('message/recall', data={'msgid': msgid})
+
     @staticmethod
     def _chunks(seq, size):
         for i in range(0, len(seq), size):
@@ -347,7 +370,7 @@ class WecomApp(models.Model):
 
     @staticmethod
     def _merge_results(results):
-        """合并多批发送结果：invalid 字段取并集，错误信息拼接。"""
+        """合并多批发送结果：invalid 字段取并集，msgid 逐批收集（换行分隔），错误信息拼接。"""
         results = [r for r in results if isinstance(r, dict)]
         if not results:
             return {}
@@ -361,6 +384,9 @@ class WecomApp(models.Model):
                 errors.append(f"{r.get('errcode')}: {r.get('errmsg', '')}")
         for key, acc in invalids.items():
             merged[key] = '|'.join(filter(None, acc))
+        msgids = [r.get('msgid') for r in results if r.get('msgid')]
+        if msgids:
+            merged['msgid'] = '\n'.join(msgids)
         if errors:
             merged['errcode'] = results[0].get('errcode', -1)
             merged['errmsg'] = '; '.join(errors)
