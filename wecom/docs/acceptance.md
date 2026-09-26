@@ -13,21 +13,21 @@ QC 唯一依据。所有用例离线可跑：wechatpy client 全 mock，不联�
 
 ## AC2 msgid 记录（`tests/test_message_recall.py`）
 
-- [ ] AC2.1 单条发送（textcard）成功 → `msgid` 字段 == 响应中的 `msgid`
-- [ ] AC2.2 多批发送（news 10 篇）成功 → `msgid` 字段含两批共 2 个 msgid（每行一个）
-- [ ] AC2.3 发送失败 → `msgid` 为空，state=`failed`
+- [x] AC2.1 单条发送（textcard）成功 → `msgid` 字段 == 响应中的 `msgid`
+- [x] AC2.2 多批发送（news 10 篇）成功 → `msgid` 字段含两批共 2 个 msgid（每行一个）
+- [x] AC2.3 发送失败 → `msgid` 为空，state=`failed`
 
 ## AC3 消息撤回（`tests/test_message_recall.py`）
 
-- [ ] AC3.1 已发送且 24h 内撤回 → 每个 msgid 各调一次 `POST message/recall`，
+- [x] AC3.1 已发送且 24h 内撤回 → 每个 msgid 各调一次 `POST message/recall`，
       state=`recalled`，`recall_date` 非空
-- [ ] AC3.2 发送超过 24 小时 → 抛 UserError，**不调**撤回接口，state 不变
-- [ ] AC3.3 撤回接口报错（errcode≠0 抛 WeChatClientException）→ **不抛异常**（异常会让
+- [x] AC3.2 发送超过 24 小时 → 抛 UserError，**不调**撤回接口，state 不变
+- [x] AC3.3 撤回接口报错（errcode≠0 抛 WeChatClientException）→ **不抛异常**（异常会让
       Odoo 回滚请求事务、吞掉簿记），返回 `type=warning` 的通知，state 仍为 `sent`，
       错误信息写入 `result`
-- [ ] AC3.4 非 `sent` 状态（草稿）点撤回 → UserError，不调接口
+- [x] AC3.4 非 `sent` 状态（草稿）点撤回 → UserError，不调接口
 
 ## AC4 模块装载
 
-- [ ] `-u wecom --stop-after-init` 退出码 0（含视图/权限/新字段装载）
-- [ ] 改动的 XML 通过 well-formed 校验
+- [x] `-u wecom --stop-after-init` 退出码 0（含视图/权限/新字段装载）
+- [x] 改动的 XML 通过 well-formed 校验
