@@ -12,7 +12,8 @@
                 <field name="msg_type"/>
                 <field name="source" optional="show"/>
                 <field name="send_date"/>
-                <field name="state" widget="badge" decoration-success="state == 'sent'" decoration-danger="state == 'failed'"/>
+                <field name="state" widget="badge" decoration-success="state == 'sent'"
+                       decoration-danger="state == 'failed'" decoration-info="state == 'recalled'"/>
             </list>
         </field>
     </record>
@@ -23,7 +24,10 @@
         <field name="arch" type="xml">
             <form>
                 <header>
-                    <button string="发布" name="action_publish" type="object" class="oe_highlight" invisible="state == 'sent'"/>
+                    <button string="发布" name="action_publish" type="object" class="oe_highlight" invisible="state in ('sent', 'recalled')"/>
+                    <button string="撤回" name="action_recall" type="object"
+                            invisible="state != 'sent' or not msgid"
+                            confirm="确定撤回这条消息吗？企业微信将在接收人的客户端删除该消息（仅对发送后24小时内的消息有效）。"/>
                     <field name="state" widget="statusbar"/>
                 </header>
                 <sheet>
@@ -55,11 +59,11 @@
                         <field name="description" nolabel="1" placeholder="消息描述内容..."/>
                     </group>
                     <group string="文章" invisible="msg_type == 'textcard'">
-                        <div class="alert alert-info mb-2" role="alert" invisible="state == 'sent'">
+                        <div class="alert alert-info mb-2" role="alert" invisible="state in ('sent', 'recalled')">
                             图文消息(news)每篇需填标题/链接/缩略图；图文素材消息(mpnews)每篇需填标题、
                             HTML正文与封面图。企业微信一次最多发 8 篇，超过会自动分多条发送。
                         </div>
-                        <field name="article_ids" readonly="state == 'sent'">
+                        <field name="article_ids" readonly="state in ('sent', 'recalled')">
                             <list editable="bottom">
                                 <field name="sequence" widget="handle"/>
                                 <field name="title"/>
@@ -71,6 +75,8 @@
                     </group>
                     <group string="发送结果" invisible="state == 'draft'">
                         <field name="send_date"/>
+                        <field name="msgid" invisible="not msgid"/>
+                        <field name="recall_date" invisible="not recall_date"/>
                         <field name="invalid_user"/>
                         <field name="invalid_party"/>
                         <field name="invalid_tag"/>

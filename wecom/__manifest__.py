@@ -2,11 +2,10 @@
 {
     'name': "企业微信",
     'summary': """企业微信自建应用管理：CorpID配置、企微应用(AgentID/Secret)、应用消息/H5发布""",
-    'description': """ """,
     'author': "XueFeng.Su",
     'website': "https://github.com/cd-feng",
     'category': 'WeCom',
-    'version': '19.0.1.0',
+    'version': '19.0.1.1',
     'depends': ['base', 'web'],
     "license": "AGPL-3",
     'installable': True,

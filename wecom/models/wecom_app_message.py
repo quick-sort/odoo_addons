@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import base64
 import logging
+from datetime import timedelta
 from odoo import fields, models, api, exceptions
 
 _logger = logging.getLogger(__name__)
@@ -136,12 +137,17 @@ class WecomAppMessage(models.Model):
         ('draft', '草稿'),
         ('sent', '已发送'),
         ('failed', '发送失败'),
+        ('recalled', '已撤回'),
     ], string="状态", default='draft', copy=False)
     send_date = fields.Datetime(string="发送时间", readonly=True, copy=False)
     invalid_user = fields.Char(string="无效成员", readonly=True, copy=False)
     invalid_party = fields.Char(string="无效部门", readonly=True, copy=False)
     invalid_tag = fields.Char(string="无效标签", readonly=True, copy=False)
     result = fields.Text(string="发送结果/错误信息", readonly=True, copy=False)
+    msgid = fields.Text(string="MsgId", readonly=True, copy=False,
+                        help="企业微信返回的消息ID，每行一个（图文超过8篇分批发送时每批各一个），"
+                             "用于撤回消息；仅能撤回发送后24小时内的消息")
+    recall_date = fields.Datetime(string="撤回时间", readonly=True, copy=False)
 
     @api.constrains('send_to_all', 'user_ids', 'department_ids', 'touser', 'toparty', 'totag')
     def _check_receivers(self):
@@ -172,6 +178,9 @@ class WecomAppMessage(models.Model):
         其他模块请调用 wecom.app.send_message()，它会自动创建消息记录后再走这里，
         以保证发送历史完整。
 
+        发送成功时会把企业微信返回的 msgid 记录到 msgid 字段（多篇分批发送时每批一个，
+        每行一个），供 24 小时内撤回消息使用。
+
         :param raise_exception: 发送失败时是否抛出异常。True（默认）先把记录置为“发送失败”再抛出；
             False 则只记录失败状态和错误信息，继续处理后面的记录
         :return: self
@@ -189,11 +198,67 @@ class WecomAppMessage(models.Model):
                 'state': 'sent',
                 'send_date': fields.Datetime.now(),
                 'result': str(result),
+                'msgid': result.get('msgid', '') if isinstance(result, dict) else '',
                 'invalid_user': result.get('invaliduser', '') if isinstance(result, dict) else '',
                 'invalid_party': result.get('invalidparty', '') if isinstance(result, dict) else '',
                 'invalid_tag': result.get('invalidtag', '') if isinstance(result, dict) else '',
             })
         return self
+
+    def action_recall(self):
+        """
+        表单“撤回”按钮：撤回已发送的消息，企业微信会在接收人客户端删除该消息。
+
+        企业微信的限制：仅能撤回发送后 24 小时内的消息（服务端最终裁决，这里先做
+        客户端预检给出友好提示）；“微信插件端”收到的消息不支持撤回。
+        多篇分批发送时逐个 msgid 撤回；全部成功才置为“已撤回”，任一失败则保持
+        “已发送”，错误写入 result 并以警告通知返回，可直接重试（已撤回成功的
+        批次服务端会自行处理）。
+
+        注意：撤回失败**不抛异常**。抛 UserError 会让 Odoo 回滚整个请求事务，把
+        当前事务里已写入的失败信息一并吞掉（用户永远看不到失败原因），所以这里
+        与「同步部门/成员」按钮一样用通知反馈结果，而不是异常对话框。
+        """
+        self.ensure_one()
+        if self.state != 'sent':
+            raise exceptions.UserError("只有“已发送”状态的消息才能撤回。")
+        msgids = self._msgid_list()
+        if not msgids:
+            raise exceptions.UserError("该消息没有记录MsgId，无法撤回（可能是撤回功能上线前发送的记录）。")
+        if not self.send_date or self.send_date < fields.Datetime.now() - timedelta(hours=24):
+            raise exceptions.UserError("企业微信只允许撤回 24 小时内发送的消息，该消息已超过时限。")
+
+        errors = []
+        for msgid in msgids:
+            try:
+                self.app_id._recall_message(msgid)
+            except Exception as e:
+                _logger.error(f"企微应用消息撤回失败（{msgid}）：{e}")
+                errors.append(f"{msgid}: {e}")
+
+        if errors:
+            self.write({'result': f"{self.result or ''}\n撤回失败：\n" + '\n'.join(errors)})
+            return {
+                'type': 'ir.actions.client', 'tag': 'display_notification',
+                'params': {'type': 'warning', 'title': "撤回失败", 'sticky': True,
+                           'message': '\n'.join(errors)},
+            }
+
+        self.write({
+            'state': 'recalled',
+            'recall_date': fields.Datetime.now(),
+            'result': f"{self.result or ''}\n撤回成功：{len(msgids)} 条消息已于企业微信撤回。",
+        })
+        return {
+            'type': 'ir.actions.client', 'tag': 'display_notification',
+            'params': {'type': 'success', 'title': "撤回成功", 'sticky': False,
+                       'message': f"已在企业微信撤回 {len(msgids)} 条消息。"},
+        }
+
+    def _msgid_list(self):
+        """把 msgid 字段拆成列表（每行一个），供撤回时逐条使用。"""
+        self.ensure_one()
+        return [m.strip() for m in (self.msgid or '').splitlines() if m.strip()]
 
     def _send_to_wecom(self):
         """
