@@ -3,6 +3,7 @@
     <menuitem
         id="menu_infohub_root"
         name="InfoHub"
+        web_icon="infohub,static/description/icon.png"
         sequence="85"
         groups="group_infohub_user"
     />
