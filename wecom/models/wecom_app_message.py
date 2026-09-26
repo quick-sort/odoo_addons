@@ -212,7 +212,8 @@ class WecomAppMessage(models.Model):
         企业微信的限制：仅能撤回发送后 24 小时内的消息（服务端最终裁决，这里先做
         客户端预检给出友好提示）；“微信插件端”收到的消息不支持撤回。
         多篇分批发送时逐个 msgid 撤回；全部成功才置为“已撤回”，任一失败则保持
-        “已发送”并把错误写入 result，可重试（已撤回成功的批次服务端会自行处理）。
+        “已发送”并把错误写入 result（经独立游标落库，见 _write_recall_failure），
+        可重试（已撤回成功的批次服务端会自行处理）。
         """
         for rec in self:
             if rec.state != 'sent':
@@ -231,7 +232,7 @@ class WecomAppMessage(models.Model):
                     _logger.error(f"企微应用消息撤回失败（{msgid}）：{e}")
                     errors.append(f"{msgid}: {e}")
             if errors:
-                rec.write({'result': f"{rec.result or ''}\n撤回失败：\n" + '\n'.join(errors)})
+                rec._write_recall_failure('\n'.join(errors))
                 raise exceptions.UserError("撤回失败：\n" + '\n'.join(errors))
 
             rec.write({
@@ -240,6 +241,28 @@ class WecomAppMessage(models.Model):
                 'result': f"{rec.result or ''}\n撤回成功：{len(msgids)} 条消息已于企业微信撤回。",
             })
         return True
+
+    def _write_recall_failure(self, error_text):
+        """
+        把撤回失败信息写入 result，必须经独立游标落库。
+
+        UserError 会让 Odoo 回滚整个请求事务，在当前事务里写 result 会被一并回滚，
+        用户永远看不到失败原因；独立游标正常退出即提交，不受回滚影响（与 infohub
+        渠道失败簿记同一模式）。行必须已存在于数据库中，尚在当前未提交事务里的
+        记录无法更新，跳过而不报错。
+        """
+        self.ensure_one()
+        message_id = self.id
+        text = f"{self.result or ''}\n撤回失败：\n{error_text}"
+        try:
+            with self.env.registry.cursor() as cr:
+                message = api.Environment(cr, self.env.uid, self.env.context)[
+                    'wecom.app.message'].browse(message_id)
+                if message.exists():
+                    message.write({'result': text})
+        except Exception:
+            _logger.exception("wecom: 撤回失败信息写入异常（message %s）", message_id)
+        self.invalidate_recordset()
 
     def _msgid_list(self):
         """把 msgid 字段拆成列表（每行一个），供撤回时逐条使用。"""

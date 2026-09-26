@@ -50,8 +50,19 @@
 - `wecom.app.message.action_recall()`（界面按钮）逐个 msgid 撤回：
   1. 客户端预检：仅 `sent` 状态、有 msgid、`send_date` 在 24 小时内，否则 `UserError`（友好提示，不调 API）；
   2. 逐个调 `wecom.app._recall_message(msgid)`；
-  3. 全部成功 → `state='recalled'` + `recall_date`；任一失败 → 错误追加进 `result`，状态不变，抛 `UserError`。
+  3. 全部成功 → `state='recalled'` + `recall_date`；任一失败 → 错误经**独立游标**追加进
+     `result`（`_write_recall_failure`），状态不变，抛 `UserError`。
 - 服务端 errcode 是最终裁决（如刚好卡在 24h 边界），预检只是提前给出中文提示。
+
+### 失败簿记必须走独立游标
+
+`UserError` 会让 Odoo 回滚整个请求事务——在当前事务里先写 `result` 再抛异常，
+写入会被一并回滚，用户永远看不到失败原因（Odoo 测试的 `assertRaises` 以同样方式
+回滚，CI 正是靠这一点抓住了最初的错误实现）。因此撤回失败信息用
+`env.registry.cursor()` 开新游标写入，正常退出即提交，不受回滚影响；与 infohub
+渠道失败簿记是同一模式。代价：只能更新已提交的行，行不存在则跳过。
+TransactionCase 的类级数据同样不提交，故该路径的用例须自己在独立游标里
+创建并发送记录（真实提交）后再触发撤回失败。
 
 ## 被否决的方案
 
