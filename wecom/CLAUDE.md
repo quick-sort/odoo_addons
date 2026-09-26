@@ -10,5 +10,5 @@
 
 1. 其他模块发消息只能走 `wecom.app.send_message()`；`_send_message()/_send_articles()/_recall_message()` 是内部接口，禁止外部直调。
 2. 所有企业微信调用必须经 `get_wecom_client()`（token 缓存）；撤回用 `client.post('message/recall', ...)`（wechatpy 无该封装，勿另起 requests）。
-3. 撤回失败簿记走独立 cursor（`_write_recall_failure`）：UserError 回滚会吞掉当前事务的写入。
+3. 按钮类操作的业务失败（如撤回报错）返回 display_notification，**不要先写记录再抛 UserError**——异常回滚会吞掉簿记。
 4. 测试对 wechatpy 全 mock，禁止联网。

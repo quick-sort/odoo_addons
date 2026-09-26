@@ -2,7 +2,7 @@
 from datetime import timedelta
 from unittest import mock
 
-from odoo import api, fields
+from odoo import fields
 from odoo.exceptions import UserError
 from odoo.tests.common import TransactionCase, tagged
 
@@ -100,12 +100,13 @@ class TestWecomMessageRecall(TransactionCase):
         """AC3.1 已发送且24h内：逐 msgid 调 message/recall，状态变为已撤回。"""
         client = self._mock_client()
         msg = self._send_textcard()
-        msg.action_recall()
+        notification = msg.action_recall()
 
         client.post.assert_called_once_with('message/recall', data={'msgid': 'MSG_CARD'})
         self.assertEqual(msg.state, 'recalled')
         self.assertTrue(msg.recall_date)
         self.assertIn('撤回成功', msg.result)
+        self.assertEqual(notification['params']['type'], 'success')
 
     def test_recall_multi_batch_calls_per_msgid(self):
         """AC3.1（多批）：10 篇分两批，两个 msgid 各撤回一次。"""
@@ -129,6 +130,21 @@ class TestWecomMessageRecall(TransactionCase):
         client.post.assert_not_called()
         self.assertEqual(msg.state, 'sent')
 
+    def test_recall_reports_api_error(self):
+        """AC3.3 撤回接口报错：不抛异常（避免事务回滚吞掉簿记），返回警告通知，
+        状态仍为 sent，错误写入 result。"""
+        client = self._mock_client()
+        client.post.side_effect = WeChatClientException(45009, 'api limited')
+        msg = self._send_textcard()
+
+        notification = msg.action_recall()
+
+        client.post.assert_called_once_with('message/recall', data={'msgid': 'MSG_CARD'})
+        self.assertEqual(msg.state, 'sent')
+        self.assertIn('45009', msg.result)
+        self.assertIn('撤回失败', msg.result)
+        self.assertEqual(notification['params']['type'], 'warning')
+
     def test_recall_rejects_draft(self):
         """AC3.4 草稿点撤回：报错且不调接口。"""
         client = self._mock_client()
@@ -143,61 +159,3 @@ class TestWecomMessageRecall(TransactionCase):
         with self.assertRaises(UserError):
             msg.action_recall()
         client.post.assert_not_called()
-
-
-@tagged('post_install', '-at_install')
-class TestWecomRecallFailureBookkeeping(TransactionCase):
-    """
-    AC3.3 撤回接口报错：失败信息经独立游标落库，在 UserError 触发的事务回滚
-    之后仍然可见（生产语义：Odoo 请求异常即回滚，当前事务里的写入留不下来；
-    Odoo 测试的 assertRaises 以同样方式回滚）。
-
-    TransactionCase 的类级数据也不提交，测试事务里的行对独立游标不可见，
-    因此这里用独立游标创建并发送消息（真实提交，等价于生产中已落库的记录）；
-    独立游标的写入是真实提交，结束时同样经独立游标清理，避免泄漏到其他用例。
-    """
-
-    def test_recall_api_error_keeps_state_and_result(self):
-        client = mock.MagicMock()
-        client.message.send_text_card.return_value = {
-            'errcode': 0, 'errmsg': 'ok', 'msgid': 'MSG_CARD'}
-        client.post.side_effect = WeChatClientException(45009, 'api limited')
-        patcher = mock.patch.object(
-            type(self.env['wecom.app']), 'get_wecom_client', return_value=client)
-        patcher.start()
-        self.addCleanup(patcher.stop)
-
-        with self.registry.cursor() as cr:
-            env = api.Environment(cr, self.env.uid, self.env.context)
-            app = env['wecom.app'].create({
-                'name': 'Recall App',
-                'wecom_corp_id': 'corp',
-                'wecom_agent_id': '1000001',
-                'wecom_secret': 'secret',
-            })
-            message = env['wecom.app.message'].create({
-                'app_id': app.id,
-                'name': 'Card',
-                'msg_type': 'textcard',
-                'url': 'https://x',
-                'touser': 'user1',
-            })
-            message.send()
-            app_id, message_id = app.id, message.id
-
-        message = self.env['wecom.app.message'].browse(message_id)
-        with self.assertRaises(UserError):
-            message.action_recall()
-
-        self.assertEqual(message.state, 'sent')
-        self.assertIn('45009', message.result)
-        self.assertIn('撤回失败', message.result)
-
-        with self.registry.cursor() as cr:
-            env = api.Environment(cr, self.env.uid, self.env.context)
-            message = env['wecom.app.message'].browse(message_id)
-            if message.exists():
-                message.unlink()
-            app = env['wecom.app'].browse(app_id)
-            if app.exists():
-                app.unlink()

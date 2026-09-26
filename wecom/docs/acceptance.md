@@ -22,10 +22,9 @@ QC 唯一依据。所有用例离线可跑：wechatpy client 全 mock，不联�
 - [ ] AC3.1 已发送且 24h 内撤回 → 每个 msgid 各调一次 `POST message/recall`，
       state=`recalled`，`recall_date` 非空
 - [ ] AC3.2 发送超过 24 小时 → 抛 UserError，**不调**撤回接口，state 不变
-- [ ] AC3.3 撤回接口报错（errcode≠0 抛 WeChatClientException）→ state 仍为 `sent`，
-      错误信息写入 `result` 且在事务回滚后仍可见（经独立游标落库；
-      用例 `TestWecomRecallFailureBookkeeping`：TransactionCase 里测试事务的行
-      对独立游标不可见，用例须用独立游标创建并发送记录使其真实提交）
+- [ ] AC3.3 撤回接口报错（errcode≠0 抛 WeChatClientException）→ **不抛异常**（异常会让
+      Odoo 回滚请求事务、吞掉簿记），返回 `type=warning` 的通知，state 仍为 `sent`，
+      错误信息写入 `result`
 - [ ] AC3.4 非 `sent` 状态（草稿）点撤回 → UserError，不调接口
 
 ## AC4 模块装载
