@@ -13,4 +13,11 @@
         action="action_skillhub_skill"
         sequence="10"
     />
+    <menuitem
+        id="menu_skillhub_category"
+        name="Categories"
+        parent="menu_skillhub_root"
+        action="action_skillhub_category"
+        sequence="20"
+    />
 </odoo>

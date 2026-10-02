@@ -1,2 +1,4 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_skillhub_skill,skillhub.skill,model_skillhub_skill,base.group_user,1,1,1,1
+access_skillhub_category_user,skillhub.category,model_skillhub_category,base.group_user,1,0,0,0
+access_skillhub_category_manager,skillhub.category,model_skillhub_category,base.group_system,1,1,1,1
