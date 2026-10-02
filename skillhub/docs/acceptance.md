@@ -5,7 +5,7 @@
 ## AC-1 数据模型
 
 `skillhub.skill` 含 `code`(unique)/`title`/`description`/`version`/`is_public`/
-`shared_user_ids`/`backend_id`/`storage_path`/`size`/`sha256`。 — `test_model_fields`
+`shared_user_ids`/`category_id`/`backend_id`/`storage_path`/`size`/`sha256`。 — `test_model_fields`
 
 ## AC-2 发布新建
 
@@ -39,6 +39,14 @@ owner / shared / public 可见；其他用户不可见（record rule）。 — `
 
 应用入口/菜单/action/视图（list/form/search）可解析；列表禁止新建与删除；表单中
 技术字段（code/backend_id/storage_path/size/sha256/owner）只读，元数据字段
-（title/description/version/is_public/shared_user_ids/state）可编辑。 —
+（title/description/version/is_public/shared_user_ids/category_id/state）可编辑。 —
 `test_ui_views_resolve` / `test_list_blocks_create_delete` /
 `test_form_readonly_matrix` / `test_menu_structure_and_icon`
+
+## AC-10 分类
+
+`skillhub.category` 模型（`name` 唯一）；skill 挂 `category_id`；`skill_publish`
+接受可选 `category_id`（省略时保留已有分类）；`skill_get`/`skill_search` 返回分类；
+skill 列表 search panel 按 `category_id` 多选筛选。 —
+`test_category_assigned_and_returned` / `test_publish_keeps_category_when_omitted` /
+`test_search_panel_category`

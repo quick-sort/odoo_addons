@@ -22,6 +22,11 @@ class Skill(models.Model):
     )
     is_public = fields.Boolean()
     shared_user_ids = fields.Many2many("res.users", string="Shared With")
+    category_id = fields.Many2one(
+        "skillhub.category",
+        string="Category",
+        ondelete="set null",
+    )
     backend_id = fields.Many2one("storage.backend", required=True)
     storage_path = fields.Char(required=True)
     size = fields.Integer()

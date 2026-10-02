@@ -22,6 +22,12 @@ class TestSkillHubUI(TransactionCase):
             self.env.ref("skillhub.view_skillhub_skill_search"),
         ):
             Skill.get_view(view_id=view.id, view_type=view.type)
+        Category = self.env["skillhub.category"]
+        for view in (
+            self.env.ref("skillhub.view_skillhub_category_list"),
+            self.env.ref("skillhub.view_skillhub_category_form"),
+        ):
+            Category.get_view(view_id=view.id, view_type=view.type)
 
     def test_list_blocks_create_delete(self):
         arch = etree.fromstring(self.env.ref("skillhub.view_skillhub_skill_list").arch)
@@ -40,11 +46,18 @@ class TestSkillHubUI(TransactionCase):
             "version",
             "is_public",
             "shared_user_ids",
+            "category_id",
             "state",
         ):
             node = arch.xpath(f"//field[@name='{name}']")
             self.assertTrue(node, f"missing field {name}")
             self.assertIsNone(node[0].get("readonly"))
+
+    def test_search_panel_category(self):
+        arch = etree.fromstring(self.env.ref("skillhub.view_skillhub_skill_search").arch)
+        node = arch.xpath("//searchpanel/field[@name='category_id']")
+        self.assertTrue(node, "missing category search panel")
+        self.assertEqual(node[0].get("select"), "multi")
 
     def test_menu_structure_and_icon(self):
         root = self.env.ref("skillhub.menu_skillhub_root")

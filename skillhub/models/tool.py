@@ -36,6 +36,7 @@ class SkillHubTool(models.AbstractModel):
         title: str,
         description: str = "",
         version: str = "",
+        category_id: int = 0,
     ) -> dict[str, Any]:
         """Publish a skill package from a staged upload (the ``file_id`` returned
         by ``storage_stage_upload`` after ``storage_commit_upload``).
@@ -44,6 +45,9 @@ class SkillHubTool(models.AbstractModel):
         records its ``size`` and ``sha256``, then upserts ``skillhub.skill`` by
         code: publishing an existing code overwrites that skill's blob and
         metadata. Only the owner of an existing code may overwrite it.
+
+        ``category_id`` optionally assigns a ``skillhub.category``; when omitted
+        an existing skill keeps its current category.
         """
         if not CODE_SLUG_RE.fullmatch(code or ""):
             raise UserError(
@@ -84,6 +88,8 @@ class SkillHubTool(models.AbstractModel):
             "size": size,
             "sha256": digest.hexdigest(),
         }
+        if category_id:
+            values["category_id"] = category_id
         if existing:
             existing.write({**values, "state": "active"})
             skill = existing
@@ -113,6 +119,8 @@ class SkillHubTool(models.AbstractModel):
                 "title": skill.title,
                 "description": skill.description,
                 "version": skill.version,
+                "category_id": skill.category_id.id,
+                "category": skill.category_id.name,
             }
             for skill in skills
         ]
@@ -131,6 +139,8 @@ class SkillHubTool(models.AbstractModel):
             "state": skill.state,
             "is_public": skill.is_public,
             "shared_user_ids": skill.shared_user_ids.ids,
+            "category_id": skill.category_id.id,
+            "category": skill.category_id.name,
             "size": skill.size,
             "sha256": skill.sha256,
         }

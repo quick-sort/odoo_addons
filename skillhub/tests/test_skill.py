@@ -45,10 +45,11 @@ class TestSkillHub(TransactionCase):
         upload.with_user(user).commit()
         return upload
 
-    def _publish(self, user, code, title, description="", version="", data=b"zip-bytes"):
+    def _publish(self, user, code, title, description="", version="", data=b"zip-bytes", category_id=0):
         upload = self._stage_upload(user, data=data)
         result = self.Tool.with_user(user).skill_publish(
-            upload.id, code, title, description=description, version=version
+            upload.id, code, title, description=description, version=version,
+            category_id=category_id,
         )
         return self.env["skillhub.skill"].browse(result["skill_id"])
 
@@ -63,7 +64,8 @@ class TestSkillHub(TransactionCase):
         field_names = set(self.env["skillhub.skill"]._fields)
         expected = {
             "code", "title", "description", "version", "is_public",
-            "shared_user_ids", "backend_id", "storage_path", "size", "sha256",
+            "shared_user_ids", "category_id", "backend_id", "storage_path",
+            "size", "sha256",
         }
         self.assertTrue(expected.issubset(field_names))
 
@@ -82,6 +84,23 @@ class TestSkillHub(TransactionCase):
                 "bad/code",
                 "Bad Code",
             )
+
+    def test_category_assigned_and_returned(self):
+        cat = self.env["skillhub.category"].create({"name": "Data"})
+        skill = self._publish(self.owner_user, "cat", "Categorized", category_id=cat.id)
+        self.assertEqual(skill.category_id, cat)
+        info = self.Tool.with_user(self.owner_user).skill_get(skill.id)
+        self.assertEqual(info["category_id"], cat.id)
+        self.assertEqual(info["category"], "Data")
+        rows = self.Tool.with_user(self.owner_user).skill_search("Categorized")
+        self.assertEqual(rows[0]["category_id"], cat.id)
+
+    def test_publish_keeps_category_when_omitted(self):
+        cat = self.env["skillhub.category"].create({"name": "Data"})
+        first = self._publish(self.owner_user, "keep", "V1", category_id=cat.id)
+        second = self._publish(self.owner_user, "keep", "V2", data=b"v2")
+        self.assertEqual(first.id, second.id)
+        self.assertEqual(second.category_id, cat)
 
     # AC-2 / AC-3 ----------------------------------------------------------
 
