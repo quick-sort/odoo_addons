@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates xml:space="preserve">
 
-    <t t-name="project_task_gantt.GanttView" owl="1">
+    <t t-name="web_gantt.GanttView" owl="1">
         <Layout viewType="'gantt'" display="props.display">
             <t t-set-slot="layout-buttons">
                 <button class="btn btn-primary" t-on-click="() => this.env.controller.createTask()">
@@ -14,7 +14,7 @@
         </Layout>
     </t>
 
-    <t t-name="project_task_gantt.GanttController" owl="1">
+    <t t-name="web_gantt.GanttController" owl="1">
         <div class="o_gantt_view h-100 d-flex flex-column">
             <div class="o_gantt_controller_header border-bottom p-2 bg-view">
                 <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap">
@@ -124,7 +124,7 @@
         </div>
     </t>
 
-    <t t-name="project_task_gantt.GanttRenderer" owl="1">
+    <t t-name="web_gantt.GanttRenderer" owl="1">
         <div 
             class="o_gantt_renderer_container w-100 h-100" 
             t-ref="root"

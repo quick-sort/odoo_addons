@@ -4,7 +4,7 @@
         <field name="name">project.task.gantt</field>
         <field name="model">project.task</field>
         <field name="arch" type="xml">
-            <gantt string="Tasks Gantt Chart"/>
+            <gantt string="Tasks Gantt Chart" date_start="task_start_date" date_stop="task_end_date"/>
         </field>
     </record>
 

@@ -3,7 +3,7 @@
 import { Component, onMounted, onWillUnmount, useRef, useState, onWillUpdateProps } from "@odoo/owl";
 
 export class GanttRenderer extends Component {
-    static template = "project_task_gantt.GanttRenderer";
+    static template = "web_gantt.GanttRenderer";
     static props = {
         data: { type: Array },
         scale: { type: String },

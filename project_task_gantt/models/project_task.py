@@ -1,6 +1,6 @@
 from odoo import models, fields, api
-from odoo.osv import expression
 from odoo.exceptions import ValidationError
+from odoo.fields import Domain
 import logging
 
 _logger = logging.getLogger(__name__)
@@ -105,16 +105,6 @@ class ProjectTask(models.Model):
             if hasattr(self, 'date_end'):
                 self.date_end = self.task_end_date
 
-    # @api.constrains('task_start_date', 'task_end_date')
-    # def _check_dates(self):
-    #     """Validate that end date is not before start date"""
-    #     for task in self:
-    #         if task.task_start_date and task.task_end_date:
-    #             if task.task_end_date < task.task_start_date:
-    #                 raise ValidationError(
-    #                     'The end date of task "%s" cannot be before its start date.' % task.name
-    #                 )
-
     @api.model_create_multi
     def create(self, vals_list):
         """Override create to sync deadline with task_end_date"""
@@ -171,7 +161,7 @@ class ProjectTask(models.Model):
             domain = domain or []
 
             # Only show tasks with both start and end dates
-            gantt_domain = expression.AND([
+            gantt_domain = Domain.AND([
                 domain,
                 [('task_start_date', '!=', False), ('task_end_date', '!=', False)]
             ])
@@ -313,58 +303,3 @@ class ProjectTask(models.Model):
             _logger.error(f"Error in get_gantt_data: {str(e)}", exc_info=True)
             # Return empty list instead of raising to prevent frontend crash
             return []
-
-    def action_open_gantt_view(self):
-        """Action to open Gantt view for current task's project"""
-        self.ensure_one()
-        return {
-            'type': 'ir.actions.act_window',
-            'name': 'Project Gantt Chart',
-            'res_model': 'project.task',
-            'view_mode': 'gantt,list,form',
-            'domain': [('project_id', '=', self.project_id.id)],
-            'context': {'group_by': 'stage_id'},
-        }
-
-    def action_sync_dates(self):
-        """Action to manually sync all date fields for current task"""
-        self.ensure_one()
-        vals = {}
-
-        # Sync task_end_date with date_deadline
-        if self.task_end_date and self.date_deadline:
-            if self.task_end_date.date() != self.date_deadline:
-                vals['date_deadline'] = self.task_end_date.date()
-
-        # Sync date_deadline with task_end_date
-        if self.date_deadline and self.task_end_date:
-            if self.task_end_date.date() != self.date_deadline:
-                # Preserve existing time
-                deadline_datetime = fields.Datetime.to_datetime(self.date_deadline)
-                vals['task_end_date'] = deadline_datetime.replace(
-                    hour=self.task_end_date.hour,
-                    minute=self.task_end_date.minute,
-                    second=self.task_end_date.second
-                )
-
-        if vals:
-            self.write(vals)
-            return {
-                'type': 'ir.actions.client',
-                'tag': 'display_notification',
-                'params': {
-                    'title': 'Dates Synchronized',
-                    'message': 'All date fields have been synchronized.',
-                    'type': 'success',
-                }
-            }
-        else:
-            return {
-                'type': 'ir.actions.client',
-                'tag': 'display_notification',
-                'params': {
-                    'title': 'No Changes Needed',
-                    'message': 'All date fields are already synchronized.',
-                    'type': 'info',
-                }
-            }
