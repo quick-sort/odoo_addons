@@ -7,7 +7,7 @@ import { useService } from "@web/core/utils/hooks";
 import { GanttRenderer } from "./gantt_renderer";
 
 export class GanttController extends Component {
-    static template = "project_task_gantt.GanttController";
+    static template = "web_gantt.GanttController";
     static components = { GanttRenderer };
 
     setup() {
@@ -37,12 +37,12 @@ export class GanttController extends Component {
         this.state.isLoading = true;
         try {
             this.state.ganttData = await this.orm.call(
-                props.resModel, 
-                'get_gantt_data', 
+                props.resModel,
+                'get_gantt_data',
                 [],
-                { 
-                    domain: props.domain || [], 
-                    group_by: this.state.groupBy 
+                {
+                    domain: props.domain || [],
+                    group_by: this.state.groupBy
                 }
             );
             // After first successful load, center on today once
@@ -71,8 +71,8 @@ export class GanttController extends Component {
             };
 
             const updateData = {
-                task_start_date: formatDateForOdoo(startDate),
-                task_end_date: formatDateForOdoo(endDate),
+                [this.props.dateStart]: formatDateForOdoo(startDate),
+                [this.props.dateStop]: formatDateForOdoo(endDate),
             };
 
             await this.orm.write(this.props.resModel, [taskId], updateData);
@@ -89,28 +89,19 @@ export class GanttController extends Component {
         const { taskId } = ev.detail;
         this.actionService.doAction({
             type: 'ir.actions.act_window',
-            res_model: 'project.task',
+            res_model: this.props.resModel,
             res_id: taskId,
             views: [[false, 'form']],
             target: 'new',
-            context: { 
-                create: false,
-                // Ensure we're working with the correct date fields
-                default_task_start_date: true,
-                default_task_end_date: true,
-                // Force reload of the record to get latest data
-                force_reload: true,
-            },
         }, {
             onClose: async () => {
-                // Reload Gantt data after modal closes to sync any changes
                 await this.loadGanttData();
             }
         });
     }
 
-    onScaleChange(scale) { 
-        this.state.scale = scale; 
+    onScaleChange(scale) {
+        this.state.scale = scale;
     }
 
     navigate(type) {
@@ -127,12 +118,11 @@ export class GanttController extends Component {
     createTask() {
         this.actionService.doAction({
             type: 'ir.actions.act_window',
-            res_model: 'project.task',
+            res_model: this.props.resModel,
             views: [[false, 'form']],
             target: 'new',
             context: {
-                // Provide Odoo-compatible datetime format without timezone suffix
-                default_task_start_date: new Date().toISOString().replace('Z','').replace('T',' ').split('.')[0],
+                ['default_' + this.props.dateStart]: new Date().toISOString().replace('Z','').replace('T',' ').split('.')[0],
             },
         }, {
             onClose: async () => {
@@ -141,8 +131,8 @@ export class GanttController extends Component {
         });
     }
 
-    async refresh() { 
-        await this.loadGanttData(); 
+    async refresh() {
+        await this.loadGanttData();
     }
 
     toggleEditable() {
@@ -177,7 +167,7 @@ export class GanttController extends Component {
 }
 
 export class GanttView extends Component {
-    static template = "project_task_gantt.GanttView";
+    static template = "web_gantt.GanttView";
     static components = { Layout, GanttController };
 
     setup() {
@@ -192,6 +182,8 @@ export class GanttView extends Component {
             domain: this.props.domain,
             context: this.props.context,
             groupBy: this.state.groupBy,
+            dateStart: this.props.archInfo?.dateStart || "date_start",
+            dateStop: this.props.archInfo?.dateStop || "date_stop",
         };
     }
 }
@@ -204,9 +196,9 @@ export const ganttView = {
     searchMenuTypes: ["filter", "groupBy", "favorite"],
     Controller: GanttController,
     Component: GanttView,
-    
-    props: (genericProps, view) => {
-        const { arch, relatedModels, resModel } = genericProps;
+
+    props: (genericProps) => {
+        const { arch } = genericProps;
         return {
             ...genericProps,
             Model: undefined,
@@ -214,6 +206,8 @@ export const ganttView = {
             buttonTemplate: arch.getAttribute("button_template") || undefined,
             archInfo: {
                 fieldNames: [],
+                dateStart: arch.getAttribute("date_start") || "date_start",
+                dateStop: arch.getAttribute("date_stop") || "date_stop",
             },
         };
     },
