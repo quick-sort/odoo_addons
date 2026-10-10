@@ -9,6 +9,9 @@
 - `create_uid`（owner，沿用按用户隔离）
 - `shared_user_ids`（分享给谁）、`is_public`（全局公开）
 - `category_id`（分类，可空；`ondelete="set null"`，删分类不删 skill）
+- `depends_on_ids`（依赖哪些 skill，单向）+ `required_by_ids`（反向：谁依赖我）。两张
+  字段共享关系表 `skillhub_skill_dependency`（`skill_id` → `dependency_id`），反向字段
+  用交换列名实现（`res.groups` 的 `implied_ids`/`trans_implied_ids` 同款），无需 computed。
 - `backend_id` + `storage_path`（压缩包在 storage 里的位置，如 `skillhub/<code>.zip`）
 - `size`、`sha256`（完整性）
 
@@ -45,10 +48,11 @@
 
 ## 工具面（`@llm_tool`，经现有 `llm_mcp_server` 暴露）
 
-- `skill_publish(file_id, code, title, description, version, category_id?)` → `{skill_id}`
-  （`category_id` 可空；省略时保留已有分类）
-- `skill_search(query?)` → `[{skill_id, code, title, description, version, category_id, category}]`（只返回 caller 可见）
-- `skill_get(skill_id)` → 元数据（含 `category_id` / `category`）
+- `skill_publish(file_id, code, title, description, version, category_id?, depends_on_ids?)` → `{skill_id}`
+  （`category_id` 可空；省略时保留已有分类。`depends_on_ids` 省略时保留已有依赖，
+  显式列表——含空列表——整体替换）
+- `skill_search(query?)` → `[{skill_id, code, title, description, version, category_id, category, depends_on_ids}]`（只返回 caller 可见）
+- `skill_get(skill_id)` → 元数据（含 `category_id` / `category` / `depends_on_ids` / `required_by_ids`）
 - `skill_download(skill_id)` → `{download, curl}`
 - `skill_share(skill_id, user_ids)` / `skill_unshare(skill_id, user_ids)`（仅 owner）
 - `skill_archive(skill_id)`（仅 owner）
@@ -69,8 +73,8 @@
 
   | 字段 | 表单 |
   |---|---|
-  | title / description / version / is_public / shared_user_ids / category_id / state | 可编辑（仅 owner，record rule 兜底） |
-  | code / backend_id / storage_path / size / sha256 / create_uid | 只读 |
+  | title / description / version / is_public / shared_user_ids / category_id / depends_on_ids / state | 可编辑（仅 owner，record rule 兜底） |
+  | code / backend_id / storage_path / size / sha256 / create_uid / required_by_ids | 只读 |
 
   `state` 用 statusbar 呈现（owner 可归档/恢复）。
 - 搜索（`view_skillhub_skill_search`）：按 code/title/description 搜；过滤 Archived /
@@ -98,3 +102,4 @@ blob 进 DB 会膨胀、且失去 storage 的 presign 下载（bypass Odoo）与
 | tags（自由多标签）分类搜索 | 用户定：单一 `category_id` 分类够用，不做自由标签；搜索仍只按名字/描述。 |
 | 版本历史 | 先单版本覆盖够用，历史留作将来。 |
 | base64 进 tool arguments | 字节流不过 MCP 通道，见 storage_backend_mcp。 |
+| 依赖环（多跳闭环）检测 | 单跳自依赖约束已够；闭环/传递闭包是另一套图算法问题，先不做。 |

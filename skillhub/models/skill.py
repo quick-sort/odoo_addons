@@ -22,6 +22,20 @@ class Skill(models.Model):
     )
     is_public = fields.Boolean()
     shared_user_ids = fields.Many2many("res.users", string="Shared With")
+    depends_on_ids = fields.Many2many(
+        "skillhub.skill",
+        "skillhub_skill_dependency",
+        "skill_id",
+        "dependency_id",
+        string="Depends On",
+    )
+    required_by_ids = fields.Many2many(
+        "skillhub.skill",
+        "skillhub_skill_dependency",
+        "dependency_id",
+        "skill_id",
+        string="Required By",
+    )
     category_id = fields.Many2one(
         "skillhub.category",
         string="Category",
@@ -45,3 +59,9 @@ class Skill(models.Model):
                     "Skill code must be a slug: letters, digits, '.', '_' or "
                     "'-', starting with a letter or digit."
                 )
+
+    @api.constrains("depends_on_ids")
+    def _check_no_self_dependency(self):
+        for record in self:
+            if record.id in record.depends_on_ids.ids:
+                raise ValidationError("A skill cannot depend on itself.")
