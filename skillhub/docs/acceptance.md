@@ -50,3 +50,11 @@ owner / shared / public 可见；其他用户不可见（record rule）。 — `
 skill 列表 search panel 按 `category_id` 多选筛选。 —
 `test_category_assigned_and_returned` / `test_publish_keeps_category_when_omitted` /
 `test_search_panel_category`
+
+## AC-11 依赖
+
+`skillhub.skill` 含 `depends_on_ids`（依赖哪些 skill）+ `required_by_ids`（反向）；
+`skill_publish` 接受可选 `depends_on_ids`（省略时保留已有依赖）；`skill_get` 返回
+两个列表、`skill_search` 每行返回 `depends_on_ids`；禁止自依赖。 —
+`test_dependency_assigned_and_returned` / `test_publish_sets_dependencies` /
+`test_publish_keeps_dependencies_when_omitted` / `test_self_dependency_rejected`

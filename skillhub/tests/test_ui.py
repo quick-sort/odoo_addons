@@ -36,7 +36,14 @@ class TestSkillHubUI(TransactionCase):
 
     def test_form_readonly_matrix(self):
         arch = etree.fromstring(self.env.ref("skillhub.view_skillhub_skill_form").arch)
-        for name in ("code", "backend_id", "storage_path", "size", "sha256"):
+        for name in (
+            "code",
+            "backend_id",
+            "storage_path",
+            "size",
+            "sha256",
+            "required_by_ids",
+        ):
             node = arch.xpath(f"//field[@name='{name}']")
             self.assertTrue(node, f"missing field {name}")
             self.assertEqual(node[0].get("readonly"), "1")
@@ -47,6 +54,7 @@ class TestSkillHubUI(TransactionCase):
             "is_public",
             "shared_user_ids",
             "category_id",
+            "depends_on_ids",
             "state",
         ):
             node = arch.xpath(f"//field[@name='{name}']")

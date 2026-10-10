@@ -35,6 +35,8 @@
                             <field name="version" />
                             <field name="is_public" />
                             <field name="shared_user_ids" widget="many2many_tags" />
+                            <field name="depends_on_ids" widget="many2many_tags" />
+                            <field name="required_by_ids" widget="many2many_tags" readonly="1" />
                         </group>
                         <group string="Technical" name="technical">
                             <field name="code" readonly="1" />

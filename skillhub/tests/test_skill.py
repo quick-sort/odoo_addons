@@ -1,7 +1,7 @@
 import hashlib
 
 from odoo import Command
-from odoo.exceptions import UserError
+from odoo.exceptions import UserError, ValidationError
 from odoo.tests.common import TransactionCase, tagged
 from psycopg2 import errors
 
@@ -45,11 +45,11 @@ class TestSkillHub(TransactionCase):
         upload.with_user(user).commit()
         return upload
 
-    def _publish(self, user, code, title, description="", version="", data=b"zip-bytes", category_id=0):
+    def _publish(self, user, code, title, description="", version="", data=b"zip-bytes", category_id=0, depends_on_ids=None):
         upload = self._stage_upload(user, data=data)
         result = self.Tool.with_user(user).skill_publish(
             upload.id, code, title, description=description, version=version,
-            category_id=category_id,
+            category_id=category_id, depends_on_ids=depends_on_ids,
         )
         return self.env["skillhub.skill"].browse(result["skill_id"])
 
@@ -65,7 +65,7 @@ class TestSkillHub(TransactionCase):
         expected = {
             "code", "title", "description", "version", "is_public",
             "shared_user_ids", "category_id", "backend_id", "storage_path",
-            "size", "sha256",
+            "size", "sha256", "depends_on_ids", "required_by_ids",
         }
         self.assertTrue(expected.issubset(field_names))
 
@@ -101,6 +101,45 @@ class TestSkillHub(TransactionCase):
         second = self._publish(self.owner_user, "keep", "V2", data=b"v2")
         self.assertEqual(first.id, second.id)
         self.assertEqual(second.category_id, cat)
+
+    # AC-11 dependency -----------------------------------------------------
+
+    def test_dependency_assigned_and_returned(self):
+        dep = self._publish(self.owner_user, "dep", "Dependency")
+        skill = self._publish(self.owner_user, "main", "Main")
+        skill.write({"depends_on_ids": [Command.set([dep.id])]})
+        self.assertEqual(skill.depends_on_ids, dep)
+        self.assertEqual(dep.required_by_ids, skill)
+        info = self.Tool.with_user(self.owner_user).skill_get(skill.id)
+        self.assertEqual(info["depends_on_ids"], [dep.id])
+        self.assertEqual(info["required_by_ids"], [])
+        dep_info = self.Tool.with_user(self.owner_user).skill_get(dep.id)
+        self.assertEqual(dep_info["depends_on_ids"], [])
+        self.assertEqual(dep_info["required_by_ids"], [skill.id])
+        rows = self.Tool.with_user(self.owner_user).skill_search("Main")
+        self.assertEqual(rows[0]["depends_on_ids"], [dep.id])
+
+    def test_publish_sets_dependencies(self):
+        dep = self._publish(self.owner_user, "dep2", "Dependency 2")
+        skill = self._publish(
+            self.owner_user, "main2", "Main 2", depends_on_ids=[dep.id]
+        )
+        self.assertEqual(skill.depends_on_ids, dep)
+        self.assertEqual(dep.required_by_ids, skill)
+
+    def test_publish_keeps_dependencies_when_omitted(self):
+        dep = self._publish(self.owner_user, "dep3", "Dependency 3")
+        first = self._publish(
+            self.owner_user, "keepdep", "V1", depends_on_ids=[dep.id]
+        )
+        second = self._publish(self.owner_user, "keepdep", "V2", data=b"v2")
+        self.assertEqual(first.id, second.id)
+        self.assertEqual(second.depends_on_ids, dep)
+
+    def test_self_dependency_rejected(self):
+        skill = self._publish(self.owner_user, "selfdep", "Self")
+        with self.assertRaises(ValidationError):
+            skill.write({"depends_on_ids": [Command.set([skill.id])]})
 
     # AC-2 / AC-3 ----------------------------------------------------------
 

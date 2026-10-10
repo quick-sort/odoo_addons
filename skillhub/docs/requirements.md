@@ -20,14 +20,17 @@
 - 授权：owner（create_uid）/ `shared_user_ids`（分享给指定人）/ `is_public`（全局公开）
 - 元数据：code / title / description / version / size / sha256
 - 分类：skill 挂一个 `category_id`（动态分类 `skillhub.category`，管理员在 UI 维护）
+- 依赖：skill 声明 `depends_on_ids`（依赖哪些 skill，单向）；可反查 `required_by_ids`
+  （谁依赖我）
 - 后端 UI：Odoo 应用入口 + skill 列表浏览/搜索/筛选（含分类 search panel）；owner
-  可在表单编辑元数据（title/description/version/is_public/shared_user_ids/category_id/state）
+  可在表单编辑元数据（title/description/version/is_public/shared_user_ids/category_id/depends_on_ids/state）
 
 **不做**：
 
 - 不解析/校验压缩包内容（SKILL.md 结构等），当 blob 存
 - 不做版本历史（单版本覆盖，`version` 字段只作展示标签）
 - 不做自由标签（tags）：分类用单一 `category_id`，搜索仍只按名字/描述
+- 不做依赖环（多跳闭环）检测与传递闭包：仅禁止自依赖，闭环是另一套图算法问题
 - 不集成进本仓库 `llm` 模块的 agent 运行时（本模块面向第三方 MCP 客户端）
 - UI 不提供新建：记录必须由 `skill_publish` 产生（否则没有对应 blob）
 - UI 不提供删除：删除记录会留下 storage 里的孤儿 blob；归档（`state`）才是生命周期

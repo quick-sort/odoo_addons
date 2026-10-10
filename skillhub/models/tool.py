@@ -1,5 +1,5 @@
 import hashlib
-from typing import Any
+from typing import Any, Optional
 
 from odoo import models
 from odoo.exceptions import UserError
@@ -37,6 +37,7 @@ class SkillHubTool(models.AbstractModel):
         description: str = "",
         version: str = "",
         category_id: int = 0,
+        depends_on_ids: Optional[list[int]] = None,
     ) -> dict[str, Any]:
         """Publish a skill package from a staged upload (the ``file_id`` returned
         by ``storage_stage_upload`` after ``storage_commit_upload``).
@@ -48,6 +49,10 @@ class SkillHubTool(models.AbstractModel):
 
         ``category_id`` optionally assigns a ``skillhub.category``; when omitted
         an existing skill keeps its current category.
+
+        ``depends_on_ids`` optionally sets the skills this one depends on; when
+        omitted an existing skill keeps its current dependencies, while an
+        explicit list (including empty) replaces them.
         """
         if not CODE_SLUG_RE.fullmatch(code or ""):
             raise UserError(
@@ -90,6 +95,8 @@ class SkillHubTool(models.AbstractModel):
         }
         if category_id:
             values["category_id"] = category_id
+        if depends_on_ids is not None:
+            values["depends_on_ids"] = [(6, 0, depends_on_ids)]
         if existing:
             existing.write({**values, "state": "active"})
             skill = existing
@@ -121,6 +128,7 @@ class SkillHubTool(models.AbstractModel):
                 "version": skill.version,
                 "category_id": skill.category_id.id,
                 "category": skill.category_id.name,
+                "depends_on_ids": skill.depends_on_ids.ids,
             }
             for skill in skills
         ]
@@ -141,6 +149,8 @@ class SkillHubTool(models.AbstractModel):
             "shared_user_ids": skill.shared_user_ids.ids,
             "category_id": skill.category_id.id,
             "category": skill.category_id.name,
+            "depends_on_ids": skill.depends_on_ids.ids,
+            "required_by_ids": skill.required_by_ids.ids,
             "size": skill.size,
             "sha256": skill.sha256,
         }
