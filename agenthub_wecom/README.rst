@@ -25,7 +25,8 @@ WebSocket 只跑在 Odoo 的 **gevent worker**（8072 端口），需要 Odoo �
     channels.wecom.secret       = <secret>
 
 在 Odoo 里建一条 ``agenthub.channel``（channel_type=wecom），填相同的
-``bot_id`` / ``secret``。
+``bot_id`` / ``secret``，并指定它归属的 ``agent_id``（一条 channel 只属一个
+agent）。
 
 配置
 ----

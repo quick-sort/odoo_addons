@@ -7,14 +7,15 @@
 
 因此 `agenthub_openclaw` 与 `agenthub_wecom` **互不依赖**，两者都只依赖
 `agenthub` core。把 OpenClaw 接到企微上，是在 Odoo 里建一条
-`thread(channel=企微 bot X, agent=OpenClaw)` 的运行时绑定。
+`channel(agent=OpenClaw)` 的归属关系。
 
 ## 数据模型
 
 继承 core 的 `agenthub.agent`，追加本 agent 的配置：
 
 - `agent_type`：`selection_add=[("openclaw", "OpenClaw")]`
-- 无传输字段（不存 channel/bot 信息）——经哪条 channel 触达由 `thread` 决定。
+- 无传输字段（不存 channel/bot 信息）——经哪条 channel 触达由 `channel.agent_id`
+  决定。
 
 ## 职责：对话语义
 
@@ -72,6 +73,6 @@ channel 归一化 inbound mail.message(agenthub_reply_to_external_id 关联) ─
 
 | 方案 | 否决理由 |
 |---|---|
-| `agenthub_openclaw` 依赖 `agenthub_wecom` | 在代码里断言「OpenClaw 只能走企微」；传输与语义应解耦，绑定交给 thread。 |
+| `agenthub_openclaw` 依赖 `agenthub_wecom` | 在代码里断言「OpenClaw 只能走企微」；传输与语义应解耦，绑定交给 channel。 |
 | 把流式累积/think 剥离放进 channel | 这些是 OpenClaw 的语义，不是企微协议的一部分；换 agent 就要换 channel，反了。 |
 | agent 直连 socket 取回包 | 回包经 core 路由 + channel 归一化后到 agent，直连会破坏解耦与跨进程投递。 |

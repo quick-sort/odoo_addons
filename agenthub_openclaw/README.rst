@@ -17,10 +17,11 @@ agenthub_openclaw
 要真正接通 OpenClaw，还需要一个 channel（如 ``agenthub_wecom``）。两者互不
 依赖，绑定方式是运行时配置：
 
-1. 建一条 ``agenthub.channel``（channel_type=wecom），配好 ``bot_id``/``secret``。
-2. 建一条 ``agenthub.agent``（agent_type=openclaw）。
-3. 建一条 ``agenthub.thread``，``channel_id`` 指上面的 channel、``peer_ref``
-   填 bot_id、``agent_id`` 指上面的 agent。
+1. 建一条 ``agenthub.agent``（agent_type=openclaw）。
+2. 建一条 ``agenthub.channel``（channel_type=wecom），配好 ``bot_id``/``secret``，
+   ``agent_id`` 指上面的 agent（一条 channel 只属一个 agent）。
+3. （可选）建一条 ``agenthub.thread``，``channel_id`` 指上面的 channel、
+   ``peer_ref`` 填 bot_id；应答 agent 由该 channel 的 ``agent_id`` 决定。
 
 这样「这条企微 bot 的对话由 OpenClaw 应答」就成立了。
 

@@ -9,7 +9,8 @@
 红线（勿违背）：
 
 1. **只做传输，不识别对端 agent 身份。** channel 只认 `bot_id`，不得保存或
-   假设「这是 OpenClaw 还是 OpenCode」。
+   假设「这是 OpenClaw 还是 OpenCode」。channel 归属哪个 agent 是 core
+   `agenthub.channel.agent_id` 的配置数据，不由本 addon 推断。
 2. **ACK 必须精确回显 `req_id` + `errcode:0`**；心跳 `ping` 必须回，否则对端
    断连重试。
 3. **WS 只跑 gevent worker**，出站跨进程走 `mail.message` DB 队列，不得

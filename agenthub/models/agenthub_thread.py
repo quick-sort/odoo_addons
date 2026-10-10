@@ -6,9 +6,8 @@ class AgenthubThread(models.Model):
 
     Inherits ``mail.thread`` so messages are standard ``mail.message`` records
     and the conversation renders in the Discuss UI. ``channel_id`` says how the
-    peer is reached, ``peer_ref`` says who the peer is, and ``agent_id`` says who
-    answers. The binding is data, not code: channel and agent addons stay
-    mutually independent.
+    peer is reached, ``peer_ref`` says who the peer is. The answering agent is
+    the channel's owner (``channel_id.agent_id``), not a thread field.
     """
 
     _name = "agenthub.thread"
@@ -24,9 +23,6 @@ class AgenthubThread(models.Model):
         string="Peer",
         required=True,
         help="Channel-side peer identifier (e.g. the WeCom bot_id).",
-    )
-    agent_id = fields.Many2one(
-        "agenthub.agent", string="Agent", required=True, ondelete="restrict"
     )
     external_id = fields.Char(
         string="External ID",
@@ -44,7 +40,7 @@ class AgenthubThread(models.Model):
     )
 
     @api.model
-    def _find_or_create(self, channel_id, peer_ref, agent_id=None, name=None):
+    def _find_or_create(self, channel_id, peer_ref, name=None):
         """Return the thread for ``(channel, peer)``, creating it if needed."""
         thread = self.search(
             [("channel_id", "=", channel_id), ("peer_ref", "=", peer_ref)],
@@ -57,6 +53,5 @@ class AgenthubThread(models.Model):
                 "name": name or peer_ref,
                 "channel_id": channel_id,
                 "peer_ref": peer_ref,
-                "agent_id": agent_id,
             }
         )

@@ -1,6 +1,8 @@
 from odoo.exceptions import UserError
 from odoo.tests import common, tagged
 
+from odoo.addons.agenthub.tests.common import selection_value
+
 from ..components.channel import AgenthubChannelWecom
 from ..services.aibot import registry
 from .test_registry import FakeConnection
@@ -22,9 +24,27 @@ class TestWecomChannelModel(common.TransactionCase):
 
 @tagged("post_install", "-at_install")
 class TestWecomChannelSend(common.TransactionCase):
+    def setUp(self):
+        super().setUp()
+        self._agent_ctx = selection_value(
+            self.env["agenthub.agent"], "agent_type", "test_agent", "Test Agent"
+        )
+        self._agent_ctx.__enter__()
+        self.addCleanup(self._agent_ctx.__exit__, None, None, None)
+
+    def _make_agent(self):
+        return self.env["agenthub.agent"].create(
+            {"name": "probe-agent", "agent_type": "test_agent"}
+        )
+
     def _make_channel(self, bot_id="bot-1"):
         return self.env["agenthub.channel"].create(
-            {"name": "wecom", "channel_type": "wecom", "bot_id": bot_id}
+            {
+                "name": "wecom",
+                "channel_type": "wecom",
+                "bot_id": bot_id,
+                "agent_id": self._make_agent().id,
+            }
         )
 
     def _make_message(self, body="hello"):

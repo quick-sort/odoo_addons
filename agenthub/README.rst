@@ -11,8 +11,8 @@ Odoo 与外部 AI Agent 运行时（OpenClaw 等）对话的**可扩展框架**�
   OpenCode、内部 ``llm.agent``、人工… 都是 agent 的一种。
 
 两者正交且互不依赖：一条 channel 上跑的是谁，channel 不知道也不该知道；一个
-agent 经哪条 channel 触达，agent 不关心。谁配谁，由 ``agenthub.thread`` 在
-运行时绑定。
+agent 经哪条 channel 触达，agent 不关心。谁配谁，是归属数据：一条 channel 只属
+一个 agent（``channel.agent_id``），一个 agent 可配多条 channel。
 
 本 addon 只提供抽象（3 个模型 + 对 ``mail.message`` 的字段扩展 + 2 个 component
 扩展点 + 路由），不含任何具体 channel 或 agent 实现。会话载体是 ``mail.thread``
@@ -35,9 +35,9 @@ agent。要真正接通，需要再装至少一个 channel 和至少一个 agent
 ::
 
     agenthub (core, 只有抽象)
-    ├── agenthub.channel   传输 (channel_type 置空, component 扩展)
-    ├── agenthub.agent     应答 (agent_type 置空, component 扩展)
-    ├── agenthub.thread    会话 = 运行时绑定 + 聊天载体 (mail.thread)
+    ├── agenthub.channel   传输 (channel_type 置空, agent_id 归属 agent)
+    ├── agenthub.agent     应答 (agent_type 置空, user_id 归属用户, 可空=系统)
+    ├── agenthub.thread    会话 = 聊天载体 (mail.thread)
     └── mail.message       消息 + 跨进程 DB 出站队列 (agenthub_* 扩展字段)
 
 扩展一个 channel 或一个 agent，都只加一个独立 addon：

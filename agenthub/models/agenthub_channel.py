@@ -14,6 +14,9 @@ class AgenthubChannel(models.Model):
 
     The core keeps no channel-specific columns; a channel addon adds its own
     config fields (``bot_id``/``secret`` for WeCom, ...) with ``_inherit``.
+
+    A channel belongs to exactly one agent (``agent_id``); deleting the agent
+    deletes its channels.
     """
 
     _name = "agenthub.channel"
@@ -26,6 +29,14 @@ class AgenthubChannel(models.Model):
         selection=[],
         required=True,
         help="How messages travel. Each channel addon adds its own value.",
+    )
+    agent_id = fields.Many2one(
+        "agenthub.agent",
+        string="Agent",
+        required=True,
+        ondelete="cascade",
+        help="The agent this channel belongs to. Deleting the agent deletes "
+        "its channels.",
     )
     active = fields.Boolean(default=True)
     last_run_at = fields.Datetime(readonly=True)

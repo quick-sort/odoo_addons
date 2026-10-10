@@ -44,7 +44,7 @@ Odoo 需要与外部 AI Agent 运行时（如 OpenClaw）对话，而这条对�
   长连接是两条独立协议，另开 addon 处理。
 - **core 不依赖 `llm`。** 只有将来某个 agent 实现需要内部 LLM 时才引入，且
   封闭在该扩展 addon 内（类比 `infohub_channel_mcp` 依赖 `llm`）。
-- **不做多级路由/复杂的 agent 自动选择**。MVP 只做显式绑定：一个 thread
-  （channel + peer）绑定一个 agent。自动路由规则留到以后。
+- **不做多级路由/复杂的 agent 自动选择**。MVP 只做显式归属：一条 channel 只属
+  一个 agent（`channel.agent_id`）。自动路由规则留到以后。
 - **不做消息的多端同步/已读回执等 IM 级语义**，只保证消息可靠落库与投递。
 - 不碰生产端口（8069/8072/5432 等），WebSocket 只服务在 gevent worker。

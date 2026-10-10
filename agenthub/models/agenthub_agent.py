@@ -12,8 +12,10 @@ class AgenthubAgent(models.Model):
     entry on ``agent_type`` plus an ``agenthub.agent.adapter`` component resolved
     by usage.
 
-    An agent is reached over whatever channel a ``agenthub.thread`` binds it to;
-    the agent itself is channel-agnostic.
+    An agent owns the channels that reach it (``channel_ids``): each channel
+    belongs to exactly one agent, while an agent may back several channels. An
+    agent may also be owned by a user (``user_id``); one without an owner is a
+    system agent shared across users.
     """
 
     _name = "agenthub.agent"
@@ -28,6 +30,16 @@ class AgenthubAgent(models.Model):
         help="Who the conversation partner is. Each agent addon adds its own value.",
     )
     active = fields.Boolean(default=True)
+    user_id = fields.Many2one(
+        "res.users",
+        string="Owner",
+        ondelete="set null",
+        help="User who owns this agent. Empty means a system agent shared "
+        "across users.",
+    )
+    channel_ids = fields.One2many(
+        "agenthub.channel", "agent_id", string="Channels"
+    )
 
     def _adapter(self):
         """Resolve the reply adapter for this agent's type, or ``None``."""

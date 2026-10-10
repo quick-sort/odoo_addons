@@ -21,43 +21,49 @@
   （行为上表现为有 `work_on()` 方法）。
 - [ ] **AC6** `agenthub.thread` 继承 `mail.thread`，唯一约束
   `(channel_id, peer_ref)` 生效：同 channel 同 peer 建第二条 thread 抛约束错误。
-- [ ] **AC7** `mail.message` 具备 `agenthub_role`、`agenthub_direction`、
+- [ ] **AC7** `agenthub.thread` 不再有 `agent_id` 字段；应答 agent 由
+  `channel_id.agent_id` 决定。
+- [ ] **AC8** `agenthub.agent` 有 `user_id`（M2o `res.users`，可空；空 = 系统
+  agent）与 `channel_ids`（O2m）。
+- [ ] **AC9** `agenthub.channel` 有必填 `agent_id`（M2o `agenthub.agent`，
+  `ondelete="cascade"`：删 agent 连带删 channel）。
+- [ ] **AC10** `mail.message` 具备 `agenthub_role`、`agenthub_direction`、
   `agenthub_external_id`、`agenthub_reply_to_external_id`、
   `agenthub_delivery_state`、`agenthub_stream_id`、`agenthub_content` 字段。
 
 ## 3. 扩展点（component 契约）
 
-- [ ] **AC8** 存在抽象 component `agenthub.channel` 与 `agenthub.agent`，契约
+- [ ] **AC11** 存在抽象 component `agenthub.channel` 与 `agenthub.agent`，契约
   方法（`channel.send`、`agent.reply`）未实现类型时抛 `NotImplementedError`。
-- [ ] **AC9** 用 usage 后缀解析：`WorkContext(collection=channel).component(
+- [ ] **AC12** 用 usage 后缀解析：`WorkContext(collection=channel).component(
   usage=f"agenthub.channel.{channel_type}")` 能解析到对应实现，且不同
   `channel_type` 的 usage 互不冲突。
 
 ## 4. 路由（core 中介）
 
-- [ ] **AC10** 给定一个 inbound `mail.message`，路由层能按
-  `(channel_id, peer_ref)` 找到/创建 thread，并调用 `thread.agent_id` 的
-  `reply()`（用 mock agent 断言被调用）。
-- [ ] **AC11** agent 产出的 outbound message 会被交给 `channel.send()`（用 mock
+- [ ] **AC13** 给定一个 inbound `mail.message`，路由层能按
+  `(channel_id, peer_ref)` 找到/创建 thread，并调用其 channel 的 `agent_id`
+  的 `reply()`（用 mock agent 断言被调用）。
+- [ ] **AC14** agent 产出的 outbound message 会被交给 `channel.send()`（用 mock
   channel 断言被调用）。
-- [ ] **AC12** 关联字段贯通：channel 归一化填 `agenthub_external_id` /
+- [ ] **AC15** 关联字段贯通：channel 归一化填 `agenthub_external_id` /
   `agenthub_reply_to_external_id`，agent 用它们匹配回原 outbound（用 mock 断言
   匹配逻辑，不依赖真实 channel）。
 
 ## 5. 投递状态机
 
-- [ ] **AC13** outbound message 建时为 `agenthub_delivery_state=pending`，
+- [ ] **AC16** outbound message 建时为 `agenthub_delivery_state=pending`，
   `send()` 成功后置 `sent`。
-- [ ] **AC14** 投递失败置 `failed`。
-- [ ] **AC15** 跨进程投递队列语义：`pending` 出站消息可被按 channel 查询到，
+- [ ] **AC17** 投递失败置 `failed`。
+- [ ] **AC18** 跨进程投递队列语义：`pending` 出站消息可被按 channel 查询到，
   用于 gevent 连接循环轮询（断言查询域按 `agenthub_delivery_state=pending` +
   所属 thread 的 `channel_id` 过滤）。
 
 ## 6. XML
 
-- [ ] **AC16** 所有 view/security/data XML 过 `xml.dom.minidom` 解析。
+- [ ] **AC19** 所有 view/security/data XML 过 `xml.dom.minidom` 解析。
 
 ## 7. 不联网
 
-- [ ] **AC17** 全部测试在无外部 API key、无网络下可过（core 本身无出网，
+- [ ] **AC20** 全部测试在无外部 API key、无网络下可过（core 本身无出网，
   出网只在 channel 实现 addon）。

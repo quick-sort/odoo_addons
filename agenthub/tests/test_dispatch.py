@@ -38,11 +38,18 @@ class TestChannelDispatch(_DispatchCase):
     def setUp(self):
         super().setUp()
         Channel = self.env["agenthub.channel"]
+        Agent = self.env["agenthub.agent"]
         self._add_selection(Channel, "channel_type", FAKE_CHANNEL)
+        self._add_selection(Agent, "agent_type", FAKE_AGENT)
+        agent = Agent.create({"name": "probe-agent", "agent_type": FAKE_AGENT})
         # Created after _setup_registry so the record's env carries the
         # components_registry context key that work_on() propagates.
         self.channel = Channel.create(
-            {"name": "probe", "channel_type": FAKE_CHANNEL}
+            {
+                "name": "probe",
+                "channel_type": FAKE_CHANNEL,
+                "agent_id": agent.id,
+            }
         )
 
     def _build_stub(self, usage, name):

@@ -1,6 +1,6 @@
 # agenthub — 系统设计
 
-## 总览：两轴正交、运行时绑定
+## 总览：两轴正交、channel 归属 agent
 
 agenthub 把「Odoo 与外部智能对话」拆成两轴，各轴独立扩展：
 
@@ -17,9 +17,9 @@ agenthub 把「Odoo 与外部智能对话」拆成两轴，各轴独立扩展：
 - 一个 agent 经哪条 channel 触达，agent 本身**也不关心**——它只负责「这段
   对话该怎么理解、怎么应答」。
 
-谁配谁，由 `agenthub.thread` 在**运行时绑定**（一条数据，不是代码依赖）：一个
-会话（channel + peer）绑定一个 agent。channel addon 与 agent addon 都只依赖
-core。
+谁配谁，是**归属数据**（一条数据，不是代码依赖）：一条 channel 只属一个 agent
+（`channel.agent_id`），一个 agent 可配多条 channel（`agent.channel_ids`）。
+channel addon 与 agent addon 都只依赖 core。
 
 会话的**载体是 `mail.thread`**（对齐 `llm.thread`）：消息用标准 `mail.message`
 存储，天然获得 Discuss 聊天界面、附件、流式推送，流式回复用「一条消息原地
@@ -37,6 +37,8 @@ core。
 - `channel_type`：Selection，**core 置空**，由各 channel addon `selection_add`
   填充。
 - `name`、`active`
+- `agent_id`：M2o `agenthub.agent`，**必填**，`ondelete="cascade"`——这条
+  channel 属于哪个 agent，删 agent 时连带删 channel。
 - 健康状态：`last_run_at` / `error_count` / `last_error`
 
 **core 不预置任何 channel 专属字段**（企微的 `bot_id`/`secret`、Telegram 的
@@ -49,18 +51,20 @@ core。
 - `agent_type`：Selection，**core 置空**，由各 agent addon `selection_add`
   填充。
 - `name`、`active`
+- `user_id`：M2o `res.users`，可空；空 = **系统 agent**（跨用户共享）。
+- `channel_ids`：O2m `agenthub.channel`，这个 agent 名下有哪些 channel。
 
 同样不预置 agent 专属字段。
 
-### agenthub.thread（会话 = 运行时绑定 + 聊天载体）
+### agenthub.thread（会话 = 聊天载体）
 
 继承 `mail.thread`（像 `llm.thread`）。字段：
 
 - `name`：标题
-- `channel_id`：M2o `agenthub.channel`，怎么到达
+- `channel_id`：M2o `agenthub.channel`，怎么到达（应答 agent 由
+  `channel_id.agent_id` 决定，thread 不再存 `agent_id`）
 - `peer_ref`：Char，channel 侧的对端标识（企微的 `bot_id`，Telegram 的
   chat id…）
-- `agent_id`：M2o `agenthub.agent`，谁来应答
 - `external_id`：channel 侧稳定标识，用于幂等/去重
 - `state`：`active` / `closed`
 - 唯一约束 `(channel_id, peer_ref)`：同一 channel 上的同一 peer 只有一个会话
@@ -129,7 +133,7 @@ core 的路由层是 channel 与 agent 之间唯一的中介，两者互不直�
 
 1. channel 收到传输事件，归一化成 inbound `mail.message`，按
    `(channel_id, peer_ref)` 找/建 thread 并落库
-2. core 路由取 `thread.agent_id`，调 `agent.reply(inbound)`
+2. core 路由取 thread 所属 channel 的 `agent_id`，调 `agent.reply(inbound)`
 3. agent 产出 outbound `mail.message`，core 路由交 `channel.send()` 投递
 
 出站（Odoo 主动发起，例如 Odoo 作为「用户」向外部 agent 提问）：
@@ -211,7 +215,7 @@ HTTP→WS 升级，握手后 `call_on_close` 里进入连接循环。生产由 n
 
 因此 `agenthub_openclaw` 与 `agenthub_wecom` **互不依赖**，两者都只依赖
 `agenthub` core。把 OpenClaw 接到企微上，是在 Odoo 里建一条
-`thread(channel=企微 bot X, agent=OpenClaw)` 的运行时绑定，而非代码耦合。
+`channel(agent=OpenClaw)` 的归属关系，而非代码耦合。
 
 ### 语义边界
 
@@ -229,12 +233,17 @@ HTTP→WS 升级，握手后 `call_on_close` 里进入连接循环。生产由 n
 「我是 OpenClaw」这样的字段。硬把 agent 塞进 channel，就是把一条传输和某个
 具体运行时焊死，换一个运行时就得换一条 channel。拆分后每轴各加一个 addon。
 
-### 为什么 channel 与 agent 互不依赖，由 thread 运行时绑定
+### 为什么归属用 channel.agent_id 数据，而不是 thread 运行时绑定
 
 谁是谁的 agent 是部署时的配置（数据），不是代码关系。把「OpenClaw 经企微
 触达」写成 `agenthub_openclaw` 依赖 `agenthub_wecom`，就等于在代码里断言了
 「OpenClaw 只能走企微」，而实际上 OpenClaw 换条 channel、或企微接别的 agent，
 都不该改任何一边的代码。
+
+归属落在 channel 上而不是 thread 上，是因为「这条传输线归哪个 agent」是
+channel 级的稳定属性（企微一个 bot 就是一个 agent 的入口），而 thread 是
+「一个 peer 的一段对话」的会话级对象。把 agent 放到 channel 上，入站路由直接
+由 `channel.agent_id` 拿到应答方，省掉 thread 一层运行时绑定的间接。
 
 ### 为什么 thread 继承 mail.thread，而不是 plain 模型
 
@@ -268,6 +277,7 @@ channel 实现的情况下把「提问」与「回包」配对。这是 channel/
 |---|---|
 | 一对一硬编码「Odoo↔企微↔OpenClaw」 | 新增传输或 agent 都要重写路由/落库/重试，无法沉淀为框架。 |
 | agent 依赖 channel（`agenthub_openclaw` 依赖 `agenthub_wecom`） | 在代码里断言「OpenClaw 只能走企微」；且企微消息本无法识别对端 agent，反了。 |
+| `thread.agent_id` 运行时绑定 agent | 归属是 channel 级稳定属性，thread 只是会话级；下沉到 `channel.agent_id` 后入站路由无需 thread 一层间接。 |
 | plain `agenthub.thread` + 独立 `agenthub.message` 表 | 弃用。会话就是聊天，`mail.thread` 白送 UI/流式/附件；内容与投递拆两张表徒增同步。 |
 | 复用 `bus` 的 `WebsocketConnectionHandler` 直接跑 aibot | 该 handler 深度耦合 bus 通知协议（channel/subscribe/poll），不是通用 JSON 协议承载，改造不如自建连接循环。 |
 | 独立 WS 进程（`websockets` 库）承载 aibot | 与 Odoo 解耦更彻底，但「在 Odoo 里做 addon」的诉求下多一个进程/端口/运维面；MVP 先用 gevent 承载，将来确需独立扩缩容再拆。 |
@@ -282,5 +292,5 @@ channel 实现的情况下把「提问」与「回包」配对。这是 channel/
   `agenthub_human` 等，各加 `agenthub.agent.<type>` component。
 - `agenthub_discuss`：薄的入口 addon，把 `agenthub.thread` 接进 Discuss 聊天
   界面（`llm_discuss` 的 `llm.chat_client_action` 同款），core 保持 UI 无关。
-- 路由规则模型：把「channel + peer pattern → 默认 agent」的自动绑定从
-  thread 上显式 `agent_id` 中抽出来，作为可选的自动建会话层。
+- 路由规则模型：把「channel → agent」的显式 `agent_id` 扩展成可选的自动
+  指派（按 pattern 自动建 thread / 自动挑 agent）。
