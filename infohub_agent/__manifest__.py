@@ -25,6 +25,7 @@ never installs the LLM stack.
     "depends": ["infohub", "llm"],
     "data": [
         "security/ir.model.access.csv",
+        "data/infohub_guide.xml",
         "data/llm_agent_tag_data.xml",
         "data/llm_agent_data.xml",
         "data/ir_cron_data.xml",
