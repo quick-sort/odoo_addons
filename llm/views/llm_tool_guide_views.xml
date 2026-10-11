@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <!-- List View -->
+    <record id="view_llm_tool_guide_list" model="ir.ui.view">
+        <field name="name">llm.tool.guide.list</field>
+        <field name="model">llm.tool.guide</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="code" />
+                <field name="title" />
+                <field name="keyword" />
+                <field name="allowed_group_ids" optional="hide" />
+                <field name="active" />
+            </list>
+        </field>
+    </record>
+
+    <!-- Form View -->
+    <record id="view_llm_tool_guide_form" model="ir.ui.view">
+        <field name="name">llm.tool.guide.form</field>
+        <field name="model">llm.tool.guide</field>
+        <field name="arch" type="xml">
+            <form string="Tool Guide">
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field
+                name="title"
+                placeholder="e.g. SkillHub"
+              /></h1>
+                    </div>
+                    <group>
+                        <group string="Identity">
+                            <field
+                name="code"
+                placeholder="e.g. skillhub"
+                help="Stable slug, usually the module name. Folded into the retriever's MCP description via the keyword."
+              />
+                            <field
+                name="keyword"
+                placeholder="e.g. skillhub"
+                help="Short keyword for the retriever's MCP description. Keep it short."
+              />
+                        </group>
+                        <group string="Visibility">
+                            <field
+                name="allowed_group_ids"
+                help="Only users in one of these groups see this guide through the retriever. Leave empty for everyone. Reference the same group(s) as the module's tools."
+              />
+                            <field name="active" />
+                        </group>
+                    </group>
+                    <group string="Summary (index header)">
+                        <field
+                name="summary"
+                placeholder="One-liner plus what operations this module exposes"
+              />
+                    </group>
+                    <group string="Body (orchestration doc)">
+                        <field
+                name="body"
+                placeholder="Per-operation sequence, invariants and gotchas"
+              />
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Search View -->
+    <record id="view_llm_tool_guide_search" model="ir.ui.view">
+        <field name="name">llm.tool.guide.search</field>
+        <field name="model">llm.tool.guide</field>
+        <field name="arch" type="xml">
+            <search string="Search Tool Guides">
+                <field name="code" />
+                <field name="title" />
+                <field name="keyword" />
+                <filter
+          string="Active"
+          name="active"
+          domain="[('active', '=', True)]"
+        />
+                <filter
+          string="Archived"
+          name="archived"
+          domain="[('active', '=', False)]"
+        />
+            </search>
+        </field>
+    </record>
+
+    <!-- Action -->
+    <record id="action_llm_tool_guide" model="ir.actions.act_window">
+        <field name="name">Tool Guides</field>
+        <field name="res_model">llm.tool.guide</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'search_default_active': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Add an orchestration guide
+            </p>
+            <p>
+                A guide tells an agent how to operate a module — which models to
+                use, which methods to call and in what order, and what invariants
+                to respect.
+            </p>
+        </field>
+    </record>
+</odoo>

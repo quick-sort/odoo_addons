@@ -74,6 +74,13 @@ class LLMTool(models.Model):
         for tool in active_tools:
             # Get tool definition as dict
             tool_definition = tool.get_tool_definition()
+            # Dynamic description must see the authenticated user's groups, not
+            # the sudo env used for the search above.
+            suffix = tool.with_env(self.env).get_dynamic_description()
+            if suffix:
+                tool_definition["description"] = (
+                    (tool_definition.get("description") or "") + "\n\n" + suffix
+                )
             # Convert to MCP Tool object
             mcp_tool = Tool(**tool_definition)
             mcp_tools.append(mcp_tool)
