@@ -30,10 +30,13 @@
 
 ## AC-5 中转 controller 往返（HttpCase）
 
-- PUT 后 GET 读回，字节一致，sha256 与 commit 返回一致
-- 超过 `max_size_bytes` 中止并删半成品
-- gzip 扩展映射：presign/中转路径的物理 key 与 `open()` 一致（`.gz` 后缀）—
-  `test_upload_download_roundtrip`、`test_oversize_aborted_and_cleaned`、
+- PUT 后 GET 读回，字节一致，sha256 与 commit 返回一致 —
+  `test_upload_download_roundtrip`
+- 大体积（>1MiB）上传：字节往返一致、sha256/size 正确 —
+  `test_large_body_roundtrip_and_hash`
+- 超过 `max_size_bytes` 拒绝且不落文件（Content-Length 预检 + 读后校验兜底） —
+  `test_oversize_aborted_and_cleaned`
+- gzip 扩展映射：presign/中转路径的物理 key 与 `open()` 一致（`.gz` 后缀） —
   `test_gzip_physical_path_consistent`
 
 ## AC-6 暂存上传协议
@@ -57,6 +60,12 @@
 
 直写签发时目标已存在且未显式 `overwrite=True` → 拒绝。 —
 `test_upload_url_requires_overwrite_flag`
+
+## AC-9 编排指南
+
+贡献 `llm.tool.guide`（`code="storage"`），`odoo_model_guide_retriever`
+可返回其 body，body 覆盖 stage→curl→commit→consume 协议与 `file_id` 契约。 —
+`test_storage_guide_contributed`
 
 ## 运行方式
 

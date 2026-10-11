@@ -23,6 +23,8 @@
 - 暂存上传（staging）：返回 `file_id` 作为跨工具引用的货币，
   供下游工具（skillhub 等）消费
 - 每后端读写开关（默认关）
+- 贡献 `llm.tool.guide` 编排指南（storage 协议），让 agent 经
+  `odoo_model_guide_retriever` 按需发现
 - 提供"原生签名 URL"扩展点（S3 presign 由 bridge addon `storage_backend_s3_mcp` 兑现）
 
 **不做**：

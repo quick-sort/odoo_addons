@@ -15,6 +15,7 @@
         "security/ir.model.access.csv",
         "data/ir_config_parameter.xml",
         "data/ir_cron_data.xml",
+        "data/llm_tool_guide_data.xml",
         "views/storage_backend_views.xml",
     ],
     "demo": [],

@@ -34,3 +34,21 @@ class TestStorageMcpController(HttpCase):
         )
         self.assertEqual(r.status_code, 413)
         self.assertFalse(backend.file_exists("big.txt"))
+
+    def test_large_body_roundtrip_and_hash(self):
+        backend = self.env.ref("storage_backend.default_storage_backend")
+        backend.write({"mcp_read_enabled": True, "mcp_write_enabled": True})
+        tool = self.env["storage.mcp.tool"]
+
+        # > 2 MiB, larger than any single-write chunk the relay might use.
+        data = (b"0123456789abcdef" * 131072) + b"tail"
+        up = tool.storage_get_upload_url(backend.name, "large.bin")
+        r = self.opener.put(self.base_url() + up["upload"]["url"], data=data, timeout=30)
+        self.assertEqual(r.status_code, 200)
+        payload = r.json()
+        self.assertEqual(payload["size"], len(data))
+        self.assertEqual(payload["sha256"], hashlib.sha256(data).hexdigest())
+
+        down = tool.storage_get_download_url(backend.name, "large.bin")
+        r2 = self.opener.get(self.base_url() + down["download"]["url"], timeout=30)
+        self.assertEqual(r2.content, data)

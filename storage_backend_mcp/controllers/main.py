@@ -28,15 +28,22 @@ class StorageMcpRelay(http.Controller):
     def _handle_put(self, rec):
         backend = rec.backend_id.sudo()
         max_size = rec.max_size_bytes or 0
-        # Odoo 19's HTTPRequest does not expose a streaming body reader, so the
-        # body is read in one go; the size cap still rejects oversized uploads.
+
+        # Reject before reading the body when the client advertises a length,
+        # so an oversized upload never buffers in memory. Odoo 19's HTTPRequest
+        # exposes no streaming body reader, so the body is otherwise read in one
+        # go below; the size is re-checked as a chunked-transfer fallback.
+        content_length = request.httprequest.content_length
+        if max_size and content_length is not None and content_length > max_size:
+            return Response("Payload too large", status=413)
+
         data = request.httprequest.get_data()
         if max_size and len(data) > max_size:
             return Response("Payload too large", status=413)
 
         digest = hashlib.sha256(data).hexdigest()
-        with backend.open(rec.relative_path, "wb") as stream:
-            stream.write(data)
+        with backend.open(rec.relative_path, "wb") as out:
+            out.write(data)
 
         if rec.upload_id:
             rec.upload_id.sudo().write({

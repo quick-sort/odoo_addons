@@ -19,6 +19,9 @@
   ``storage.upload.consume()`` 消费。未消费的暂存物自动过期清理。
 - 每后端 ``mcp_read_enabled`` / ``mcp_write_enabled`` 治理开关（默认关）；
   权限沿用 ``storage_backend`` 的 ``group_system`` ACL。
+- 贡献 ``llm.tool.guide`` 编排指南（``code="storage"``），agent 经
+  ``odoo_model_guide_retriever`` 按需发现 storage 的 stage→curl→commit→
+  consume 协议。
 
 安装
 ====

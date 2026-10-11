@@ -71,3 +71,12 @@ class TestStorageMcpTools(TransactionCase):
         })
         with self.assertRaises(AccessError):
             self.env["storage.mcp.tool"].with_user(user).storage_list_files(self.backend.name)
+
+    def test_storage_guide_contributed(self):
+        guide = self.env.ref("storage_backend_mcp.guide_storage")
+        self.assertEqual(guide.code, "storage")
+        result = self.env["llm.tool.builtin.guide"].odoo_model_guide_retriever("storage")
+        self.assertEqual(result["code"], "storage")
+        self.assertIn("storage_stage_upload", result["body"])
+        self.assertIn("storage_commit_upload", result["body"])
+        self.assertIn("file_id", result["body"])
