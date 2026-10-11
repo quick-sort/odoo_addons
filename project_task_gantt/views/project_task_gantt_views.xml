@@ -8,22 +8,10 @@
         </field>
     </record>
 
-    <record id="action_project_task_gantt" model="ir.actions.act_window">
-        <field name="name">Tasks Gantt Chart</field>
-        <field name="res_model">project.task</field>
-        <field name="view_mode">gantt,list,form,kanban</field>
-        <field name="context">{'group_by': 'project_id'}</field>
-        <field name="domain">[]</field>
-        <field name="help" type="html">
-            <p class="o_view_nocontent_smiling_face">
-                Create a new task with dates to see it here.
-            </p>
-        </field>
+    <record id="project_task_gantt_action_view" model="ir.actions.act_window.view">
+        <field name="sequence" eval="50"/>
+        <field name="view_mode">gantt</field>
+        <field name="view_id" ref="view_project_task_gantt"/>
+        <field name="act_window_id" ref="project.act_project_project_2_project_task_all"/>
     </record>
-
-    <menuitem id="menu_project_task_gantt"
-              name="Gantt Chart"
-              parent="project.menu_main_pm"
-              action="action_project_task_gantt"
-              sequence="15"/>
 </odoo>
