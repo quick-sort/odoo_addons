@@ -8,6 +8,8 @@ from . import llm_mcp_client
 from . import llm_tool_builtin_records
 from . import llm_tool_builtin_method
 from . import llm_tool_builtin_inspector
+from . import llm_tool_builtin_guide
+from . import llm_tool_guide
 from . import llm_tool_consent_config
 from . import llm_agent_category
 from . import llm_agent_tag

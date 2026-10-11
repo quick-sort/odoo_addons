@@ -126,4 +126,5 @@ Four in-house stacks plus vendored OCA addons:
 
 - `.claude/skills/odoo-19/references/` — 18 Odoo 19 guides (views, decorators, testing, security, …). Consult these when writing Odoo XML/Python.
 - `llm/DECORATOR.md` — `@llm_tool` decorator guide; `llm/OPENAI_SCHEMA_COMPATIBILITY.md` — schema notes.
+- `llm/docs/tool_exposure.md` — tool 暴露选型与编排指南（generic `odoo_*` vs 自定义 `@llm_tool`，及 `llm.tool.guide`）。
 - Per-addon `README.md`/`README.rst` — install matrices and extension APIs, especially `llm_knowledge/README.md`.

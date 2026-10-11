@@ -113,6 +113,15 @@
     sequence="40"
   />
 
+    <!-- Tool Guide Menu -->
+    <menuitem
+    id="menu_llm_tool_guide"
+    name="Tool Guides"
+    parent="menu_llm_basic"
+    action="action_llm_tool_guide"
+    sequence="45"
+  />
+
     <!-- Tool Consent Config Menu -->
     <menuitem
     id="menu_llm_tool_consent_config"

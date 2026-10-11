@@ -10,6 +10,8 @@ access_llm_fetch_models_line_manager,llm.fetch.models.line.manager,model_llm_fet
 
 access_llm_tool_user,llm.tool.user,model_llm_tool,base.group_user,1,0,0,0
 access_llm_tool_system,llm.tool.system,model_llm_tool,base.group_system,1,1,1,1
+access_llm_tool_guide_user,llm.tool.guide.user,model_llm_tool_guide,base.group_user,1,0,0,0
+access_llm_tool_guide_system,llm.tool.guide.system,model_llm_tool_guide,base.group_system,1,1,1,1
 access_llm_tool_consent_config_user,llm.tool.consent.config.user,model_llm_tool_consent_config,base.group_user,1,0,0,0
 access_llm_tool_consent_config_system,llm.tool.consent.config.system,model_llm_tool_consent_config,base.group_system,1,1,1,1
 access_llm_mcp_client_user,llm.mcp.client.user,model_llm_mcp_client,base.group_user,1,0,0,0

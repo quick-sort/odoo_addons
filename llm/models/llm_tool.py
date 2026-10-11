@@ -473,6 +473,35 @@ class LLMTool(models.Model):
         # names and the payload is not MCP-compliant.
         return mcp_tool.model_dump(exclude_none=True, by_alias=True)
 
+    def get_dynamic_description(self):
+        """Return a per-user description suffix for this tool, or ``''``.
+
+        A ``source='code'`` tool opts in by declaring ``_mcp_dynamic_description``
+        on its ``res_model``. The suffix is computed at list time (per user), not
+        at scan time, so callers must invoke this in the *authenticated* user's
+        environment — never ``sudo`` — when per-user filtering matters.
+
+        Never raises: this runs in the tool-listing path, where one tool failing
+        must not break the whole list.
+        """
+        self.ensure_one()
+        if self.executor != "model_method" or not self.res_model:
+            return ""
+        try:
+            model = self.env[self.res_model]
+        except KeyError:
+            return ""
+        method = getattr(model, "_mcp_dynamic_description", None)
+        if not callable(method):
+            return ""
+        try:
+            return method() or ""
+        except Exception:  # noqa: BLE001 - listing must not break on one tool
+            _logger.exception(
+                "Dynamic description failed for tool '%s'", self.name
+            )
+            return ""
+
     # ------------------------------------------------------------------
     # Execution
     # ------------------------------------------------------------------

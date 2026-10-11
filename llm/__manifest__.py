@@ -39,6 +39,7 @@
         "views/llm_model_views.xml",
         "views/llm_publisher_views.xml",
         "views/llm_tool_views.xml",
+        "views/llm_tool_guide_views.xml",
         "views/llm_tool_consent_config_views.xml",
         "views/llm_mcp_client_views.xml",
         "views/llm_thread_views.xml",
