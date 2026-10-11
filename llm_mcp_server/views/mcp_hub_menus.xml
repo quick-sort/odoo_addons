@@ -13,13 +13,12 @@
     />
 
     <!-- Tools: which llm.tool rows are exposed, and which groups may use them.
-         Inline editing is for administrators (llm.tool write ACL); other
-         users get a read-only view of the exposure matrix. -->
+         Read-only exposure matrix; edit exposure from the tool form. -->
     <record id="view_llm_tool_hub_list" model="ir.ui.view">
         <field name="name">llm.tool.hub.list</field>
         <field name="model">llm.tool</field>
         <field name="arch" type="xml">
-            <list editable="bottom">
+            <list>
                 <field name="name" readonly="1" />
                 <field name="executor" readonly="1" optional="hide" />
                 <field name="source" readonly="1" optional="hide" />
