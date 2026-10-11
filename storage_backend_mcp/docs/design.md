@@ -132,9 +132,11 @@ yield 打开的流。
 API key；capability URL 是唯一现实选择，与 S3 presigned、GitHub upload URL
 同构）：
 
-- `PUT /storage_mcp/t/<token>`：`request.httprequest.stream` 分块读 body
-  （禁止 `get_data()` 全量进内存），边写 `backend.open(path, "wb")` 边计数，
-  超 `max_size` 中止并删半成品；完成返回 `{size, sha256}` 并消耗 token。
+- `PUT /storage_mcp/t/<token>`：先按 `Content-Length` 预检，超 `max_size` 直接
+  413 不读 body；否则 `get_data()` 一次性读 body（Odoo 19 的 `HTTPRequest` 不
+  暴露流式 body 接口，字节在内存中转，故以 Content-Length 预检挡住超限），读后
+  再校验一次 `max_size`（chunked 无 Content-Length 时的兜底），然后写
+  `backend.open(path, "wb")`；完成返回 `{size, sha256}` 并消耗 token。
 - `GET /storage_mcp/t/<token>`：`open(path, "rb")` 流式响应；
   Content-Length 尽力取自 `stat`。
 
@@ -157,6 +159,14 @@ API key；capability URL 是唯一现实选择，与 S3 presigned、GitHub uploa
 
 `backend` 参数用名字而非 id（id 每 db 不同，agent 拿名字才可复用）。
 `overwrite` 必须显式 True，否则已存在时报错。
+
+## 编排指南
+
+本 addon 贡献一条 `llm.tool.guide`（`code="storage"`，见
+`data/llm_tool_guide_data.xml`），让 agent 经 `odoo_model_guide_retriever`
+零调用发现 storage、按需拉取 stage→curl→commit→consume 的完整协议。guide
+不设 `allowed_group_ids`，与 storage 工具无 group 限制的可见性一致（工具权限
+由 ORM ACL + 每后端读写开关把关）。
 
 ## 边角
 
