@@ -105,7 +105,7 @@ jobs:
       INSTALL_ADDONS: ${{ needs.detect.outputs.install }}
     services:
       postgres:
-        image: postgres:16
+        image: pgvector/pgvector:pg16
         env:
           POSTGRES_DB: ci_db
           POSTGRES_USER: odoo
