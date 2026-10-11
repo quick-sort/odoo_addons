@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="demo_project_launch" model="project.project">
+        <field name="name">Product Launch</field>
+        <field name="allow_task_dependencies" eval="True"/>
+    </record>
+
+    <record id="demo_task_research" model="project.task">
+        <field name="name">Market Research</field>
+        <field name="project_id" ref="demo_project_launch"/>
+    </record>
+    <record id="demo_task_requirements" model="project.task">
+        <field name="name">Define Requirements</field>
+        <field name="project_id" ref="demo_project_launch"/>
+        <field name="depend_on_ids" eval="[(4, ref('demo_task_research'))]"/>
+    </record>
+    <record id="demo_task_architecture" model="project.task">
+        <field name="name">Design Architecture</field>
+        <field name="project_id" ref="demo_project_launch"/>
+        <field name="depend_on_ids" eval="[(4, ref('demo_task_requirements'))]"/>
+    </record>
+    <record id="demo_task_ui_design" model="project.task">
+        <field name="name">Design UI</field>
+        <field name="project_id" ref="demo_project_launch"/>
+        <field name="depend_on_ids" eval="[(4, ref('demo_task_requirements'))]"/>
+    </record>
+    <record id="demo_task_backend" model="project.task">
+        <field name="name">Build Backend</field>
+        <field name="project_id" ref="demo_project_launch"/>
+        <field name="depend_on_ids" eval="[(4, ref('demo_task_architecture'))]"/>
+    </record>
+    <record id="demo_task_frontend" model="project.task">
+        <field name="name">Build Frontend</field>
+        <field name="project_id" ref="demo_project_launch"/>
+        <field name="depend_on_ids" eval="[(4, ref('demo_task_ui_design'))]"/>
+    </record>
+    <record id="demo_task_infra" model="project.task">
+        <field name="name">Setup Infrastructure</field>
+        <field name="project_id" ref="demo_project_launch"/>
+        <field name="depend_on_ids" eval="[(4, ref('demo_task_architecture'))]"/>
+    </record>
+    <record id="demo_task_integration" model="project.task">
+        <field name="name">Integration</field>
+        <field name="project_id" ref="demo_project_launch"/>
+        <field name="depend_on_ids" eval="[(4, ref('demo_task_backend')), (4, ref('demo_task_frontend'))]"/>
+    </record>
+    <record id="demo_task_qa" model="project.task">
+        <field name="name">QA Testing</field>
+        <field name="project_id" ref="demo_project_launch"/>
+        <field name="depend_on_ids" eval="[(4, ref('demo_task_integration'))]"/>
+    </record>
+    <record id="demo_task_docs" model="project.task">
+        <field name="name">Write Documentation</field>
+        <field name="project_id" ref="demo_project_launch"/>
+        <field name="depend_on_ids" eval="[(4, ref('demo_task_architecture'))]"/>
+    </record>
+    <record id="demo_task_beta" model="project.task">
+        <field name="name">Beta Release</field>
+        <field name="project_id" ref="demo_project_launch"/>
+        <field name="depend_on_ids" eval="[(4, ref('demo_task_qa')), (4, ref('demo_task_infra'))]"/>
+    </record>
+    <record id="demo_task_launch" model="project.task">
+        <field name="name">Launch</field>
+        <field name="project_id" ref="demo_project_launch"/>
+        <field name="depend_on_ids" eval="[(4, ref('demo_task_beta')), (4, ref('demo_task_docs'))]"/>
+    </record>
+</odoo>
