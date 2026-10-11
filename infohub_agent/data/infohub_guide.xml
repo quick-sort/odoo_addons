@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="guide_infohub" model="llm.tool.guide">
+        <field name="code">infohub</field>
+        <field name="title">InfoHub</field>
+        <field name="keyword">infohub</field>
+        <field name="summary">News aggregation pool. Read/search infohub.item by state/tag/source/channel via odoo_record_retriever; items are machine-created and tags machine-assigned, so an agent mostly reads.</field>
+        <field name="allowed_group_ids" eval="[(4, ref('infohub.group_infohub_user'))]" />
+        <field name="body"><![CDATA[
+InfoHub: a news aggregation pool. Every channel (RSS / email / MCP) feeds into one table, infohub.item. Two orthogonal dimensions: source_id = WHO the news belongs to (the publisher), channel_id = HOW it was obtained. The same article arriving through two channels produces two item rows that differ only by channel.
+
+Models:
+- infohub.item — a news item: title, url, published_at, content (sanitized HTML), content_text (plain-text copy for search), state, channel_id, source_id, channel_type, external_id, tag_ids, tagging_state.
+- infohub.source — the publisher: name, url, description, active.
+- infohub.channel — how news is obtained: name, channel_type (rss/email/mcp), active, enable_cron, filter_domain, last_run_at, error_count, last_error.
+- infohub.tag — taxonomy entry (added by infohub_agent): name, code, description, active.
+
+Read / search — use the generic odoo_record_retriever; ir.model.access gives group_infohub_user read-only on all four models:
+- Latest curated news: odoo_record_retriever(model="infohub.item", domain=[["state","=","accepted"]], fields=["id","title","url","published_at","source_id","channel_id","tag_ids"], limit=20). Default order is published_at desc, id desc.
+- By tag: domain=[["tag_ids","in",[TAG_ID]]]
+- By source / channel: domain=[["source_id","=",SOURCE_ID]] or [["channel_id","=",CHANNEL_ID]]
+- By channel type: domain=[["channel_type","=","rss"]] (channel_type is stored, no join needed)
+- Text search: search content_text (plain text) with ilike, e.g. domain=[["content_text","ilike","cancer"]]; headline search uses title.
+
+Field notes:
+- state is new / accepted / rejected (default new). "accepted" is the curated pool an agent normally reads.
+- source_id is nullable — items whose publisher was not matched have no source.
+- (channel_id, external_id) is the dedup key: UNIQUE(channel_id, external_id). Do not dedup by external_id globally.
+- tag_ids and tagging_state (pending/queued/done/skipped/error) are machine-managed: an internal classifier (infohub_tagger) assigns tags on a cron + queue_job. Treat both as read-only.
+
+Writes:
+- infohub.item is created by channel fetch jobs, never by an agent. Do not create items manually.
+- The only editorial surface is state (accept/reject). With manager access, move it with odoo_record_updater(model="infohub.item", domain=[["id","=",ID]], values={"state":"accepted"}).
+- Sources, channels and tags are configuration maintained by managers; an agent normally only reads them.
+
+Gotchas:
+- Never invent tag codes: the classifier can only pick from the infohub.tag taxonomy.
+- channel.filter_domain targets the raw payload, not infohub.item fields.
+- Same article via two channels = two rows; that is expected, not a duplicate.
+]]></field>
+    </record>
+</odoo>
