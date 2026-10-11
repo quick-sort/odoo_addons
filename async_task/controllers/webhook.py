@@ -28,7 +28,7 @@ class AsyncTaskWebhookController(http.Controller):
         content_length = request.httprequest.content_length
         if content_length is not None and content_length > MAX_WEBHOOK_BODY_BYTES:
             return http.Response(status=HTTPStatus.REQUEST_ENTITY_TOO_LARGE)
-        raw_body = request.httprequest.stream.read(MAX_WEBHOOK_BODY_BYTES + 1)
+        raw_body = request.httprequest.get_data()
         if len(raw_body) > MAX_WEBHOOK_BODY_BYTES:
             return http.Response(status=HTTPStatus.REQUEST_ENTITY_TOO_LARGE)
 
