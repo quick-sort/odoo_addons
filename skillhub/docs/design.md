@@ -48,11 +48,12 @@
 
 ## 工具面（`@llm_tool`，经现有 `llm_mcp_server` 暴露）
 
+只暴露有副作用 / 有业务不变量的操作；纯读/搜索不设独立 tool，走通用
+`odoo_record_retriever`（搜索约定记在 `llm.tool.guide`，code=`skillhub`）。
+
 - `skill_publish(file_id, code, title, description, version, category_id?, depends_on_ids?)` → `{skill_id}`
   （`category_id` 可空；省略时保留已有分类。`depends_on_ids` 省略时保留已有依赖，
   显式列表——含空列表——整体替换）
-- `skill_search(query?)` → `[{skill_id, code, title, description, version, category_id, category, depends_on_ids}]`（只返回 caller 可见）
-- `skill_get(skill_id)` → 元数据（含 `category_id` / `category` / `depends_on_ids` / `required_by_ids`）
 - `skill_download(skill_id)` → `{download, curl}`
 - `skill_share(skill_id, user_ids)` / `skill_unshare(skill_id, user_ids)`（仅 owner）
 - `skill_archive(skill_id)`（仅 owner）

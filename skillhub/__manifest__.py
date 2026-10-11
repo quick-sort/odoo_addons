@@ -14,6 +14,7 @@
     "data": [
         "security/ir.model.access.csv",
         "security/skillhub_security.xml",
+        "data/skillhub_guide.xml",
         "views/skillhub_skill_views.xml",
         "views/skillhub_category_views.xml",
         "views/skillhub_menus.xml",

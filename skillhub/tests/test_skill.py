@@ -53,11 +53,6 @@ class TestSkillHub(TransactionCase):
         )
         return self.env["skillhub.skill"].browse(result["skill_id"])
 
-    def _search_codes(self, user, query):
-        return sorted(
-            item["code"] for item in self.Tool.with_user(user).skill_search(query)
-        )
-
     # AC-1 -----------------------------------------------------------------
 
     def test_model_fields(self):
@@ -85,15 +80,10 @@ class TestSkillHub(TransactionCase):
                 "Bad Code",
             )
 
-    def test_category_assigned_and_returned(self):
+    def test_category_assigned(self):
         cat = self.env["skillhub.category"].create({"name": "Data"})
         skill = self._publish(self.owner_user, "cat", "Categorized", category_id=cat.id)
         self.assertEqual(skill.category_id, cat)
-        info = self.Tool.with_user(self.owner_user).skill_get(skill.id)
-        self.assertEqual(info["category_id"], cat.id)
-        self.assertEqual(info["category"], "Data")
-        rows = self.Tool.with_user(self.owner_user).skill_search("Categorized")
-        self.assertEqual(rows[0]["category_id"], cat.id)
 
     def test_publish_keeps_category_when_omitted(self):
         cat = self.env["skillhub.category"].create({"name": "Data"})
@@ -110,14 +100,6 @@ class TestSkillHub(TransactionCase):
         skill.write({"depends_on_ids": [Command.set([dep.id])]})
         self.assertEqual(skill.depends_on_ids, dep)
         self.assertEqual(dep.required_by_ids, skill)
-        info = self.Tool.with_user(self.owner_user).skill_get(skill.id)
-        self.assertEqual(info["depends_on_ids"], [dep.id])
-        self.assertEqual(info["required_by_ids"], [])
-        dep_info = self.Tool.with_user(self.owner_user).skill_get(dep.id)
-        self.assertEqual(dep_info["depends_on_ids"], [])
-        self.assertEqual(dep_info["required_by_ids"], [skill.id])
-        rows = self.Tool.with_user(self.owner_user).skill_search("Main")
-        self.assertEqual(rows[0]["depends_on_ids"], [dep.id])
 
     def test_publish_sets_dependencies(self):
         dep = self._publish(self.owner_user, "dep2", "Dependency 2")
@@ -168,15 +150,6 @@ class TestSkillHub(TransactionCase):
         self.assertIn("download", result)
         self.assertIn("curl", result)
         self.assertIn("/storage_mcp/t/", result["download"]["url"])
-
-    # AC-5 -----------------------------------------------------------------
-
-    def test_search_by_name_and_description(self):
-        self._publish(self.owner_user, "alpha", "Alpha Skill", description="parses text")
-        self._publish(self.owner_user, "beta", "Beta Skill", description="does other")
-        self.assertEqual(self._search_codes(self.owner_user, "alp"), ["alpha"])
-        self.assertEqual(self._search_codes(self.owner_user, "Beta"), ["beta"])
-        self.assertEqual(self._search_codes(self.owner_user, "parses"), ["alpha"])
 
     # AC-6 -----------------------------------------------------------------
 
@@ -238,13 +211,17 @@ class TestSkillHub(TransactionCase):
 
     # archive --------------------------------------------------------------
 
-    def test_archive_owner_only_and_hides_from_search(self):
+    def test_archive_owner_only_and_hides_from_active_search(self):
         skill = self._publish(self.owner_user, "arc", "Archive")
         self.Tool.with_user(self.owner_user).skill_archive(skill.id)
         self.assertEqual(
             self.env["skillhub.skill"].browse(skill.id).state, "archived"
         )
-        self.assertEqual(self._search_codes(self.owner_user, "arc"), [])
+        self.assertFalse(
+            self.env["skillhub.skill"].with_user(self.owner_user).search(
+                [("state", "=", "active"), ("code", "=", "arc")]
+            )
+        )
 
     def test_skill_tools_registered(self):
         self.env["llm.tool"]._scan_tool_decorators()
@@ -256,11 +233,20 @@ class TestSkillHub(TransactionCase):
         self.assertTrue(
             {
                 "skill_publish",
-                "skill_search",
-                "skill_get",
                 "skill_download",
                 "skill_share",
                 "skill_unshare",
                 "skill_archive",
             }.issubset(names)
         )
+
+    def test_guide_contributed(self):
+        guide = self.env["llm.tool.guide"].search([("code", "=", "skillhub")])
+        self.assertTrue(guide)
+        retriever = self.env["llm.tool.builtin.guide"]
+        index = retriever.odoo_model_guide_retriever()
+        self.assertIn("skillhub", [g["code"] for g in index["guides"]])
+        body = retriever.odoo_model_guide_retriever("skillhub")
+        self.assertEqual(body["code"], "skillhub")
+        self.assertIn("skill_publish", body["body"])
+        self.assertIn("odoo_record_retriever", body["body"])

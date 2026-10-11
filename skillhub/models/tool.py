@@ -105,57 +105,6 @@ class SkillHubTool(models.AbstractModel):
         return {"skill_id": skill.id}
 
     @llm_tool(read_only_hint=True, destructive_hint=False)
-    def skill_search(self, query: str = "") -> list[dict[str, Any]]:
-        """Search published skills by code, title or description (case-insensitive
-        substring). With no ``query``, lists all active skills. Only returns
-        skills the caller can read (own, shared, or public)."""
-        domain = [("state", "=", "active")]
-        if query:
-            domain += [
-                "|",
-                "|",
-                ("code", "ilike", query),
-                ("title", "ilike", query),
-                ("description", "ilike", query),
-            ]
-        skills = self.env["skillhub.skill"].search(domain)
-        return [
-            {
-                "skill_id": skill.id,
-                "code": skill.code,
-                "title": skill.title,
-                "description": skill.description,
-                "version": skill.version,
-                "category_id": skill.category_id.id,
-                "category": skill.category_id.name,
-                "depends_on_ids": skill.depends_on_ids.ids,
-            }
-            for skill in skills
-        ]
-
-    @llm_tool(read_only_hint=True, destructive_hint=False)
-    def skill_get(self, skill_id: int) -> dict[str, Any]:
-        """Return the metadata for a skill by id. Raises if the caller cannot
-        read it."""
-        skill = self._get_skill_or_raise(skill_id)
-        return {
-            "skill_id": skill.id,
-            "code": skill.code,
-            "title": skill.title,
-            "description": skill.description,
-            "version": skill.version,
-            "state": skill.state,
-            "is_public": skill.is_public,
-            "shared_user_ids": skill.shared_user_ids.ids,
-            "category_id": skill.category_id.id,
-            "category": skill.category_id.name,
-            "depends_on_ids": skill.depends_on_ids.ids,
-            "required_by_ids": skill.required_by_ids.ids,
-            "size": skill.size,
-            "sha256": skill.sha256,
-        }
-
-    @llm_tool(read_only_hint=True, destructive_hint=False)
     def skill_download(self, skill_id: int) -> dict[str, Any]:
         """Return a temporary download URL for a skill by id. The bytes do not
         travel through the MCP channel; fetch the URL with curl. Requires read

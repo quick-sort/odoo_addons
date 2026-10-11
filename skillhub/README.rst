@@ -8,8 +8,9 @@
 工作方式
 ========
 
-- 贡献一组 ``skill_*`` LLM/MCP 工具（发布/搜索/查看/下载/分享/归档），经
-  ``@llm_tool`` 自动注册，MCP 客户端与内部 agent 双端可用。
+- 贡献一组 ``skill_*`` LLM/MCP 工具（发布/下载/分享/归档），经 ``@llm_tool``
+  自动注册，MCP 客户端与内部 agent 双端可用；读/搜索不设独立 tool，走通用
+  ``odoo_record_retriever``（约定见 ``llm.tool.guide``，code=`skillhub`）。
 - 压缩包以 blob 存 ``storage.backend``，元数据（code/title/description/version/
   category/依赖）存 ``skillhub.skill``；不解析压缩包内容。
 - 上传复用 ``storage_backend_mcp`` 的 file_id：``storage_stage_upload`` → 客户端 curl
