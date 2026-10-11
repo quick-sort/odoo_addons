@@ -21,7 +21,8 @@
 
 ## AC-5 搜索
 
-按 `code`/`title`/`description` 模糊匹配。 — `test_search_by_name_and_description`
+读/搜索不设独立 tool；由 `odoo_record_retriever` 完成，active-only + code/title/description
+ilike 的约定记在 `llm.tool.guide`（code=`skillhub`）正文。 — `test_guide_contributed`
 
 ## AC-6 授权读
 
@@ -46,15 +47,14 @@ owner / shared / public 可见；其他用户不可见（record rule）。 — `
 ## AC-10 分类
 
 `skillhub.category` 模型（`name` 唯一）；skill 挂 `category_id`；`skill_publish`
-接受可选 `category_id`（省略时保留已有分类）；`skill_get`/`skill_search` 返回分类；
-skill 列表 search panel 按 `category_id` 多选筛选。 —
-`test_category_assigned_and_returned` / `test_publish_keeps_category_when_omitted` /
+接受可选 `category_id`（省略时保留已有分类）；skill 列表 search panel 按 `category_id`
+多选筛选。 —
+`test_category_assigned` / `test_publish_keeps_category_when_omitted` /
 `test_search_panel_category`
 
 ## AC-11 依赖
 
 `skillhub.skill` 含 `depends_on_ids`（依赖哪些 skill）+ `required_by_ids`（反向）；
-`skill_publish` 接受可选 `depends_on_ids`（省略时保留已有依赖）；`skill_get` 返回
-两个列表、`skill_search` 每行返回 `depends_on_ids`；禁止自依赖。 —
+`skill_publish` 接受可选 `depends_on_ids`（省略时保留已有依赖）；禁止自依赖。 —
 `test_dependency_assigned_and_returned` / `test_publish_sets_dependencies` /
 `test_publish_keeps_dependencies_when_omitted` / `test_self_dependency_rejected`

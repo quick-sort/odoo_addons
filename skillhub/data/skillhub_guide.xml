@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="guide_skillhub" model="llm.tool.guide">
+        <field name="code">skillhub</field>
+        <field name="title">SkillHub</field>
+        <field name="keyword">skillhub</field>
+        <field name="summary">Skill package registry: publish/search/share/download skill zips. Writes via skill_publish/skill_download/skill_share/skill_unshare/skill_archive; reads via odoo_record_retriever on skillhub.skill.</field>
+        <field name="body"><![CDATA[
+SkillHub: registry of skill packages (zip blobs in storage.backend). Models: skillhub.skill (one skill), skillhub.category (dynamic categories; a skill has one category_id).
+
+Read / search — use the generic odoo_record_retriever; record rules (owner/shared/public) already limit what you can read:
+- List or search: odoo_record_retriever(model="skillhub.skill", domain=[["state","=","active"],["title","ilike","QUERY"]], fields=["id","code","title","description","version","category_id","depends_on_ids"])
+- Search across code OR title OR description: domain=["&","|","|",["code","ilike",Q],["title","ilike",Q],["description","ilike",Q],["state","=","active"]]
+- Always filter state="active" for normal search; archived skills stay readable by their owner but are not part of search.
+- Fields: category_id is a many2one (returns [id, name]); depends_on_ids / required_by_ids are many2many (id lists); is_public boolean; shared_user_ids many2many; size/sha256 technical.
+
+Publish (write + storage side effect):
+1. storage_stage_upload (storage_backend_mcp) returns a file_id.
+2. curl the returned URL to upload the zip bytes.
+3. skill_publish(file_id, code, title, description, version, category_id, depends_on_ids) returns {skill_id}.
+Invariants: code is a slug (letters/digits/./_/-, starts with a letter or digit) and unique; publishing an existing code overwrites that skill's blob and metadata (single version); only the owner of an existing code may overwrite it. Omit category_id or depends_on_ids to keep existing values.
+
+Download (storage side effect):
+skill_download(skill_id) returns {download, curl}; fetch the URL with curl (bytes do not go through MCP). Requires read access plus the backend's mcp_read_enabled.
+
+Share / archive (owner-only):
+skill_share(skill_id, user_ids), skill_unshare(skill_id, user_ids), skill_archive(skill_id). Archive (state=archived) is the lifecycle exit; there is no delete (deleting would orphan the blob).
+]]></field>
+    </record>
+</odoo>
