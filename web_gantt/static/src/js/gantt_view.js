@@ -17,7 +17,7 @@ export class GanttController extends Component {
 
         this.state = useState({
             scale: 'month',
-            groupBy: this.props.groupBy || 'project_id',
+            groupBy: this.props.groupBy?.[0] || 'project_id',
             ganttData: [],
             isLoading: false,
             editable: true,
@@ -71,8 +71,8 @@ export class GanttController extends Component {
             };
 
             const updateData = {
-                [this.props.dateStart]: formatDateForOdoo(startDate),
-                [this.props.dateStop]: formatDateForOdoo(endDate),
+                [this.props.archInfo?.dateStart]: formatDateForOdoo(startDate),
+                [this.props.archInfo?.dateStop]: formatDateForOdoo(endDate),
             };
 
             await this.orm.write(this.props.resModel, [taskId], updateData);
@@ -122,7 +122,7 @@ export class GanttController extends Component {
             views: [[false, 'form']],
             target: 'new',
             context: {
-                ['default_' + this.props.dateStart]: new Date().toISOString().replace('Z','').replace('T',' ').split('.')[0],
+                ['default_' + this.props.archInfo?.dateStart]: new Date().toISOString().replace('Z','').replace('T',' ').split('.')[0],
             },
         }, {
             onClose: async () => {
