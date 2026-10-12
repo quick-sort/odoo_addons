@@ -47,8 +47,8 @@
                             <field name="create_uid" readonly="1" string="Owner" />
                         </group>
                     </group>
-                    <group string="Description">
-                        <field name="description" nolabel="1" placeholder="What this skill does" />
+                    <group string="Description" colspan="2">
+                        <field name="description" nolabel="1" placeholder="What this skill does" rows="8" colspan="2" />
                     </group>
                 </sheet>
             </form>
