@@ -13,8 +13,4 @@ class IrUiView(models.Model):
     )
 
     def _get_view_info(self):
-        # Add view type info for frontend
-        result = super()._get_view_info()
-        if 'gantt' not in result:
-            result['gantt'] = {'icon': 'fa fa-database'}
-        return result
+        return {'gantt': {'icon': 'fa fa-tasks'}} | super()._get_view_info()
