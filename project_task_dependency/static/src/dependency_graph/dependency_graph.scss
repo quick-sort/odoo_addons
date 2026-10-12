@@ -1,0 +1,47 @@
+.o_task_dependency_graph {
+    overflow: auto;
+
+    .o_dep_graph_svg {
+        display: block;
+        background: #fff;
+    }
+
+    .o_dep_edge {
+        stroke: #adb5bd;
+        stroke-width: 1.5;
+        marker-end: url("#o_dep_arrow");
+    }
+
+    .o_dep_arrow {
+        fill: #adb5bd;
+    }
+
+    .o_dep_node_group {
+        cursor: pointer;
+    }
+
+    .o_dep_node {
+        fill: #e9ecef;
+        stroke: #ced4da;
+        stroke-width: 1;
+
+        &.o_dep_done {
+            fill: #d1e7dd;
+            stroke: #75b798;
+        }
+        &.o_dep_canceled {
+            fill: #f8f9fa;
+            stroke: #dee2e6;
+        }
+        &.o_dep_open {
+            fill: #cfe2ff;
+            stroke: #9ec5fe;
+        }
+    }
+
+    .o_dep_label {
+        font-size: 12px;
+        fill: #212529;
+        pointer-events: none;
+    }
+}
