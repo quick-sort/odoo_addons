@@ -2,7 +2,7 @@
 <odoo>
     <menuitem
         id="menu_skillhub_root"
-        name="SkillHub"
+        name="Skills Hub"
         web_icon="skillhub,static/description/icon.svg"
         sequence="86"
     />

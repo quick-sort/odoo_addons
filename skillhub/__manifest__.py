@@ -1,5 +1,5 @@
 {
-    "name": "SkillHub",
+    "name": "Skills Hub",
     "version": "19.0.1.1.0",
     "category": "Productivity",
     "summary": "Skill package registry: publish/search/share/download skill zips over MCP",
