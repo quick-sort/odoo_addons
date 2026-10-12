@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<templates xml:space="preserve">
+
+    <t t-name="web_widget_markdown.MarkdownField" owl="1">
+        <div class="o_markdown_field">
+            <t t-if="props.readonly">
+                <div class="o_markdown_preview" t-out="previewHtml" />
+            </t>
+            <t t-else="">
+                <div class="o_markdown_toolbar btn-group btn-group-sm">
+                    <button
+                        type="button"
+                        class="btn"
+                        t-att-class="{
+                            'btn-primary': state.mode === 'edit',
+                            'btn-secondary': state.mode !== 'edit',
+                        }"
+                        t-on-click="onEdit"
+                        t-esc="editLabel"
+                    />
+                    <button
+                        type="button"
+                        class="btn"
+                        t-att-class="{
+                            'btn-primary': state.mode === 'preview',
+                            'btn-secondary': state.mode !== 'preview',
+                        }"
+                        t-on-click="onPreview"
+                        t-esc="previewLabel"
+                    />
+                </div>
+                <t t-if="state.mode === 'edit'">
+                    <textarea
+                        class="o_markdown_textarea form-control"
+                        t-ref="textarea"
+                        t-att-id="props.id"
+                        t-att-placeholder="props.placeholder"
+                    />
+                </t>
+                <t t-else="">
+                    <div class="o_markdown_preview" t-out="previewHtml" />
+                </t>
+            </t>
+        </div>
+    </t>
+
+</templates>
