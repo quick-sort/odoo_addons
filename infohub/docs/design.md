@@ -14,6 +14,8 @@
 - `channel_type`：Selection，**core 置空**，由各渠道 addon `selection_add` 填充
 - `name`、`active`、`enable_cron`
 - `filter_domain`：入库前对每条原始条目求值的 Odoo 域
+- `fetch_interval_minutes`：拉取间隔（分钟，默认 15）。调度 cron 仍每 15 分钟跑一次，
+  只入队 `last_run_at` 早于该间隔的渠道（首次 `last_run_at` 为空 → 立即拉）
 - 健康状态：`last_run_at` / `error_count` / `last_error`
 
 **core 不预置任何渠道专属字段。** RSS 的 `rss_url`、MCP 的 `mcp_client_id` 都由

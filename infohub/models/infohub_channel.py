@@ -1,5 +1,6 @@
 import json
 import logging
+from datetime import timedelta
 
 from odoo import _, api, fields, models
 from odoo.addons.component.core import WorkContext
@@ -41,6 +42,12 @@ class InfohubChannel(models.Model):
         string="Auto Fetch",
         default=False,
         help="Include this channel in the periodic fetch cron.",
+    )
+    fetch_interval_minutes = fields.Integer(
+        string="Fetch Interval (Minutes)",
+        default=15,
+        help="Between-fetch gap. The dispatcher cron still runs every 15 min "
+        "and only enqueues channels whose last_run_at is older than this.",
     )
 
     filter_domain = fields.Json(
@@ -326,8 +333,13 @@ class InfohubChannel(models.Model):
         ``identity_key`` keeps a channel from being queued twice while its
         previous run is still in flight.
         """
+        now = fields.Datetime.now()
         channels = self.search([("active", "=", True), ("enable_cron", "=", True)])
-        for channel in channels:
+        due = channels.filtered(
+            lambda c: not c.last_run_at
+            or c.last_run_at <= now - timedelta(minutes=c.fetch_interval_minutes)
+        )
+        for channel in due:
             channel.with_delay(
                 channel="root.infohub",
                 description=_("InfoHub: fetch %s") % channel.display_name,
