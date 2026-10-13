@@ -12,7 +12,7 @@ import requests
 
 from odoo.addons.component.core import Component
 
-_AUTH_BASE = "https://auth.norstella.com"
+_AUTH_BASE = "https://auth.nxp.norstella.com"
 _BASE_URL = "https://www.biomedtracker.com"
 _COOKIE_DOMAIN = "www.biomedtracker.com"
 
