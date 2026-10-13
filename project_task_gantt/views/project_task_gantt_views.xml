@@ -14,4 +14,11 @@
         <field name="view_id" ref="view_project_task_gantt"/>
         <field name="act_window_id" ref="project.act_project_project_2_project_task_all"/>
     </record>
+
+    <record id="project_task_gantt_all_tasks_action_view" model="ir.actions.act_window.view">
+        <field name="sequence" eval="50"/>
+        <field name="view_mode">gantt</field>
+        <field name="view_id" ref="view_project_task_gantt"/>
+        <field name="act_window_id" ref="project.action_view_all_task"/>
+    </record>
 </odoo>
