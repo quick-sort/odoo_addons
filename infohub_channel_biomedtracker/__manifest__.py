@@ -9,7 +9,7 @@ Adds ``biomedtracker`` to ``infohub.channel.channel_type`` and pulls
 drug-development event rows from BioMedTracker's advanced event search.
 
 Authentication is a three-step Auth0 handshake against
-``auth.norstella.com`` producing a session cookie, which is stored on the
+``auth.nxp.norstella.com`` producing a session cookie, which is stored on the
 channel and reused until it expires. A manual cookie can be pasted instead,
 for accounts that login automation cannot handle. When a fetch comes back
 empty-handed the stored session is considered stale and the login re-run once
