@@ -1,3 +1,7 @@
+from datetime import timedelta
+from unittest import mock
+
+from odoo import fields
 from odoo.tests.common import tagged
 
 from odoo.addons.component.tests.common import (
@@ -195,6 +199,61 @@ class TestInfohubCore(TransactionComponentCase):
         channel = self._make_channel()
         got = channel._published_at({"published_date": "2026-03-04 05:06:07"}, {})
         self.assertEqual(str(got), "2026-03-04 05:06:07")
+
+    # -- scheduled fetch filtering ---------------------------------------
+
+    def _run_cron(self):
+        """Run the cron and return the ids of the channels it enqueued."""
+        enqueued = []
+
+        def fake_with_delay(record, **kwargs):
+            enqueued.append(record.id)
+            return mock.MagicMock()
+
+        Channel = self.env["infohub.channel"]
+        with mock.patch.object(type(Channel), "with_delay", fake_with_delay):
+            Channel._cron_fetch_channels()
+        return enqueued
+
+    def test_cron_enqueues_never_run_channel(self):
+        channel = self._make_channel(name="Never", enable_cron=True)
+        self.assertIn(channel.id, self._run_cron())
+
+    def test_cron_skips_recently_run_channel(self):
+        channel = self._make_channel(
+            name="Recent", enable_cron=True, last_run_at=fields.Datetime.now()
+        )
+        self.assertNotIn(channel.id, self._run_cron())
+
+    def test_cron_enqueues_stale_channel(self):
+        channel = self._make_channel(
+            name="Stale",
+            enable_cron=True,
+            last_run_at=fields.Datetime.now() - timedelta(hours=2),
+        )
+        self.assertIn(channel.id, self._run_cron())
+
+    def test_cron_respects_fetch_interval(self):
+        now = fields.Datetime.now()
+        not_yet = self._make_channel(
+            name="Daily",
+            enable_cron=True,
+            fetch_interval_minutes=1440,
+            last_run_at=now - timedelta(hours=1),
+        )
+        stale = self._make_channel(
+            name="Daily stale",
+            enable_cron=True,
+            fetch_interval_minutes=1440,
+            last_run_at=now - timedelta(hours=25),
+        )
+        enqueued = self._run_cron()
+        self.assertNotIn(not_yet.id, enqueued)
+        self.assertIn(stale.id, enqueued)
+
+    def test_cron_skips_disabled_channels(self):
+        channel = self._make_channel(name="Off", enable_cron=False)
+        self.assertNotIn(channel.id, self._run_cron())
 
 
 @tagged("post_install", "-at_install")

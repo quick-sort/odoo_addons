@@ -47,6 +47,7 @@
                         <group>
                             <field name="channel_type" />
                             <field name="enable_cron" />
+                            <field name="fetch_interval_minutes" invisible="not enable_cron" />
                             <field name="active" />
                         </group>
                         <group>
