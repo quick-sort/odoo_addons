@@ -17,6 +17,11 @@
         "views/infohub_source_views.xml",
         "views/infohub_menus.xml",
     ],
+    "assets": {
+        "web.assets_backend": [
+            "infohub/static/src/scss/infohub_item.scss",
+        ],
+    },
     "installable": True,
     "application": True,
     "auto_install": False,

@@ -48,10 +48,22 @@
                     </group>
                     <notebook>
                         <page string="Content" name="content">
-                            <field name="content" />
+                            <!-- The class lands on the field root itself (see
+                                 Field.classNames), which is what the stylesheet
+                                 targets — the payload's own line breaks collapse
+                                 in the browser otherwise. -->
+                            <field name="content" class="o_infohub_item_content" />
                         </page>
                         <page string="Raw Data" name="raw">
-                            <field name="raw_data" widget="json" />
+                            <!-- Same hook, for the json widget: it renders
+                                 JSON.stringify() output — one line with nothing
+                                 to break at — so a long payload ran off the
+                                 side of the form. -->
+                            <field
+                                name="raw_data"
+                                widget="json"
+                                class="o_infohub_raw_data"
+                            />
                         </page>
                     </notebook>
                 </sheet>
