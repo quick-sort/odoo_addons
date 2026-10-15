@@ -23,6 +23,7 @@
                 />
                 <field
                     name="biomedtracker_password"
+                    password="True"
                     invisible="channel_type != 'biomedtracker'"
                 />
                 <field
