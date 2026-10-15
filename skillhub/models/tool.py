@@ -1,4 +1,5 @@
 import hashlib
+import logging
 from typing import Any, Optional
 
 from odoo import models
@@ -8,6 +9,8 @@ from odoo.addons.llm.decorators import llm_tool
 
 from .skill import CODE_SLUG_RE
 
+_logger = logging.getLogger(__name__)
+
 
 class SkillHubTool(models.AbstractModel):
     _name = "skillhub.tool"
@@ -15,6 +18,15 @@ class SkillHubTool(models.AbstractModel):
 
     def _skill_path(self, code):
         return f"skillhub/{code}.zip"
+
+    def _staging_path(self, code):
+        """Where an incoming package waits until its record has been written.
+
+        Kept on the same backend, and under the skillhub prefix, so promoting
+        it to ``_skill_path(code)`` is a rename rather than a cross-backend
+        copy.
+        """
+        return f"skillhub/.staging/{code}.zip"
 
     def _get_skill_or_raise(self, skill_id):
         skill = self.env["skillhub.skill"].search([("id", "=", skill_id)], limit=1)
@@ -42,10 +54,12 @@ class SkillHubTool(models.AbstractModel):
         """Publish a skill package from a staged upload (the ``file_id`` returned
         by ``storage_stage_upload`` after ``storage_commit_upload``).
 
-        Streams the zip into the backend at a stable path keyed by ``code``,
-        records its ``size`` and ``sha256``, then upserts ``skillhub.skill`` by
-        code: publishing an existing code overwrites that skill's blob and
-        metadata. Only the owner of an existing code may overwrite it.
+        Streams the zip to a staging path, records its ``size`` and ``sha256``
+        and upserts ``skillhub.skill`` by code, and only then moves the package
+        to its stable path. Publishing an existing code therefore replaces that
+        skill's blob and metadata, while a publish that fails before the record
+        is written leaves the previously published package untouched. Only the
+        owner of an existing code may overwrite it.
 
         ``category_id`` optionally assigns a ``skillhub.category``; when omitted
         an existing skill keeps its current category.
@@ -70,38 +84,53 @@ class SkillHubTool(models.AbstractModel):
             if taken:
                 raise UserError(f"Skill code '{code}' is already taken.")
         storage_path = self._skill_path(code)
+        staged_path = self._staging_path(code)
         digest = hashlib.sha256()
         size = 0
-        with upload.consume(
-            res_model="skillhub.skill",
-            res_id=existing.id if existing else 0,
-        ) as stream:
-            with upload.backend_id.open(storage_path, "wb") as out:
-                while True:
-                    chunk = stream.read(1024 * 1024)
-                    if not chunk:
-                        break
-                    digest.update(chunk)
-                    size += len(chunk)
-                    out.write(chunk)
-        values = {
-            "title": title,
-            "description": description,
-            "version": version,
-            "backend_id": upload.backend_id.id,
-            "storage_path": storage_path,
-            "size": size,
-            "sha256": digest.hexdigest(),
-        }
-        if category_id:
-            values["category_id"] = category_id
-        if depends_on_ids is not None:
-            values["depends_on_ids"] = [(6, 0, depends_on_ids)]
-        if existing:
-            existing.write({**values, "state": "active"})
-            skill = existing
-        else:
-            skill = self.env["skillhub.skill"].create({"code": code, **values})
+        try:
+            with upload.consume(
+                res_model="skillhub.skill",
+                res_id=existing.id if existing else 0,
+            ) as stream:
+                with upload.backend_id.open(staged_path, "wb") as out:
+                    while True:
+                        chunk = stream.read(1024 * 1024)
+                        if not chunk:
+                            break
+                        digest.update(chunk)
+                        size += len(chunk)
+                        out.write(chunk)
+            values = {
+                "title": title,
+                "description": description,
+                "version": version,
+                "backend_id": upload.backend_id.id,
+                "storage_path": storage_path,
+                "size": size,
+                "sha256": digest.hexdigest(),
+            }
+            if category_id:
+                values["category_id"] = category_id
+            if depends_on_ids is not None:
+                values["depends_on_ids"] = [(6, 0, depends_on_ids)]
+            if existing:
+                existing.write({**values, "state": "active"})
+                skill = existing
+            else:
+                skill = self.env["skillhub.skill"].create({"code": code, **values})
+            # The record is written, so the package may take its final place.
+            # Promoting it only now is what stops a publish that dies half way
+            # from replacing the package the record still points at.
+            upload.backend_id.rename(staged_path, storage_path)
+        except Exception:
+            # Nothing was recorded, so the streamed bytes must not outlive the
+            # call. Best effort: a stray staged file beats masking the error
+            # that got us here.
+            try:
+                upload.backend_id.delete(staged_path)
+            except Exception:
+                _logger.exception("Could not drop staged package %s", staged_path)
+            raise
         return {"skill_id": skill.id}
 
     @llm_tool(read_only_hint=True, destructive_hint=False)
