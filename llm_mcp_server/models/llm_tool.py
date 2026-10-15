@@ -110,14 +110,24 @@ class LLMTool(models.Model):
 
         start = time.monotonic()
         try:
-            # Execute the tool
-            result = tool.execute(tool_arguments)
+            # A tool that raises halfway must leave nothing behind. The MCP
+            # contract is "call failed" -> one isError result, with no side
+            # effect for the caller to reason about; and because the exception
+            # is caught here rather than allowed to reach the HTTP layer,
+            # nothing else rolls the cursor back for us. Giving the call its
+            # own savepoint is what makes a failed tool atomic.
+            #
+            # The audit write below stays outside on purpose: a failed call is
+            # exactly the one worth recording.
+            with self.env.cr.savepoint():
+                # Execute the tool
+                result = tool.execute(tool_arguments)
 
-            # Return MCP CallToolResult
-            content = [
-                TextContent(type="text", text=str(result) if result is not None else "")
-            ]
-            result = CallToolResult(content=content, is_error=False)
+                # Return MCP CallToolResult
+                content = [
+                    TextContent(type="text", text=str(result) if result is not None else "")
+                ]
+                result = CallToolResult(content=content, is_error=False)
         except Exception as e:
             _logger.exception(f"Error executing tool {tool_name}")
             # Return error result
