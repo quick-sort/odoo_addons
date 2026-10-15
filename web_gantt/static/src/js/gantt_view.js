@@ -149,10 +149,10 @@ export class GanttController extends Component {
         let csv = "Group,Task Name,Start Date,End Date,Progress,Duration (Days)\n";
         data.forEach(group => {
             group.tasks.forEach(task => {
-                const start = new Date(task.start_date).toLocaleDateString();
-                const end = new Date(task.end_date).toLocaleDateString();
-                const duration = ((new Date(task.end_date) - new Date(task.start_date)) / 86400000).toFixed(1);
-                csv += `"${group.name}","${task.name}","${start}","${end}",${task.progress},${duration}\n`;
+                const start = new Date(task.start_date);
+                const end = task.end_date ? new Date(task.end_date) : new Date(start.getTime() + 86400000);
+                const duration = ((end - start) / 86400000).toFixed(1);
+                csv += `"${group.name}","${task.name}","${start.toLocaleDateString()}","${end.toLocaleDateString()}",${task.progress},${duration}\n`;
             });
         });
 
