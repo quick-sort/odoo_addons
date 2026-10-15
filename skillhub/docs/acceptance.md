@@ -58,3 +58,11 @@ owner / shared / public 可见；其他用户不可见（record rule）。 — `
 `skill_publish` 接受可选 `depends_on_ids`（省略时保留已有依赖）；禁止自依赖。 —
 `test_dependency_assigned_and_returned` / `test_publish_sets_dependencies` /
 `test_publish_keeps_dependencies_when_omitted` / `test_self_dependency_rejected`
+
+## AC-12 失败的发布不破坏已发布的包
+
+`skill_publish` **先写库、后落位**：压缩包先流到暂存路径，记录写成功后才改名到稳定
+路径。因此在写库阶段失败的发布（例如触发自依赖约束）**不得覆盖**已发布的压缩包 ——
+记录及其 `sha256` 仍描述磁盘上实际存在的那个文件。 —
+`test_failed_publish_keeps_the_previous_blob`
+

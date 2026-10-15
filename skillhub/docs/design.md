@@ -23,8 +23,12 @@
 ## 与 storage_backend_mcp 的关系
 
 - **上传**：`skill_publish(file_id, code, title, description, version)` 调
-  `storage.upload.consume()` 读回上传的压缩包，再 `backend.open(storage_path, "wb")`
-  落到稳定路径，计算 sha256/size，upsert `skillhub.skill`（按 code：不存在则建、存在则覆盖）。
+  `storage.upload.consume()` 读回上传的压缩包，先 `backend.open(staging_path, "wb")`
+  流到暂存路径并计算 sha256/size，upsert `skillhub.skill`（按 code：不存在则建、
+  存在则覆盖），**记录写成功之后**才 `backend.rename(staging_path, storage_path)`
+  落到稳定路径。**先写库、后落位是有意的**：写库那一步会因为约束、并发等原因失败，
+  此时若包已经落位，记录里的 `sha256` 就会和磁盘上的文件对不上，而被覆盖掉的那份
+  旧包也回不来了。
 - **下载**：`skill_download(skill_id)` 先做技能级鉴权，再 `backend.presign_download(storage_path)`
   拿临时 URL（presign 直连 / relay token 兜底），返回 `{download, curl}`。
 

@@ -142,6 +142,32 @@ class TestSkillHub(TransactionCase):
         self.assertEqual(skills.title, "V2")
         self.assertEqual(skills.size, len(b"v2-long"))
 
+    def test_failed_publish_keeps_the_previous_blob(self):
+        """A publish that fails after streaming the zip must not clobber it.
+
+        The tool streams the new package onto the backend before it writes the
+        record. If that write then fails, the bytes are already in place while
+        the record -- and the ``sha256`` it carries -- stays on the previous
+        version, so the stored checksum would end up describing a file that is
+        no longer there. The old package is gone either way.
+        """
+        first = self._publish(self.owner_user, "atomic", "V1", data=b"first-package")
+        with self.assertRaises(ValidationError):
+            self._publish(
+                self.owner_user,
+                "atomic",
+                "V2",
+                data=b"second-package",
+                depends_on_ids=[first.id],
+            )
+        with self.backend.open(first.storage_path, "rb") as stream:
+            self.assertEqual(
+                stream.read(),
+                b"first-package",
+                "the failed publish overwrote the package still referenced by "
+                "the record",
+            )
+
     # AC-4 -----------------------------------------------------------------
 
     def test_download_returns_url(self):
