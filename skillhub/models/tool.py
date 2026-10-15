@@ -110,8 +110,21 @@ class SkillHubTool(models.AbstractModel):
         travel through the MCP channel; fetch the URL with curl. Requires read
         access to the skill and MCP read enabled on its backend."""
         skill = self._get_skill_or_raise(skill_id)
-        spec = self.env["storage.mcp.tool"]._download_spec(
-            skill.backend_id, skill.storage_path
+        # The gate is the check above, on the caller's own identity. What comes
+        # next is plumbing -- read the backend, mint a capability token -- and
+        # it runs on models ACL-bound to the settings group, because
+        # storage.backend also carries backend credentials
+        # (aws_secret_access_key, sftp_password, ...) and storage.mcp.token
+        # mints URLs that bypass Odoo's auth. Asking them as the caller is what
+        # broke sharing: a shared user holds no settings group, so the lookup
+        # is refused and the share grants the listing but not the package.
+        #
+        # So elevate -- but only here, and only for what the check above has
+        # already approved. The path comes from the record, never from the
+        # arguments: this must not become an arbitrary-file-download door.
+        backend = skill.sudo().backend_id
+        spec = self.env["storage.mcp.tool"].sudo()._download_spec(
+            backend, skill.storage_path
         )
         return {
             "download": spec,
