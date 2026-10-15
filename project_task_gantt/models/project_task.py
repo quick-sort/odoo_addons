@@ -160,10 +160,11 @@ class ProjectTask(models.Model):
         try:
             domain = domain or []
 
-            # Only show tasks with both start and end dates
+            # Show tasks with a start date; the end date is optional (the
+            # frontend falls back to start + 1 day when it is missing).
             gantt_domain = Domain.AND([
                 domain,
-                [('task_start_date', '!=', False), ('task_end_date', '!=', False)]
+                [('task_start_date', '!=', False)]
             ])
 
             # Validate group_by field

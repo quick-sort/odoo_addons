@@ -82,6 +82,14 @@ export class GanttRenderer extends Component {
         );
     }
 
+    getTaskEndDate(task) {
+        if (task.end_date) {
+            return new Date(task.end_date);
+        }
+        const start = new Date(task.start_date);
+        return new Date(start.getTime() + 86400000); // default: start + 1 day
+    }
+
 
     get cellWidth() {
         // Adjust base width per scale for better zooming behavior
@@ -226,7 +234,7 @@ export class GanttRenderer extends Component {
         
         data.forEach(g => g.tasks.forEach(t => {
             const start = new Date(t.start_date);
-            const end = new Date(t.end_date);
+            const end = this.getTaskEndDate(t);
             if (!minDate || start < minDate) minDate = start;
             if (!maxDate || end > maxDate) maxDate = end;
         }));
@@ -497,8 +505,8 @@ export class GanttRenderer extends Component {
             
             group.tasks.forEach(task => {
                 const start = new Date(task.start_date);
-                const end = new Date(task.end_date);
-                
+                const end = this.getTaskEndDate(task);
+
                 // If end time is exactly midnight (00:00:00), treat it as end of previous day
                 if (end.getHours() === 0 && end.getMinutes() === 0 && end.getSeconds() === 0) {
                     end.setDate(end.getDate() - 1);
@@ -696,7 +704,7 @@ export class GanttRenderer extends Component {
                 ...task,
                 startX: e.clientX,
                 originalStart: new Date(task.start_date),
-                originalEnd: new Date(task.end_date),
+                originalEnd: this.getTaskEndDate(task),
             };
             this.state.tooltip.visible = false;
             this.canvasRef.el.style.cursor = 'grabbing';
@@ -742,9 +750,11 @@ export class GanttRenderer extends Component {
             this.state.hoveredTask = task;
             
             if (task) {
-                const startDate = new Date(task.start_date).toLocaleDateString();
-                const endDate = new Date(task.end_date).toLocaleDateString();
-                const duration = ((new Date(task.end_date) - new Date(task.start_date)) / 86400000).toFixed(1);
+                const start = new Date(task.start_date);
+                const end = this.getTaskEndDate(task);
+                const startDate = start.toLocaleDateString();
+                const endDate = end.toLocaleDateString();
+                const duration = ((end - start) / 86400000).toFixed(1);
                 
                 this.state.tooltip = {
                     visible: true,
