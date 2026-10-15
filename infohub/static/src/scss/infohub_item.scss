@@ -1,0 +1,26 @@
+// Both payload tabs of the item form put a class on the field itself (see the
+// `class` attribute in views/infohub_item_views.xml). The class lands on the
+// field root — `o_field_html` / `o_field_json` — because that is what
+// `Field.classNames` does with `props.class`. Nothing is wrapped: an extra
+// element would push the field out of `:first-child` and lose the tab padding
+// form_controller.scss gives `.o_field_html` there.
+
+// The Content tab: the channel builds this HTML from plain text whose single
+// newlines are meaningful — the header lines it writes with `_labelled()`, for
+// instance. Rendered with the default `white-space: normal` those newlines
+// collapse into spaces, so Title/Feed/Author/Date/Categories ran together into
+// one over-long line. `pre-wrap` keeps the payload's own line breaks and still
+// wraps; `overflow-wrap` covers a token with no break opportunity in it.
+.o_field_html.o_infohub_item_content {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+// The Raw Data tab: Odoo 19 renders `widget="json"` as a bare <span t-esc> fed
+// by `JSON.stringify()` — one line, no indentation, and no whitespace to break
+// at, so a long payload ran off the side of the form. `overflow-wrap: anywhere`
+// breaks inside the token as a last resort.
+.o_field_json.o_infohub_raw_data {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}

@@ -1,7 +1,11 @@
+import os
 from datetime import timedelta
 from unittest import mock
 
+from lxml import etree
+
 from odoo import fields
+from odoo.modules.module import get_manifest, get_module_path
 from odoo.tests.common import tagged
 
 from odoo.addons.component.tests.common import (
@@ -74,6 +78,47 @@ class TestInfohubCore(TransactionComponentCase):
         ).dependencies_id.mapped("name")
         self.assertNotIn("llm", depends)
         self.assertEqual(sorted(depends), ["base", "component", "queue_job"])
+
+    # -- views -----------------------------------------------------------
+
+    def test_item_form_hooks_both_payload_fields(self):
+        """Each payload field carries the class its stylesheet targets.
+
+        Both tabs overflow the form as Odoo renders them by default: the json
+        widget prints ``JSON.stringify()`` output, which has no whitespace to
+        break at, and the html field collapses the payload's own newlines into
+        spaces. Which CSS properties fix that cannot be asserted from Python,
+        so what this asserts is that the view still carries the hooks the
+        stylesheet is written against — losing one brings its overflow back
+        with a green suite.
+        """
+        arch = self.env.ref("infohub.view_infohub_item_form").arch
+        root = etree.fromstring(arch.encode())
+        for field_name, hook in (
+            ("content", "o_infohub_item_content"),
+            ("raw_data", "o_infohub_raw_data"),
+        ):
+            field = root.xpath(f"//field[@name='{field_name}']")
+            self.assertEqual(len(field), 1)
+            # Whole-token match: a renamed `o_infohub_raw_data_2` is not styled.
+            classes = (field[0].get("class") or "").split()
+            self.assertIn(hook, classes, f"{field_name} lost its styling hook")
+
+    def test_item_form_stylesheet_is_shipped(self):
+        """The wrapping rules must actually reach the browser.
+
+        A stylesheet left out of the backend bundle, or a manifest entry
+        pointing at a file nobody committed, is dead weight: the view keeps its
+        hooks, every test stays green, and the payloads still overflow. Odoo 19
+        materialises no ``ir.asset`` rows for manifest entries — the manifest
+        and the file on disk are what get checked instead.
+        """
+        relative = "static/src/scss/infohub_item.scss"
+        manifest = get_manifest("infohub")
+        self.assertIn(f"infohub/{relative}", manifest["assets"]["web.assets_backend"])
+        self.assertTrue(
+            os.path.isfile(os.path.join(get_module_path("infohub"), relative))
+        )
 
     # -- content_text derivation ----------------------------------------
 

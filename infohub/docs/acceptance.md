@@ -106,6 +106,37 @@ IPv6、解析到私网的主机名；多地址中任一为私网即拒绝；`res
 
 - 测试：`TestUrlGuard` 全部 11 个方法
 
+## AC-11 载荷页签的长内容换行
+
+**要求**：Items 表单的两个载荷页签都要能在可视区域内完整阅读，不横向溢出、不需要
+横向滚动。
+
+- **Content**：`infohub.item.content` 里数据自身的换行必须保留。渠道用
+  `_labelled()` 拼出的 header（Title / Feed / Author / Date / Categories）是逐行
+  `\n` 分隔的，而 HTML 默认的 `white-space: normal` 会把单个换行折成空格 —— 五行
+  挤成一行，越拉越长顶出表单。
+- **Raw Data**：Odoo 19 的 `widget="json"` 就是一个 `<span t-esc>`，内容来自
+  `JSON.stringify()` —— 单行、无缩进、没有任何可断行的空白。
+
+修法是两个字段各带一个类（`o_infohub_item_content` / `o_infohub_raw_data`），由
+`static/src/scss/infohub_item.scss` 统一给 `white-space: pre-wrap`（保留数据自带的
+换行，同时仍在行尾折行）加 `overflow-wrap: anywhere`（连没有断点的长 token 也能断）。
+
+两条实现约束，改之前先读：
+
+1. 类挂在 `<field class="...">` 上，**不在外面套 `<div>`**。Odoo 的
+   `Field.classNames` 会把 `props.class` 加到字段根节点上；套 div 会把 `content`
+   从 `:first-child` 挤掉，丢掉 `form_controller.scss` 专门给 `.o_field_html`
+   的页签内边距。
+2. 选择器必须带这两个类，**不能直接写 `.o_field_json` / `.o_field_html`** ——
+   `async_task` 也在三个字段上用 `widget="json"`，全局覆盖会改到别人的界面。
+
+换行是浏览器行为，Python 断言不了。下面两个测试锁的是它赖以生效的两个前提，任一被
+去掉都会「测试全绿但 bug 复发」：
+
+- 测试：`test_item_form_hooks_both_payload_fields`
+- 测试：`test_item_form_stylesheet_is_shipped`
+
 ## 运行方式
 
 ```bash
