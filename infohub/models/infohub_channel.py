@@ -1,11 +1,17 @@
 import json
 import logging
+import re
 from datetime import timedelta
 
 from odoo import _, api, fields, models
 from odoo.addons.component.core import WorkContext
 
 _logger = logging.getLogger(__name__)
+
+# A domain-looking token: ``nature.com``, ``www.nature.com``, ``a.b.co.uk``.
+# Deliberately not a full URL/address parser — it is only used to reduce two
+# free-form strings to what they can meaningfully share.
+_DOMAIN_RE = re.compile(r"[a-z0-9][a-z0-9.-]*\.[a-z]{2,}")
 
 
 class InfohubChannel(models.Model):
@@ -298,12 +304,21 @@ class InfohubChannel(models.Model):
     def _resolve_source(self, entry, raw_data):
         """Match the item to a known source, else leave it empty.
 
-        Matching is deliberately conservative — a source is only assigned on an
-        exact domain or sender match, so a wrong source is never guessed.
+        Three steps, narrowest first: the source's ``url`` domain, then its
+        ``name``, then the domains named in its ``description``. Matching is
+        deliberately conservative — every step compares whole domains or whole
+        names, never loose substrings — so a wrong source is never guessed.
         """
         self.ensure_one()
         Source = self.env["infohub.source"]
-        url = entry.get("url") or ""
+        # Every channel keeps the link inside its own payload — RSS under
+        # ``link``, BioMedTracker under ``SOURCELINK`` — and only the MCP
+        # channel also puts it on the entry dict itself. Reading ``entry["url"]``
+        # alone therefore never matched for the other channels, so fall back to
+        # the channel's own reader: the same one ``_ingest`` uses for the item's
+        # ``url``.
+        url = entry.get("url") or self.url(raw_data) or ""
+        host = ""
         if url:
             host = (url.split("//")[-1].split("/")[0] or "").lower()
             if host:
@@ -315,7 +330,38 @@ class InfohubChannel(models.Model):
             found = Source.search([("name", "=ilike", name)], limit=1)
             if found:
                 return found.id
+        # Last resort: ``description``, documented on the model as the
+        # free-form recognition clue — the publisher's domain, or the address
+        # its newsletter is sent from. An inbound newsletter is the case that
+        # needs it: it carries no item link, and ``source()`` returns the whole
+        # ``Name <address@domain>`` sender, which never equals a source's
+        # ``name``. Both sides are reduced to domains so that a clue of
+        # ``fiercepharma.com`` matches ``news@fiercepharma.com`` without also
+        # matching an unrelated ``notfiercepharma.com``.
+        domains = self._domains_of(host) | self._domains_of(name)
+        if domains:
+            for source in Source.search([("description", "!=", False)]):
+                clues = self._domains_of(source.description)
+                if any(
+                    domain == clue or domain.endswith("." + clue)
+                    for domain in domains
+                    for clue in clues
+                ):
+                    return source.id
         return False
+
+    @staticmethod
+    def _domains_of(value):
+        """Every domain-looking token in ``value``, lower-cased.
+
+        Applied to both sides of the ``description`` match: a clue may be a
+        bare domain or a full address (``newsletters@nature.com``), and the item
+        side may be a link host or a sender (``Fierce Pharma
+        <news@fiercepharma.com>``). Reducing both leaves only what the two can
+        meaningfully share, and values without a dot — feed titles, free-text
+        notes — yield nothing, so they never match by accident.
+        """
+        return {match.rstrip(".") for match in _DOMAIN_RE.findall((value or "").lower())}
 
     # ------------------------------------------------------------------
     # Actions

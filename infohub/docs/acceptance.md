@@ -68,7 +68,22 @@ external_id 是两条。
 ## AC-9 入库管线
 
 **要求**：`_ingest` 创建条目、跳过无标题条目、渠道内去重、尊重 filter_domain、
-按 URL 匹配已知 source、未知 source 留空。
+把条目归属到已知 source、无法确定时留空。
+
+归属由 `_resolve_source` 承担，三步由窄到宽，**每步都只比整个域名或整个名称**，
+不做松散子串匹配，所以不会猜错来源：
+
+1. 条目链接的域名 ↔ `infohub.source.url`
+2. 渠道读出的来源名 ↔ `infohub.source.name`（`=ilike`）
+3. 上两者里的域名 ↔ `infohub.source.description` 里的域名线索。线索可写裸域名
+   （`nature.com`），也可写完整地址（`newsletters@nature.com`）。域名按边界比较，
+   所以 `fiercepharma.com` 命中 `news@fiercepharma.com` 与
+   `mail.fiercepharma.com`，但**不命中** `notfiercepharma.com`。
+
+第 3 步是入站简报的必经之路：它既没有条目链接，`source()` 读出的又是一整串
+`Name <address@domain>`，永远不等于 source 的 `name`。
+
+三步都不命中则留空。
 
 - 测试：`test_ingest_creates_items`
 - 测试：`test_ingest_skips_item_without_title`
@@ -77,6 +92,11 @@ external_id 是两条。
 - 测试：`test_ingest_filter_on_missing_raw_field_drops_item`
 - 测试：`test_ingest_links_known_source_by_url`
 - 测试：`test_ingest_leaves_source_empty_when_unknown`
+- 测试：`test_ingest_links_source_from_the_channel_payload`
+- 测试：`test_ingest_links_source_from_the_sender_domain`
+- 测试：`test_ingest_sender_domain_matches_a_subdomain`
+- 测试：`test_ingest_matches_a_description_holding_a_full_address`
+- 测试：`test_ingest_source_clue_matches_on_a_domain_boundary_only`
 
 ## AC-10 SSRF 防护（url_guard）
 

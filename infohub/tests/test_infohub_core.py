@@ -346,3 +346,93 @@ class TestIngestion(TransactionComponentRegistryCase):
             [("channel_id", "=", self.channel.id), ("external_id", "=", "s2")]
         )
         self.assertFalse(item.source_id)
+
+    def test_ingest_links_source_from_the_channel_payload(self):
+        """A channel that keeps its link inside raw_data still resolves.
+
+        RSS carries the link under ``link`` and BioMedTracker under
+        ``SOURCELINK``, so those entries have no ``url`` key of their own —
+        only the MCP channel puts one on the entry. The source therefore has to
+        be resolved through the channel's own url() reader.
+        """
+        source = self.env["infohub.source"].create(
+            {"name": "Nature", "url": "https://www.nature.com"}
+        )
+        self.channel._ingest(
+            [
+                {
+                    "title": "T",
+                    "raw_data": {
+                        "id": "s3",
+                        "link": "https://www.nature.com/articles/y",
+                    },
+                }
+            ]
+        )
+        item = self.env["infohub.item"].search(
+            [("channel_id", "=", self.channel.id), ("external_id", "=", "s3")]
+        )
+        self.assertEqual(item.source_id, source)
+
+    def _item_for(self, external_id):
+        return self.env["infohub.item"].search(
+            [("channel_id", "=", self.channel.id), ("external_id", "=", external_id)]
+        )
+
+    def _ingest_publisher(self, external_id, publisher, **source_vals):
+        source = self.env["infohub.source"].create(source_vals)
+        self.channel._ingest(
+            [
+                {
+                    "title": "T",
+                    "raw_data": {"id": external_id, "publisher": publisher},
+                }
+            ]
+        )
+        return source, self._item_for(external_id)
+
+    def test_ingest_links_source_from_the_sender_domain(self):
+        """An inbound newsletter resolves through the sender, not the name.
+
+        The email channel's ``source()`` returns ``email_from`` — the whole
+        ``Name <address@domain>`` string — which never equals a source's
+        ``name``, and a newsletter carries no item link either. ``description``
+        is the field documented for exactly this case.
+        """
+        source, item = self._ingest_publisher(
+            "s4",
+            "Fierce Pharma <news@hbm-fiercepharma.com>",
+            name="Fierce Pharma",
+            description="hbm-fiercepharma.com",
+        )
+        self.assertEqual(item.source_id, source)
+
+    def test_ingest_sender_domain_matches_a_subdomain(self):
+        """A clue names the registrable domain; mail may come from a subdomain."""
+        source, item = self._ingest_publisher(
+            "s5",
+            "news@mail.hbm-fiercepharma.com",
+            name="Fierce Pharma",
+            description="hbm-fiercepharma.com",
+        )
+        self.assertEqual(item.source_id, source)
+
+    def test_ingest_matches_a_description_holding_a_full_address(self):
+        """The clue may be written as an address, as the field help suggests."""
+        source, item = self._ingest_publisher(
+            "s6",
+            "Nature Weekly <newsletters@hbm-nature.com>",
+            name="Nature",
+            description="newsletters@hbm-nature.com",
+        )
+        self.assertEqual(item.source_id, source)
+
+    def test_ingest_source_clue_matches_on_a_domain_boundary_only(self):
+        """A clue must not match a domain that merely ends with its letters."""
+        _, item = self._ingest_publisher(
+            "s7",
+            "news@nothbm-fiercepharma.com",
+            name="Fierce Pharma",
+            description="hbm-fiercepharma.com",
+        )
+        self.assertFalse(item.source_id)
