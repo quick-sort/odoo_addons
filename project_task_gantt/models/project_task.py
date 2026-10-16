@@ -187,6 +187,7 @@ class ProjectTask(models.Model):
                 'color',
                 'priority',
                 'description',
+                'parent_id',
                 group_by
             ]
 
@@ -255,6 +256,7 @@ class ProjectTask(models.Model):
                     'color': task.get('color', 0) or 0,
                     'priority': task.get('priority', '0'),
                     'description': task.get('description', '') or '',
+                    'parent_id': task['parent_id'][0] if task.get('parent_id') else False,
                 }
 
                 if field_type == 'many2one':
@@ -293,6 +295,10 @@ class ProjectTask(models.Model):
                     else:
                         add_to_group(str(raw_value), str(raw_value).replace('_', ' ').title(), task_dict)
 
+            # Order each group's tasks as a DFS tree and annotate depth
+            for group in grouped_data.values():
+                group['tasks'] = self._order_task_tree(group['tasks'])
+
             # Sort groups by name and return as list
             result = sorted(grouped_data.values(), key=lambda x: x['name'])
 
@@ -304,3 +310,38 @@ class ProjectTask(models.Model):
             _logger.error(f"Error in get_gantt_data: {str(e)}", exc_info=True)
             # Return empty list instead of raising to prevent frontend crash
             return []
+
+    def _order_task_tree(self, tasks):
+        """Order tasks in DFS pre-order and annotate each with its tree depth.
+
+        A task whose parent is not in the same list is treated as a root
+        (depth 0), so a subtask grouped apart from its parent still shows.
+        """
+        ids = {t['id'] for t in tasks}
+        children = {}
+        for t in tasks:
+            pid = t.get('parent_id')
+            if pid and pid in ids:
+                children.setdefault(pid, []).append(t)
+
+        ordered = []
+        visited = set()
+
+        def visit(task, depth):
+            if task['id'] in visited:
+                return
+            visited.add(task['id'])
+            task['depth'] = depth
+            ordered.append(task)
+            for child in children.get(task['id'], []):
+                visit(child, depth + 1)
+
+        for t in tasks:
+            if not t.get('parent_id') or t['parent_id'] not in ids:
+                visit(t, 0)
+
+        # Safety net for any task not reached (e.g. unexpected cycle)
+        for t in tasks:
+            visit(t, 0)
+
+        return ordered

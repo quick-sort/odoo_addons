@@ -24,6 +24,7 @@ export class GanttRenderer extends Component {
             tooltip: { visible: false, content: '', x: 0, y: 0 },
             hoveredTask: null,
             zoom: 1.0,
+            scrollbarDragging: false,
         });
 
         // Base dimensions
@@ -31,8 +32,13 @@ export class GanttRenderer extends Component {
         this.baseCellHeight = 40;
         this.headerHeight = 80;
         this.sidebarWidth = 250;
+        this.scrollbarWidth = 10;
         this.minCellWidth = 20;
         this.maxCellWidth = 100;
+        this.scrollbarMetrics = null;
+        this.scrollbarRect = null;
+        this._scrollbarDragOffset = 0;
+        this._rowsCache = null;
 
         this.animationFrame = null;
         this.lastDrawTime = 0;
@@ -108,6 +114,25 @@ export class GanttRenderer extends Component {
         return this.baseCellHeight;
     }
 
+    getRows(data) {
+        if (this._rowsCache && this._rowsCache.data === data) {
+            return this._rowsCache.rows;
+        }
+        const rows = [];
+        (data || []).forEach(group => {
+            rows.push({ type: 'group', group });
+            (group.tasks || []).forEach(task => rows.push({ type: 'task', group, task }));
+        });
+        this._rowsCache = { data, rows };
+        return rows;
+    }
+
+    getMaxScrollY(rect) {
+        const rows = this.getRows(this.props.data);
+        const viewportHeight = rect.height - this.headerHeight;
+        return Math.max(0, rows.length * this.cellHeight - viewportHeight);
+    }
+
     setupCanvas() {
         const canvas = this.canvasRef.el;
         const container = this.containerRef.el;
@@ -154,6 +179,8 @@ export class GanttRenderer extends Component {
         const rect = canvas.getBoundingClientRect();
         
         ctx.clearRect(0, 0, rect.width, rect.height);
+        this.scrollbarMetrics = null;
+        this.scrollbarRect = null;
 
         if (!data || data.length === 0) {
             this.drawEmptyState(ctx, rect);
@@ -172,6 +199,7 @@ export class GanttRenderer extends Component {
         this.drawTasks(ctx, data, dates, rect);
         this.drawHeader(ctx, dates, rect);
         this.drawSidebar(ctx, data, rect);
+        this.drawScrollbar(ctx, rect);
     }
 
     getMaxScrollX(rect, dates) {
@@ -201,8 +229,9 @@ export class GanttRenderer extends Component {
         const data = this.props.data || [];
         const dates = this.calculateDateRange(data);
         const maxX = this.getMaxScrollX(rect, dates);
+        const maxY = this.getMaxScrollY(rect);
         this.state.scrollX = Math.max(0, Math.min(this.state.scrollX, maxX));
-        this.state.scrollY = Math.max(0, this.state.scrollY);
+        this.state.scrollY = Math.max(0, Math.min(this.state.scrollY, maxY));
     }
 
     centerOnToday() {
@@ -299,9 +328,9 @@ export class GanttRenderer extends Component {
             }
         }
 
-        // Horizontal grid lines (tasks)
-        let totalRows = data.reduce((acc, g) => acc + Math.max(g.tasks.length, 1), 0);
-        for (let i = 0; i <= totalRows; i++) {
+        // Horizontal grid lines (rows: group headers + tasks)
+        const rows = this.getRows(data);
+        for (let i = 0; i <= rows.length; i++) {
             const y = this.headerHeight + i * this.cellHeight - this.state.scrollY;
             if (y >= this.headerHeight && y <= rect.height) {
                 ctx.beginPath();
@@ -443,8 +472,8 @@ export class GanttRenderer extends Component {
     drawSidebar(ctx, data, rect) {
         // Background
         ctx.fillStyle = '#f8f9fa';
-        ctx.fillRect(0, this.headerHeight, this.sidebarWidth, rect.height);
-        
+        ctx.fillRect(0, this.headerHeight, this.sidebarWidth, rect.height - this.headerHeight);
+
         ctx.strokeStyle = '#dee2e6';
         ctx.strokeRect(0, 0, this.sidebarWidth, rect.height);
 
@@ -453,37 +482,61 @@ export class GanttRenderer extends Component {
         ctx.rect(0, this.headerHeight, this.sidebarWidth, rect.height - this.headerHeight);
         ctx.clip();
 
-        ctx.fillStyle = '#495057';
-        ctx.font = 'bold 12px Arial';
         ctx.textBaseline = 'middle';
-        
-        let y = this.headerHeight - this.state.scrollY;
-        
-        data.forEach(group => {
-            const taskCount = Math.max(group.tasks.length, 1);
-            const groupHeight = taskCount * this.cellHeight;
-            const textY = y + groupHeight / 2;
-            
-            if (y + groupHeight > this.headerHeight && y < rect.height) {
-                // Group background alternating color
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.02)';
-                ctx.fillRect(0, Math.max(y, this.headerHeight), this.sidebarWidth, Math.min(groupHeight, rect.height - y));
-                
-                // Group name
-                ctx.fillStyle = '#495057';
-                const groupText = `${group.name} (${group.tasks.length})`;
-                const truncated = this.truncateText(ctx, groupText, this.sidebarWidth - 20);
-                ctx.fillText(truncated, 10, textY);
-                
-                // Separator line
-                ctx.strokeStyle = '#dee2e6';
-                ctx.beginPath();
-                ctx.moveTo(0, y + groupHeight);
-                ctx.lineTo(this.sidebarWidth, y + groupHeight);
-                ctx.stroke();
+        const rows = this.getRows(data);
+
+        rows.forEach((row, index) => {
+            const y = this.headerHeight + index * this.cellHeight - this.state.scrollY;
+            const rowBottom = y + this.cellHeight;
+            if (rowBottom <= this.headerHeight || y >= rect.height) {
+                return;
             }
-            
-            y += groupHeight;
+
+            if (row.type === 'group') {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.04)';
+                ctx.fillRect(0, y, this.sidebarWidth, this.cellHeight);
+                ctx.fillStyle = '#343a40';
+                ctx.font = 'bold 12px Arial';
+                const groupText = `${row.group.name} (${row.group.tasks.length})`;
+                const truncated = this.truncateText(ctx, groupText, this.sidebarWidth - 16);
+                ctx.fillText(truncated, 10, y + this.cellHeight / 2);
+            } else {
+                const task = row.task;
+                const depth = task.depth || 0;
+                const indent = Math.min(16 + depth * 16, 120);
+                const dotX = indent + 6;
+                const dotRadius = 4;
+                const centerY = y + this.cellHeight / 2;
+
+                // tree connector
+                ctx.strokeStyle = '#dee2e6';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(indent - 2, centerY);
+                ctx.lineTo(dotX - dotRadius - 2, centerY);
+                ctx.stroke();
+
+                // task color dot
+                ctx.fillStyle = this.getTaskColor(task);
+                ctx.beginPath();
+                ctx.arc(dotX, centerY, dotRadius, 0, Math.PI * 2);
+                ctx.fill();
+
+                // task name
+                ctx.fillStyle = '#495057';
+                ctx.font = '12px Arial';
+                const textX = dotX + dotRadius + 8;
+                const truncated = this.truncateText(ctx, task.name, this.sidebarWidth - textX - 10);
+                ctx.fillText(truncated, textX, centerY);
+            }
+
+            // row separator
+            ctx.strokeStyle = '#e9ecef';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(0, rowBottom);
+            ctx.lineTo(this.sidebarWidth, rowBottom);
+            ctx.stroke();
         });
 
         ctx.restore();
@@ -495,97 +548,123 @@ export class GanttRenderer extends Component {
         ctx.rect(this.sidebarWidth, this.headerHeight, rect.width - this.sidebarWidth, rect.height - this.headerHeight);
         ctx.clip();
 
-        let taskRow = 0;
-        
-        data.forEach(group => {
-            if (group.tasks.length === 0) {
-                taskRow++;
+        const rows = this.getRows(data);
+
+        rows.forEach((row, index) => {
+            if (row.type !== 'task') {
                 return;
             }
-            
-            group.tasks.forEach(task => {
-                const start = new Date(task.start_date);
-                const end = this.getTaskEndDate(task);
+            const task = row.task;
+            const start = new Date(task.start_date);
+            const end = this.getTaskEndDate(task);
 
-                // If end time is exactly midnight (00:00:00), treat it as end of previous day
-                if (end.getHours() === 0 && end.getMinutes() === 0 && end.getSeconds() === 0) {
-                    end.setDate(end.getDate() - 1);
-                    end.setHours(23, 59, 59, 999);
-                }
-                
-                const startX = this.dateToX(start, dates);
-                const endX = this.dateToX(end, dates);
-                const width = Math.max(endX - startX, 5);
-                const y = this.headerHeight + (taskRow * this.cellHeight) + 6 - this.state.scrollY;
-                const height = this.cellHeight - 12;
+            // If end time is exactly midnight (00:00:00), treat it as end of previous day
+            if (end.getHours() === 0 && end.getMinutes() === 0 && end.getSeconds() === 0) {
+                end.setDate(end.getDate() - 1);
+                end.setHours(23, 59, 59, 999);
+            }
 
-                if (y + this.cellHeight > this.headerHeight && y < rect.height) {
-                    const isHovered = this.state.hoveredTask?.id === task.id;
-                    const isDragged = this.state.draggedTask?.id === task.id;
-                    
-                    // Task bar shadow
-                    if (isHovered || isDragged) {
-                        ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
-                        ctx.shadowBlur = 10;
-                        ctx.shadowOffsetY = 3;
-                    }
-                    
-                    // Task bar background
-                    ctx.fillStyle = this.getTaskColor(task);
-                    if (isDragged) {
-                        ctx.globalAlpha = 0.7;
-                    }
-                    
-                    this.roundRect(ctx, startX, y, width, height, 6, true, false);
-                    
-                    ctx.shadowColor = 'transparent';
-                    ctx.shadowBlur = 0;
-                    ctx.shadowOffsetY = 0;
-                    
-                    // Progress bar
-                    if (task.progress > 0) {
-                        ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
-                        const progressWidth = (width - 4) * (task.progress / 100);
-                        this.roundRect(ctx, startX + 2, y + 2, progressWidth, height - 4, 4, true, false);
-                    }
-                    
-                    // Task name
-                    if (width > 40) {
-                        ctx.fillStyle = '#ffffff';
-                        ctx.font = isHovered ? 'bold 11px Arial' : '11px Arial';
-                        ctx.textBaseline = 'middle';
-                        const taskText = this.truncateText(ctx, task.name, width - 10);
-                        ctx.fillText(taskText, startX + 6, y + height / 2);
-                    }
-                    
-                    ctx.globalAlpha = 1.0;
-                    
-                    // Resize handles
-                    if (isHovered) {
-                        ctx.fillStyle = '#ffffff';
-                        ctx.strokeStyle = '#495057';
-                        ctx.lineWidth = 1;
-                        
-                        // Left handle
-                        ctx.beginPath();
-                        ctx.arc(startX + 4, y + height / 2, 4, 0, Math.PI * 2);
-                        ctx.fill();
-                        ctx.stroke();
-                        
-                        // Right handle
-                        ctx.beginPath();
-                        ctx.arc(startX + width - 4, y + height / 2, 4, 0, Math.PI * 2);
-                        ctx.fill();
-                        ctx.stroke();
-                    }
+            const startX = this.dateToX(start, dates);
+            const endX = this.dateToX(end, dates);
+            const width = Math.max(endX - startX, 5);
+            const y = this.headerHeight + (index * this.cellHeight) + 6 - this.state.scrollY;
+            const height = this.cellHeight - 12;
+
+            if (y + this.cellHeight > this.headerHeight && y < rect.height) {
+                const isHovered = this.state.hoveredTask?.id === task.id;
+                const isDragged = this.state.draggedTask?.id === task.id;
+
+                // Task bar shadow
+                if (isHovered || isDragged) {
+                    ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+                    ctx.shadowBlur = 10;
+                    ctx.shadowOffsetY = 3;
                 }
-                
-                task._rect = { x: startX, y, width, height };
-                taskRow++;
-            });
+
+                // Task bar background
+                ctx.fillStyle = this.getTaskColor(task);
+                if (isDragged) {
+                    ctx.globalAlpha = 0.7;
+                }
+
+                this.roundRect(ctx, startX, y, width, height, 6, true, false);
+
+                ctx.shadowColor = 'transparent';
+                ctx.shadowBlur = 0;
+                ctx.shadowOffsetY = 0;
+
+                // Progress bar
+                if (task.progress > 0) {
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+                    const progressWidth = (width - 4) * (task.progress / 100);
+                    this.roundRect(ctx, startX + 2, y + 2, progressWidth, height - 4, 4, true, false);
+                }
+
+                // Task name
+                if (width > 40) {
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = isHovered ? 'bold 11px Arial' : '11px Arial';
+                    ctx.textBaseline = 'middle';
+                    const taskText = this.truncateText(ctx, task.name, width - 10);
+                    ctx.fillText(taskText, startX + 6, y + height / 2);
+                }
+
+                ctx.globalAlpha = 1.0;
+
+                // Resize handles
+                if (isHovered) {
+                    ctx.fillStyle = '#ffffff';
+                    ctx.strokeStyle = '#495057';
+                    ctx.lineWidth = 1;
+
+                    // Left handle
+                    ctx.beginPath();
+                    ctx.arc(startX + 4, y + height / 2, 4, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+
+                    // Right handle
+                    ctx.beginPath();
+                    ctx.arc(startX + width - 4, y + height / 2, 4, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                }
+            }
+
+            task._rect = { x: startX, y, width, height };
         });
 
         ctx.restore();
+    }
+
+    drawScrollbar(ctx, rect) {
+        const rows = this.getRows(this.props.data);
+        const viewportHeight = rect.height - this.headerHeight;
+        const contentHeight = rows.length * this.cellHeight;
+        if (contentHeight <= viewportHeight) {
+            this.scrollbarMetrics = null;
+            this.scrollbarRect = null;
+            return;
+        }
+
+        const trackWidth = this.scrollbarWidth;
+        const trackX = rect.width - trackWidth;
+        const trackY = this.headerHeight;
+        const trackHeight = viewportHeight;
+        const thumbHeight = Math.max(24, (viewportHeight / contentHeight) * trackHeight);
+        const maxScrollY = contentHeight - viewportHeight;
+        const thumbY = trackY + (this.state.scrollY / maxScrollY) * (trackHeight - thumbHeight);
+
+        // track
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.06)';
+        ctx.fillRect(trackX, trackY, trackWidth, trackHeight);
+
+        // thumb
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+        ctx.fillRect(trackX + 2, thumbY, trackWidth - 4, thumbHeight);
+
+        this.scrollbarMetrics = { trackX, trackY, trackWidth, trackHeight, thumbHeight, thumbY, maxScrollY };
+        this.scrollbarRect = { x: trackX, y: thumbY, width: trackWidth, height: thumbHeight };
     }
 
     roundRect(ctx, x, y, width, height, radius, fill, stroke) {
@@ -691,14 +770,23 @@ export class GanttRenderer extends Component {
     }
 
     onMouseDown(e) {
-        if (!this.props.editable) {
-            return;
-        }
         const rect = this.canvasRef.el.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
+
+        // Vertical scrollbar drag (works in view and edit mode)
+        if (this.scrollbarRect && x >= this.scrollbarRect.x) {
+            this.state.scrollbarDragging = true;
+            this._scrollbarDragOffset = y - this.scrollbarRect.y;
+            this.canvasRef.el.style.cursor = 'grabbing';
+            return;
+        }
+
+        if (!this.props.editable) {
+            return;
+        }
         const task = this.getTaskAt(x, y);
-        
+
         if (task) {
             this.state.draggedTask = {
                 ...task,
@@ -720,6 +808,16 @@ export class GanttRenderer extends Component {
         const rect = this.canvasRef.el.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
+
+        if (this.state.scrollbarDragging && this.scrollbarMetrics) {
+            const m = this.scrollbarMetrics;
+            const thumbY = y - this._scrollbarDragOffset;
+            const ratio = (thumbY - m.trackY) / (m.trackHeight - m.thumbHeight);
+            this.state.scrollY = ratio * m.maxScrollY;
+            this.clampScrollIntoView();
+            this.scheduleRedraw();
+            return;
+        }
 
         if (this.state.draggedTask) {
             const deltaX = e.clientX - this.state.draggedTask.startX;
@@ -773,6 +871,11 @@ export class GanttRenderer extends Component {
     }
 
     onMouseUp(e) {
+        if (this.state.scrollbarDragging) {
+            this.state.scrollbarDragging = false;
+            this.canvasRef.el.style.cursor = 'default';
+            return;
+        }
         if (this.state.draggedTask) {
             const task = this.props.data
                 .flatMap(g => g.tasks)
@@ -829,10 +932,15 @@ export class GanttRenderer extends Component {
             this.state.scrollY = this.state.scrollY + e.deltaY;
             this.clampScrollIntoView();
         } else {
-            // Default wheel pans horizontally; vertical wheel mapped to horizontal pan
-        // Nudge horizontally; when headers are stacked off-screen, just pan without showing negative space
-        const panDelta = (e.deltaX !== 0 ? e.deltaX : e.deltaY);
-        this.state.scrollX = this.state.scrollX + panDelta;
+            // Left sidebar: vertical scroll. Gantt bar area: horizontal scroll.
+            const rect = this.canvasRef.el.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            if (x < this.sidebarWidth) {
+                this.state.scrollY = this.state.scrollY + (e.deltaY || e.deltaX);
+            } else {
+                const panDelta = (e.deltaX !== 0 ? e.deltaX : e.deltaY);
+                this.state.scrollX = this.state.scrollX + panDelta;
+            }
             this.clampScrollIntoView();
         }
         
@@ -929,6 +1037,7 @@ export class GanttRenderer extends Component {
     onMouseLeave() {
         this.state.draggedTask = null;
         this.state.isPanning = false;
+        this.state.scrollbarDragging = false;
         this.state.tooltip.visible = false;
         this.state.hoveredTask = null;
         this.canvasRef.el.style.cursor = 'default';
