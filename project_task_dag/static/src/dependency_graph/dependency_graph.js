@@ -94,7 +94,7 @@ function layeredLayout(nodes, edges) {
 }
 
 export class TaskDependencyGraph extends Component {
-    static template = "project_task_dependency.TaskDependencyGraph";
+    static template = "project_task_dag.TaskDependencyGraph";
     static props = { ...standardActionServiceProps };
 
     setup() {
