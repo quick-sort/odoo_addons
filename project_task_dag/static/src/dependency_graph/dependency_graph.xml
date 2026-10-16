@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <templates>
-    <t t-name="project_task_dependency.TaskDependencyGraph">
+    <t t-name="project_task_dag.TaskDependencyGraph">
         <div class="o_task_dependency_graph p-3">
             <div t-if="state.loading" class="text-center text-muted py-5">Loading…</div>
             <div t-elif="state.error" class="alert alert-danger">

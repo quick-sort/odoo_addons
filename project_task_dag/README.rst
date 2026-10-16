@@ -1,6 +1,6 @@
-=============================
- Project Task Dependency Graph
-=============================
+================
+ Project Task DAG
+================
 
 把项目里 task 的依赖关系（``depend_on_ids`` / ``dependent_ids``）渲染成一张有向图
 （DAG）。自研 SVG 分层布局，零外部前端依赖。
