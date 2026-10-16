@@ -13,8 +13,10 @@
     </t>
 
     <t t-name="web_gantt.GanttController" owl="1">
-        <div class="o_gantt_view h-100 d-flex flex-column">
-            <div class="o_gantt_controller_header border-bottom p-2 bg-view">
+        <div t-att-class="className">
+            <Layout display="props.display">
+                <div class="o_gantt_view h-100 d-flex flex-column">
+                    <div class="o_gantt_controller_header border-bottom p-2 bg-view">
                     <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap">
                         <div class="o_gantt_controller_buttons btn-toolbar gap-1">
                             <button class="btn btn-primary btn-sm" t-on-click="() => this.createTask()" title="Create New Task">
@@ -119,7 +121,9 @@
                         </span>
                     </div>
                 </div>
-            </div>
+                </div>
+            </Layout>
+        </div>
     </t>
 
     <t t-name="web_gantt.GanttRenderer" owl="1">
