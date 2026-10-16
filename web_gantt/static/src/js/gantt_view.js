@@ -8,7 +8,7 @@ import { GanttRenderer } from "./gantt_renderer";
 
 export class GanttController extends Component {
     static template = "web_gantt.GanttController";
-    static components = { Layout, GanttRenderer };
+    static components = { GanttRenderer };
 
     setup() {
         this.actionService = useService("action");
