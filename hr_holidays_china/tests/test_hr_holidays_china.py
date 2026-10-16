@@ -76,6 +76,20 @@ class TestHrHolidaysChina(TransactionCase):
 
     def test_holiday_is_not_working(self):
         self._sync()
+        leave = self.env['resource.calendar.leaves'].search([
+            ('china_holiday_day_id', '!=', False), ('time_type', '=', 'leave')])
+        print("DEBUG sys_tz=", datetime.now().astimezone().tzinfo,
+              "cal.tz=", self.calendar.tz)
+        print("DEBUG leave date_from=", leave.date_from,
+              "date_to=", leave.date_to,
+              "cal_id=", leave.calendar_id.id,
+              "test_cal_id=", self.calendar.id,
+              "resource_id=", leave.resource_id.id)
+        tz = timezone('Asia/Shanghai')
+        start = tz.localize(datetime.combine(date(2026, 5, 1), time.min))
+        end = tz.localize(datetime.combine(date(2026, 5, 1), time.max))
+        print("DEBUG work_intervals=", self.calendar._work_intervals_batch(start, end))
+        print("DEBUG leave_intervals=", self.calendar._leave_intervals_batch(start, end))
         self.assertEqual(self._work_hours(date(2026, 5, 1)), 0.0)
 
     def test_makeup_day_is_working(self):
