@@ -12,6 +12,9 @@
         "views/project_task_views.xml",
         "views/project_task_plan_result_views.xml",
     ],
+    "demo": [
+        "demo/project_task_plan_demo.xml",
+    ],
     "installable": True,
     "application": False,
 }

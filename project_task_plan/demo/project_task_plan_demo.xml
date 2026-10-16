@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Demo data for the auto-schedule feature.
+         Dates are already aligned with the scheduling invariant, so loading is
+         idempotent. To demo: edit the "Design" task's end date and watch
+         "Development" / "Testing" / "Deployment" cascade automatically, while
+         "Documentation (pinned)" stays put (no_auto_schedule). -->
+
+    <record id="demo_project" model="project.project">
+        <field name="name">[Demo] Website Launch</field>
+        <field name="allow_task_dependencies" eval="True"/>
+        <field name="allow_auto_schedule" eval="True"/>
+    </record>
+
+    <record id="demo_task_design" model="project.task">
+        <field name="name">Design</field>
+        <field name="project_id" ref="demo_project"/>
+        <field name="task_start_date">2026-11-02 00:00:00</field>
+        <field name="task_end_date">2026-11-06 00:00:00</field>
+    </record>
+
+    <record id="demo_task_development" model="project.task">
+        <field name="name">Development</field>
+        <field name="project_id" ref="demo_project"/>
+        <field name="depend_on_ids" eval="[(6, 0, [ref('demo_task_design')])]"/>
+        <field name="task_start_date">2026-11-06 00:00:00</field>
+        <field name="task_end_date">2026-11-11 00:00:00</field>
+    </record>
+
+    <record id="demo_task_testing" model="project.task">
+        <field name="name">Testing</field>
+        <field name="project_id" ref="demo_project"/>
+        <field name="depend_on_ids" eval="[(6, 0, [ref('demo_task_development')])]"/>
+        <field name="lead_time">1</field>
+        <field name="task_start_date">2026-11-12 00:00:00</field>
+        <field name="task_end_date">2026-11-14 00:00:00</field>
+    </record>
+
+    <record id="demo_task_deployment" model="project.task">
+        <field name="name">Deployment</field>
+        <field name="project_id" ref="demo_project"/>
+        <field name="depend_on_ids" eval="[(6, 0, [ref('demo_task_testing')])]"/>
+        <field name="task_start_date">2026-11-14 00:00:00</field>
+        <field name="task_end_date">2026-11-15 00:00:00</field>
+    </record>
+
+    <record id="demo_task_docs" model="project.task">
+        <field name="name">Documentation (pinned)</field>
+        <field name="project_id" ref="demo_project"/>
+        <field name="depend_on_ids" eval="[(6, 0, [ref('demo_task_development')])]"/>
+        <field name="no_auto_schedule" eval="True"/>
+        <field name="task_start_date">2026-11-11 00:00:00</field>
+        <field name="task_end_date">2026-11-12 00:00:00</field>
+    </record>
+</odoo>
