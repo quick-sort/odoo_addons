@@ -34,8 +34,13 @@ class HrHolidaysChinaDay(models.Model):
     def _leave_datetimes(self, calendar):
         self.ensure_one()
         tz = timezone(calendar.tz or 'Asia/Shanghai')
-        date_from = tz.localize(datetime.combine(self.date, time.min)).astimezone(utc).replace(tzinfo=None)
-        date_to = tz.localize(datetime.combine(self.date, time.max)).astimezone(utc).replace(tzinfo=None)
+        combined_from = datetime.combine(self.date, time.min)
+        combined_to = datetime.combine(self.date, time.max)
+        date_from = tz.localize(combined_from).astimezone(utc).replace(tzinfo=None)
+        date_to = tz.localize(combined_to).astimezone(utc).replace(tzinfo=None)
+        print("DEBUG _leave_datetimes self.date=", self.date, "cal.tz=", calendar.tz,
+              "combined_from=", combined_from, "combined_to=", combined_to,
+              "tz_obj=", tz, "date_from=", date_from, "date_to=", date_to)
         return date_from, date_to
 
     def _ensure_calendar_leave(self, calendar):
