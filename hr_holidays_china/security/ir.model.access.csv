@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_hr_holidays_china_day_user,hr_holidays_china.day user,model_hr_holidays_china_day,hr.group_hr_user,1,0,0,0
+access_hr_holidays_china_day_manager,hr_holidays_china.day manager,model_hr_holidays_china_day,hr.group_hr_manager,1,1,1,1

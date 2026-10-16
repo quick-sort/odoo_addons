@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="hr_holidays_china_day_list" model="ir.ui.view">
+        <field name="name">hr.holidays.china.day.list</field>
+        <field name="model">hr_holidays_china.day</field>
+        <field name="arch" type="xml">
+            <list string="China Holidays" editable="bottom">
+                <field name="date"/>
+                <field name="name"/>
+                <field name="kind"/>
+                <field name="year"/>
+                <field name="company_id" groups="base.group_multi_company"/>
+                <field name="leave_id" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="hr_holidays_china_day_form" model="ir.ui.view">
+        <field name="name">hr.holidays.china.day.form</field>
+        <field name="model">hr_holidays_china.day</field>
+        <field name="arch" type="xml">
+            <form string="China Holiday">
+                <group>
+                    <field name="date"/>
+                    <field name="name"/>
+                    <field name="kind"/>
+                    <field name="year"/>
+                    <field name="company_id" groups="base.group_multi_company"/>
+                    <field name="leave_id" readonly="1"/>
+                </group>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_hr_holidays_china_day" model="ir.actions.act_window">
+        <field name="name">China Holidays</field>
+        <field name="res_model">hr_holidays_china.day</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_empty_folder">
+                No China holidays yet. Click "Sync China Holidays" on the company form to import them.
+            </p>
+        </field>
+    </record>
+
+    <menuitem id="menu_hr_holidays_china_day"
+              name="China Holidays"
+              parent="hr_holidays.menu_hr_holidays_configuration"
+              action="action_hr_holidays_china_day"
+              sequence="20"/>
+</odoo>
