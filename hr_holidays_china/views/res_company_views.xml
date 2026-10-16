@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="view_company_form_inherit_china_holidays" model="ir.ui.view">
+        <field name="name">res.company.form.inherit.china.holidays</field>
+        <field name="model">res.company</field>
+        <field name="inherit_id" ref="base.view_company_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//page[@name='branches']" position="after">
+                <page string="China Holidays" name="china_holidays">
+                    <group>
+                        <field name="hr_holidays_china_calendar_id"/>
+                        <field name="hr_holidays_china_auto_update"/>
+                    </group>
+                    <group>
+                        <button name="action_sync_china_holidays"
+                                type="object"
+                                string="Sync China Holidays"
+                                class="btn-primary"/>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>

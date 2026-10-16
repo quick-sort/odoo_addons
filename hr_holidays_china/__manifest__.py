@@ -1,0 +1,20 @@
+{
+    "name": "China Public Holidays",
+    "summary": "Import the official Chinese public holiday and make-up work day schedule into the working calendar",
+    "version": "19.0.1.0.0",
+    "author": "quick-sort@outlook.com",
+    "website": "quick-sort@outlook.com",
+    "license": "LGPL-3",
+    "category": "Human Resources",
+    "depends": ["hr_holidays"],
+    "external_dependencies": {"python": ["requests"]},
+    "data": [
+        "security/ir.model.access.csv",
+        "views/res_company_views.xml",
+        "views/hr_holidays_china_day_views.xml",
+        "data/ir_cron_data.xml",
+    ],
+    "installable": True,
+    "application": False,
+    "auto_install": False,
+}
