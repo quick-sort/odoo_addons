@@ -55,6 +55,14 @@ attendance 之外，把落在查询区间内的调休日按该日历**周一**�
 前者是所有工时计算的底层漏斗（`_work_intervals_batch`、`hr_work_entry`、
 `hr_attendance` 等都直接调用它），覆盖一处即覆盖全部。
 
+## 放假 leave 的时区修复
+
+`resource` 的 `_leave_intervals_batch` 对 naive-UTC 的 `date_from`/`date_to`
+直接调用 `astimezone(tz)`。Python 会把 naive datetime 当作**系统本地时区**，
+只有当服务器运行在 UTC 时才正确。为让放假/调休 leave 在任意服务器时区下都
+正确，本模块一并覆盖 `_leave_intervals_batch`，把 naive 时间先 `utc.localize`
+再转换，语义与 Odoo 存储约定（Datetime 字段存 naive UTC）一致。
+
 ## 同步流程
 
 1. `_sync_china_holidays(year)`：拉取 JSON → 逐条解析。
@@ -81,6 +89,6 @@ attendance 之外，把落在查询区间内的调休日按该日历**周一**�
 ## 约束（红线）
 
 1. 放假/调休统一落在 `resource.calendar.leaves`，不另建平行模型。
-2. 覆盖 `resource.calendar._attendance_intervals_batch`，不改 `resource` 本体。
+2. 覆盖 `resource.calendar._attendance_intervals_batch` 与 `_leave_intervals_batch`，不改 `resource` 本体。
 3. 同步幂等。
 4. 测试不联网。

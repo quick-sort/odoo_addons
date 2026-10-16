@@ -10,7 +10,7 @@
 
 1. 放假/调休都必须落在公司级 `resource.calendar.leaves`（`resource_id=False`），
    不新建平行的"节假日"模型去重复表达日历。
-2. 调休补班通过覆盖 `resource.calendar._attendance_intervals_batch` 注入工时，
-   不得改动 `resource` 核心模块本体。
+2. 调休补班/时区修复通过覆盖 `resource.calendar._attendance_intervals_batch`
+   与 `_leave_intervals_batch` 实现，不得改动 `resource` 核心模块本体。
 3. 同步必须幂等（按 `company_id + date` 唯一），重复运行不产生重复记录。
 4. 测试不得联网：`_fetch_china_holidays_json` 必须被 mock。
