@@ -34,7 +34,10 @@ owner / shared / public 可见；其他用户不可见（record rule）。 — `
 
 ## AC-8 下载鉴权
 
-非 owner/shared/public 调 `skill_download` 被拒。 — `test_download_requires_access`
+非 owner/shared/public 调 `skill_download` 被拒；反过来，owner / shared / public 都要能拿到
+下载地址 —— **包括不带管理员组的普通用户**。分享给谁，谁就得拿得到包，不能只让他看见列表。 —
+`test_download_requires_access` / `test_plain_user_can_download_shared_skill` /
+`test_plain_user_can_download_public_skill` / `test_plain_user_cannot_download_unshared_skill`
 
 ## AC-9 后端 UI
 

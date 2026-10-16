@@ -19,13 +19,23 @@ class TestSkillHub(TransactionCase):
         cls.owner_user = cls._make_user("skill_owner")
         cls.other_user = cls._make_user("skill_other")
         cls.shared_user = cls._make_user("skill_shared")
+        # Deliberately without the settings group. The storage ACLs hang off
+        # that group, so an "administrator" test user sails straight through
+        # permission checks a real shared user would be stopped by.
+        cls.plain_user = cls._make_user("skill_plain", admin=False)
 
     @classmethod
-    def _make_user(cls, login):
-        group_ids = [
-            cls.env.ref("base.group_user").id,
-            cls.env.ref("base.group_system").id,
-        ]
+    def _make_user(cls, login, admin=True):
+        """A test user.
+
+        ``admin=True`` adds ``base.group_system``, which every ``storage.*``
+        model is ACL-bound to. Publishing needs it, so the users that publish
+        keep it; anything asserting on the *permission boundary* has to pass
+        ``admin=False`` or it proves nothing.
+        """
+        group_ids = [cls.env.ref("base.group_user").id]
+        if admin:
+            group_ids.append(cls.env.ref("base.group_system").id)
         return cls.env["res.users"].create({
             "name": login,
             "login": login,
@@ -234,6 +244,50 @@ class TestSkillHub(TransactionCase):
             "download",
             self.Tool.with_user(self.other_user).skill_download(skill.id),
         )
+
+    def test_plain_user_can_download_shared_skill(self):
+        """Sharing has to grant "take the file", not only "see the row".
+
+        A shared user holds no settings group, so any lookup made under their
+        own identity is refused by the storage ACLs -- which is exactly what
+        ``skill_download`` used to do when it reached for ``skill.backend_id``.
+        """
+        skill = self._publish(self.owner_user, "plaindl", "Plain Download")
+        self.Tool.with_user(self.owner_user).skill_share(
+            skill.id, [self.plain_user.id]
+        )
+        self.assertTrue(
+            self.env["skillhub.skill"]
+            .with_user(self.plain_user)
+            .search([("id", "=", skill.id)]),
+            "the shared skill should be readable before it is downloadable",
+        )
+
+        result = self.Tool.with_user(self.plain_user).skill_download(skill.id)
+
+        self.assertIn("download", result)
+
+    def test_plain_user_can_download_public_skill(self):
+        skill = self._publish(self.owner_user, "plainpub", "Plain Public")
+        self.env["skillhub.skill"].with_user(self.owner_user).browse(skill.id).write(
+            {"is_public": True}
+        )
+
+        result = self.Tool.with_user(self.plain_user).skill_download(skill.id)
+
+        self.assertIn("download", result)
+
+    def test_plain_user_cannot_download_unshared_skill(self):
+        """The other half: the fix must not turn this into a blank cheque.
+
+        Reading the backend with elevated rights is only safe because the
+        skill-level check already ran, so an unshared skill still has to be
+        refused.
+        """
+        skill = self._publish(self.owner_user, "plainno", "Plain No")
+
+        with self.assertRaises(UserError):
+            self.Tool.with_user(self.plain_user).skill_download(skill.id)
 
     # archive --------------------------------------------------------------
 

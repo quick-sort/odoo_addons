@@ -50,6 +50,14 @@
 鉴权双层：**技能级**（skillhub 的 record rules + `skill_download`/`skill_share` 显式校验）
 管「谁能拿这个 skill」；**后端级**（storage backend 的 `mcp_read_enabled`）管「谁能读这个 backend」。
 
+判别一旦由技能级作出，`skill_download` 里读后端与签发下载令牌这两步是**提权执行**的：这两个
+模型（`storage.backend` / `storage.mcp.token`）的 ACL 绑在管理员组上 —— 它们同时持有后端凭据
+（`aws_secret_access_key`、`sftp_password` 等）并能签发绕过 Odoo 鉴权的 URL，收窄是应该的 ——
+但那与「谁能拿这个 skill」无关。按调用者身份去问，结果就是分享出去只有列表能看、包下不来。
+
+提权的边界：**只包这两步，路径只取自记录，绝不取自入参** —— 否则 `skill_download` 就成了
+任意文件下载的口子。技能级校验本身始终在调用者身份下执行。
+
 ## 工具面（`@llm_tool`，经现有 `llm_mcp_server` 暴露）
 
 只暴露有副作用 / 有业务不变量的操作；纯读/搜索不设独立 tool，走通用
