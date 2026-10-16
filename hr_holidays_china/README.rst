@@ -1,6 +1,6 @@
-===================
+=====================
 China Public Holidays
-===================
+=====================
 
 Import the official Chinese public holiday schedule into Odoo's working
 calendar, including make-up work days (调休补班).
