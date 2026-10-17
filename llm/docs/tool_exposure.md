@@ -93,12 +93,16 @@ model 里），agent 用 `odoo_model_method_executor` 调它。代价与自定�
 
 ### 4.3 检索工具（`odoo_model_guide_retriever`，`@llm_tool` 装饰）
 
-放在 `llm` 的 builtin 抽象模型上，注册方式同 `odoo_record_retriever`：
+放在 `llm` 的 builtin 抽象模型上，注册方式同 `odoo_record_retriever`。三种模式，都按
+"当前用户可读"过滤，与 §5 的 description 用**同一查询**：
 
-- 空 `code` → 返回当前用户可读的全部 guide 的 index（`code` + `summary`）。
-- 给 `code` → 返回该 guide 的完整 `body`。
+- 给 `code` → 返回该 guide 的完整 `body`（`code`/`title`/`summary`/`body`）。
+- 给 `query` → 大小写不敏感的子串搜索（code/title/keyword/summary），返回匹配的 index
+  （`code`+`title`+`summary`）+ `count`，用于在大量 guide 里先收窄再取正文。
+- 两者都不给 → 返回按 `code` 前缀分组的紧凑概览（每行 `code` + `guide_count`），避免
+  guide 多时无参索引线性膨胀；再靠 `query` 下钻。
 
-两种返回都按"当前用户可读"过滤，与 §5 的 description 用**同一查询**。
+`code` 优先于 `query`：两者都给时按 `code` 取单条。
 
 ### 4.4 分层（谁提供什么）
 

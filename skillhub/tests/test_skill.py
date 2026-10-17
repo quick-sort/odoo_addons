@@ -324,7 +324,7 @@ class TestSkillHub(TransactionCase):
         guide = self.env["llm.tool.guide"].search([("code", "=", "skillhub")])
         self.assertTrue(guide)
         retriever = self.env["llm.tool.builtin.guide"]
-        index = retriever.odoo_model_guide_retriever()
+        index = retriever.odoo_model_guide_retriever(query="skillhub")
         self.assertIn("skillhub", [g["code"] for g in index["guides"]])
         body = retriever.odoo_model_guide_retriever("skillhub")
         self.assertEqual(body["code"], "skillhub")
