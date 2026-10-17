@@ -17,7 +17,7 @@ class TestInfohubGuide(TransactionCase):
         self.assertTrue(guide)
 
         retriever = self.env["llm.tool.builtin.guide"]
-        index = retriever.odoo_model_guide_retriever()
+        index = retriever.odoo_model_guide_retriever(query="infohub")
         self.assertIn("infohub", [g["code"] for g in index["guides"]])
         body = retriever.odoo_model_guide_retriever("infohub")
         self.assertEqual(body["code"], "infohub")
@@ -32,13 +32,13 @@ class TestInfohubGuide(TransactionCase):
             g["code"]
             for g in self.env["llm.tool.builtin.guide"]
             .with_user(member)
-            .odoo_model_guide_retriever()["guides"]
+            .odoo_model_guide_retriever(query="infohub")["guides"]
         ]
         outsider_codes = [
             g["code"]
             for g in self.env["llm.tool.builtin.guide"]
             .with_user(outsider)
-            .odoo_model_guide_retriever()["guides"]
+            .odoo_model_guide_retriever(query="infohub")["guides"]
         ]
 
         self.assertIn("infohub", member_codes)

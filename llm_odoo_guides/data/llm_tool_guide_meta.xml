@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo noupdate="0">
+    <!-- Meta guide: how to discover and locate a guide among the many records
+         shipped by this addon. Hand-written, separate from the generated
+         llm_tool_guide_data.xml so regeneration never overwrites it. -->
+    <record id="guide_odoo_guides" model="llm.tool.guide">
+        <field name="code">odoo-guides</field>
+        <field name="title">Odoo User Guides — Index</field>
+        <field name="keyword">odoo-guides</field>
+        <field name="summary">How to find the right Odoo user-documentation guide: call odoo_model_guide_retriever() for a grouped overview, narrow with query="...", then fetch a body by its &lt;app&gt;-&lt;subtopic&gt; code.</field>
+        <field name="body"><![CDATA[
+This addon ships ~118 guides converted from the Odoo 19 user documentation,
+one topic each, covering how to use the standard Odoo applications (Sales,
+Finance, Inventory & Manufacturing, HR, Marketing, Productivity, Websites,
+Services, Studio, plus Essentials and General).
+
+How to find the right guide
+1. Call odoo_model_guide_retriever() with no arguments. It returns a compact
+   grouped overview — one line per application (code + guide_count). This is a
+   cheap first round-trip; do not dump every guide at once.
+2. Narrow with a search: odoo_model_guide_retriever(query="sales") returns the
+   matching guides' code, title and summary. Use the summary (the topic's
+   opening paragraph) to judge relevance.
+3. Fetch one guide's full body with odoo_model_guide_retriever(code="<code>").
+
+Code naming convention
+- <app>              overview of one application  (e.g. sales, finance, hr)
+- <app>-<subtopic>   one area inside it           (e.g. sales-crm, finance-accounting)
+- <app>-<subtopic>-N part N of a large area       (e.g. finance-accounting-3)
+The applications are: essentials, general, sales, finance, inventory_and_mrp,
+hr, marketing, productivity, services, websites, studio.
+
+Tips
+- When unsure which sub-guide you need, start from the bare <app> overview code.
+- query matches code/title/keyword/summary (case-insensitive substring), so
+  query="invoice" also finds topics whose title does not literally contain it.
+- The retriever's dynamic description lists the application keywords; get the
+  grouped overview first, then narrow with query before fetching bodies.
+]]></field>
+    </record>
+</odoo>
