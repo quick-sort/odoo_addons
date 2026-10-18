@@ -1,4 +1,5 @@
 from odoo import Command
+from odoo.service.model import call_kw
 from odoo.tests import TransactionCase, tagged
 
 
@@ -55,3 +56,16 @@ class TestDependencyGraph(TransactionCase):
         self.assertEqual(action["type"], "ir.actions.client")
         self.assertEqual(action["tag"], "task_dependency_graph")
         self.assertEqual(action["context"]["active_id"], project.id)
+
+    def test_rpc_call_passes_project_id(self):
+        """The frontend calls this with ``[project_id]`` (no record ids), which
+        only works if the method is ``@api.model``; otherwise ``call_kw`` treats
+        the first arg as ids and the method raises ``TypeError``."""
+        project = self._make_project()
+        self._make_task(project, "A")
+
+        data = call_kw(
+            self.env["project.task"], "get_dependency_graph_data", [project.id], {}
+        )
+
+        self.assertEqual(len(data["nodes"]), 1)

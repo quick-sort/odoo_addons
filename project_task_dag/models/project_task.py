@@ -1,4 +1,4 @@
-from odoo import models
+from odoo import api, models
 
 
 class ProjectProject(models.Model):
@@ -22,6 +22,7 @@ class ProjectProject(models.Model):
 class ProjectTask(models.Model):
     _inherit = "project.task"
 
+    @api.model
     def get_dependency_graph_data(self, project_id):
         """Return the dependency DAG of a project's tasks as ``{nodes, edges}``.
 

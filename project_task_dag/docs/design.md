@@ -18,6 +18,10 @@
 `{nodes: [{id, name, state}], edges: [{source, target}]}`。
 edge 方向 = 前置（`depend_on_ids`）→ 被阻塞的 task，即箭头 A → B 表示 "A 阻塞 B"。
 
+方法必须是 `@api.model`：前端用 `orm.call("project.task", ..., [project_id])`
+只传一个参数、不带 record ids。非 `@api.model` 方法经 `call_kw` 会把第一个参数当成
+ids，导致 `project_id` 缺失抛 `TypeError`。
+
 ## 布局
 
 最长路径分层（Kahn 拓扑排序 + depth 传播），层内按 id 排序，左→右摆放；edge 从源
@@ -33,7 +37,5 @@ project 表单 `button_box` 加 `oe_stat_button`，`type="object"` 调
 `project.project.action_open_task_dependency_graph()`，该方法返回 `ir.actions.client`
 （`tag="task_dependency_graph"`）并在 context 里显式绑定 `active_id`（当前 project id）。
 
-不用 `type="action"` 按钮：它不会可靠地把 `active_id` 传进 client action 的 context
-（`context="{'active_id': id}"` 到组件里读到的是空），导致 `get_dependency_graph_data`
-收到空 `project_id` 而抛 `TypeError`。显式在 Python 方法里绑定 id 与 Odoo 原生
-`stock_forecasted` 的做法一致。
+不用 `type="action"` 按钮：显式在 Python 方法里绑定 id 与 Odoo 原生 `stock_forecasted`
+的做法一致，避免依赖按钮 context 到 client action 的隐式传递。
