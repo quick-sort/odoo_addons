@@ -59,6 +59,28 @@ class TestToolGuide(TransactionCase):
         self.assertIn("public", outsider_codes)
         self.assertNotIn("restricted", outsider_codes)
 
+    def test_empty_group_guide_admin_only(self):
+        group = self._make_group("Empty Group")
+        self._make_guide("admin_only", allowed_group_ids=[(5,)])
+
+        member = self._make_user("empty_guide_member", group)
+        admin = self.env.ref("base.user_admin")
+
+        member_codes = (
+            self.env["llm.tool.guide"].with_user(member)._readable_guides().mapped("code")
+        )
+        admin_codes = (
+            self.env["llm.tool.guide"].with_user(admin)._readable_guides().mapped("code")
+        )
+
+        self.assertNotIn("admin_only", member_codes)
+        self.assertIn("admin_only", admin_codes)
+
+    def test_guide_defaults_to_internal_user_group(self):
+        self._make_guide("defaulted")
+        guide = self.env["llm.tool.guide"].search([("code", "=", "defaulted")])
+        self.assertIn(self.env.ref("base.group_user"), guide.allowed_group_ids)
+
     def test_retriever_returns_groups_without_code(self):
         self._make_guide("alpha")
         self._make_guide("alpha-billing")

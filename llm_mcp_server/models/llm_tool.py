@@ -18,7 +18,7 @@ class LLMTool(models.Model):
         "res.groups",
         string="Allowed Groups",
         help="Only users in one of these groups see and call this tool via MCP. "
-        "Leave empty to expose it to everyone.",
+        "Leave empty to restrict it to administrators only.",
     )
 
     authorized_user_ids = fields.Many2many(
@@ -26,8 +26,8 @@ class LLMTool(models.Model):
         string="Authorized Users",
         compute="_compute_authorized_user_ids",
         help="Users who can currently see and call this tool via MCP: the "
-        "members of its allowed groups. With no allowed group the tool is "
-        "open to everyone, and system administrators are never restricted.",
+        "members of its allowed groups. With no allowed group only system "
+        "administrators can call it; administrators are never restricted.",
     )
 
     @api.depends("allowed_group_ids")
@@ -44,20 +44,26 @@ class LLMTool(models.Model):
                     ]
                 )
             else:
-                tool.authorized_user_ids = False
+                # Empty allowed_group_ids means admin-only: list the system
+                # administrators.
+                system_group = self.env.ref("base.group_system")
+                tool.authorized_user_ids = self.env["res.users"].search(
+                    [
+                        ("group_ids", "in", system_group.ids),
+                        ("active", "=", True),
+                    ]
+                )
 
     def _mcp_visibility_domain(self):
         """Domain fragment restricting tools to the authenticated user.
 
-        A tool with no ``allowed_group_ids`` is visible to everyone; otherwise
-        it is visible only to users sharing at least one of those groups.
-        Superusers see everything.
+        A tool with no ``allowed_group_ids`` is visible to administrators
+        only; otherwise it is visible only to users sharing at least one of
+        those groups. Superusers see everything.
         """
         if self.env.su or self.env.user.has_group("base.group_system"):
             return []
         return [
-            "|",
-            ("allowed_group_ids", "=", False),
             ("allowed_group_ids", "in", self.env.user.group_ids.ids),
         ]
 

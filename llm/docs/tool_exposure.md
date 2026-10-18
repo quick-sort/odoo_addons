@@ -40,7 +40,7 @@
 ### 2.3 MCP 暴露与权限（`llm_mcp_server`）
 
 - `llm_mcp_server` `_inherit = "llm.tool"`，加 `allowed_group_ids`（M2M `res.groups`）。
-- `tools/list` 按 `_mcp_visibility_domain()` 过滤：无 group 的 tool 人人可见；有 group 的
+- `tools/list` 按 `_mcp_visibility_domain()` 过滤：无 group 的 tool 仅管理员可见；有 group 的
   只对组内用户可见；superuser 全见。
 - `tools/call` 用同一 domain 二次校验，杜绝越权调用。
 - 内部 agent 不经 MCP，直接 `llm.tool.execute()`。
