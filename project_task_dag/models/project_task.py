@@ -1,6 +1,24 @@
 from odoo import models
 
 
+class ProjectProject(models.Model):
+    _inherit = "project.project"
+
+    def action_open_task_dependency_graph(self):
+        """Return the client action with ``active_id`` bound to this project.
+
+        A ``type="action"`` button does not reliably propagate ``active_id``
+        into a client action's context, so the button is ``type="object"`` and
+        binds the id here instead (same pattern as ``stock_forecasted``).
+        """
+        self.ensure_one()
+        action = self.env["ir.actions.actions"]._for_xml_id(
+            "project_task_dag.action_task_dependency_graph"
+        )
+        action["context"] = {"active_id": self.id, "active_model": "project.project"}
+        return action
+
+
 class ProjectTask(models.Model):
     _inherit = "project.task"
 

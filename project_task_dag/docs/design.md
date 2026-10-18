@@ -29,5 +29,11 @@ edge 方向 = 前置（`depend_on_ids`）→ 被阻塞的 task，即箭头 A →
 
 ## 入口
 
-project 表单 `button_box` 加 `oe_stat_button`，`type="action"` 指向 `ir.actions.client`
-（`tag="task_dependency_graph"`），context 传 `active_id`（当前 project id）。
+project 表单 `button_box` 加 `oe_stat_button`，`type="object"` 调
+`project.project.action_open_task_dependency_graph()`，该方法返回 `ir.actions.client`
+（`tag="task_dependency_graph"`）并在 context 里显式绑定 `active_id`（当前 project id）。
+
+不用 `type="action"` 按钮：它不会可靠地把 `active_id` 传进 client action 的 context
+（`context="{'active_id': id}"` 到组件里读到的是空），导致 `get_dependency_graph_data`
+收到空 `project_id` 而抛 `TypeError`。显式在 Python 方法里绑定 id 与 Odoo 原生
+`stock_forecasted` 的做法一致。

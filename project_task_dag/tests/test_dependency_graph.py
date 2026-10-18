@@ -46,3 +46,12 @@ class TestDependencyGraph(TransactionCase):
         node_ids = {n["id"] for n in data["nodes"]}
         self.assertEqual(node_ids, {a.id, b.id})
         self.assertNotIn(ext.id, node_ids)
+
+    def test_action_binds_active_id(self):
+        project = self._make_project()
+
+        action = project.action_open_task_dependency_graph()
+
+        self.assertEqual(action["type"], "ir.actions.client")
+        self.assertEqual(action["tag"], "task_dependency_graph")
+        self.assertEqual(action["context"]["active_id"], project.id)
