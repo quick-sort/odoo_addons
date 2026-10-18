@@ -13,18 +13,20 @@ class TestGuideDynamicDescription(TransactionCase):
     def test_guide_keyword_appended_to_tool_description(self):
         self.env["llm.tool.guide"].create(
             {
-                "code": "skillhub",
-                "title": "SkillHub",
-                "keyword": "skillhub",
-                "body": "How to operate skillhub.",
+                "code": "test-keyword",
+                "title": "Test Keyword",
+                "keyword": "test-keyword",
+                "body": "How to operate the test keyword.",
             }
         )
 
         tool = self._guide_tool()
 
-        self.assertIn("skillhub", tool.description)
+        self.assertIn("test-keyword", tool.description)
 
     def test_no_guides_yields_clean_description(self):
+        self.env["llm.tool.guide"].search([]).unlink()
+
         tool = self._guide_tool()
 
         # Static docstring present, no dynamic suffix appended.

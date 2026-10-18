@@ -51,7 +51,7 @@ class TestScan(common.TransactionCase):
             self.LLMTool.with_context(active_test=False).search_count([]), before
         )
 
-    def test_all_six_builtins_are_scanned(self):
+    def test_all_seven_builtins_are_scanned(self):
         self.LLMTool._scan_tool_decorators()
         scanned = {
             method
@@ -68,6 +68,7 @@ class TestScan(common.TransactionCase):
                 "odoo_record_unlinker",
                 "odoo_model_method_executor",
                 "odoo_model_inspector",
+                "odoo_model_guide_retriever",
             },
         )
 

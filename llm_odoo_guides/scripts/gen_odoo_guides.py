@@ -8,10 +8,6 @@ the ``content/applications`` directory of an ``odoo/documentation`` checkout.
 import os
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-import rst_renderer
-
 DOCS = os.environ.get(
     "ODOO_DOCS", "/tmp/odoo-documentation-19.0/content/applications"
 )
@@ -50,6 +46,9 @@ def render_xml(all_guides):
 
 
 def main():
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    import rst_renderer
+
     all_guides = rst_renderer.build_all_guides(DOCS)
     codes = [g["code"] for g in all_guides]
     dupes = {c for c in codes if codes.count(c) > 1}

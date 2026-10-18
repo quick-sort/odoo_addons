@@ -112,7 +112,7 @@ class TestToolGuide(TransactionCase):
 
     def test_dynamic_description_lists_readable_keywords(self):
         group = self._make_group("Dynamic Group")
-        self._make_guide("skillhub")
+        self._make_guide("public")
         self._make_guide("secret", group=group)
         member = self._make_user("dynamic_member", group)
         outsider = self._make_user("dynamic_outsider")
@@ -128,7 +128,7 @@ class TestToolGuide(TransactionCase):
             ._mcp_dynamic_description()
         )
 
-        self.assertIn("skillhub", member_desc)
+        self.assertIn("public", member_desc)
         self.assertIn("secret", member_desc)
-        self.assertIn("skillhub", outsider_desc)
+        self.assertIn("public", outsider_desc)
         self.assertNotIn("secret", outsider_desc)
