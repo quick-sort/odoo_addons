@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="llm_odoo_guide_sync_action" model="ir.actions.act_window">
+        <field name="name">Odoo User Guide Sync</field>
+        <field name="res_model">llm.odoo.guide.sync</field>
+        <field name="view_mode">form</field>
+        <field name="target">current</field>
+    </record>
+
+    <record id="llm_odoo_guide_sync_form" model="ir.ui.view">
+        <field name="name">llm.odoo.guide.sync.form</field>
+        <field name="model">llm.odoo.guide.sync</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_sync" string="Sync from web" type="object" class="btn-primary"/>
+                </header>
+                <group>
+                    <group>
+                        <field name="branch"/>
+                        <field name="last_sync_state"/>
+                    </group>
+                    <group>
+                        <field name="last_sync_date"/>
+                        <field name="last_sync_guide_count"/>
+                    </group>
+                </group>
+                <group string="Last error">
+                    <field name="last_sync_error"/>
+                </group>
+            </form>
+        </field>
+    </record>
+
+    <menuitem id="menu_llm_odoo_guide_sync"
+              name="Odoo User Guides"
+              parent="base.menu_administration"
+              action="llm_odoo_guide_sync_action"
+              sequence="60"/>
+</odoo>

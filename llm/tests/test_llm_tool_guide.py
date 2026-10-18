@@ -31,11 +31,11 @@ class TestToolGuide(TransactionCase):
             values["allowed_group_ids"] = [(6, 0, [group.id])]
         return self.env["llm.tool.guide"].create(values)
 
-    def _retrieve(self, user, code=None):
+    def _retrieve(self, user, code=None, query=None):
         return (
             self.env["llm.tool.builtin.guide"]
             .with_user(user)
-            .odoo_model_guide_retriever(code)
+            .odoo_model_guide_retriever(code=code, query=query)
         )
 
     def test_readable_guides_filters_by_group(self):
@@ -59,16 +59,17 @@ class TestToolGuide(TransactionCase):
         self.assertIn("public", outsider_codes)
         self.assertNotIn("restricted", outsider_codes)
 
-    def test_retriever_returns_index_without_code(self):
+    def test_retriever_returns_groups_without_code(self):
         self._make_guide("alpha")
+        self._make_guide("alpha-billing")
         self._make_guide("beta")
 
         result = self._retrieve(self.env.user)
 
-        self.assertIn("guides", result)
-        codes = {g["code"] for g in result["guides"]}
-        self.assertIn("alpha", codes)
-        self.assertIn("beta", codes)
+        self.assertIn("groups", result)
+        groups = {g["code"]: g["guide_count"] for g in result["groups"]}
+        self.assertEqual(groups["alpha"], 2)
+        self.assertEqual(groups["beta"], 1)
 
     def test_retriever_returns_body_with_code(self):
         self._make_guide("alpha", body="Do alpha things")
@@ -84,15 +85,34 @@ class TestToolGuide(TransactionCase):
         outsider = self._make_user("retriever_outsider")
 
         index = self._retrieve(outsider)
-        codes = {g["code"] for g in index["guides"]}
-        self.assertNotIn("secret", codes)
+        group_codes = {g["code"] for g in index["groups"]}
+        self.assertNotIn("secret", group_codes)
 
         body = self._retrieve(outsider, "secret")
         self.assertIn("error", body)
 
+    def test_retriever_query_filters_by_substring(self):
+        self._make_guide("alpha")
+        self._make_guide("alpha-billing")
+        self._make_guide("beta")
+
+        result = self._retrieve(self.env.user, query="alpha")
+
+        codes = {g["code"] for g in result["guides"]}
+        self.assertEqual(codes, {"alpha", "alpha-billing"})
+        self.assertEqual(result["count"], 2)
+
+    def test_retriever_code_precedes_query(self):
+        self._make_guide("alpha", body="Body alpha")
+
+        result = self._retrieve(self.env.user, "alpha", query="beta")
+
+        self.assertEqual(result["code"], "alpha")
+        self.assertEqual(result["body"], "Body alpha")
+
     def test_dynamic_description_lists_readable_keywords(self):
         group = self._make_group("Dynamic Group")
-        self._make_guide("skillhub")
+        self._make_guide("public")
         self._make_guide("secret", group=group)
         member = self._make_user("dynamic_member", group)
         outsider = self._make_user("dynamic_outsider")
@@ -108,7 +128,7 @@ class TestToolGuide(TransactionCase):
             ._mcp_dynamic_description()
         )
 
-        self.assertIn("skillhub", member_desc)
+        self.assertIn("public", member_desc)
         self.assertIn("secret", member_desc)
-        self.assertIn("skillhub", outsider_desc)
+        self.assertIn("public", outsider_desc)
         self.assertNotIn("secret", outsider_desc)
