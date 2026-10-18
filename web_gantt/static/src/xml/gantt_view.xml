@@ -134,7 +134,7 @@
             t-on-mousemove="(ev) => this.onMouseMove(ev)"
             t-on-mouseup="(ev) => this.onMouseUp(ev)"
             t-on-mouseleave="() => this.onMouseLeave()"
-            t-on-dblclick="(ev) => this.onDoubleClick(ev)"
+            t-on-click="(ev) => this.onClick(ev)"
             t-on-wheel.prevent="(ev) => this.onWheel(ev)">
             
             <div class="position-relative w-100 h-100" t-ref="ganttContainer">
