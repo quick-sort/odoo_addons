@@ -782,6 +782,12 @@ export class GanttRenderer extends Component {
             return;
         }
 
+        // The left sidebar opens the task form on click (see onClick); it is
+        // not a drag/pan surface.
+        if (x < this.sidebarWidth) {
+            return;
+        }
+
         if (!this.props.editable) {
             return;
         }
@@ -897,12 +903,20 @@ export class GanttRenderer extends Component {
         }
     }
 
-    onDoubleClick(e) {
+    onClick(e) {
         const rect = this.canvasRef.el.getBoundingClientRect();
-        const task = this.getTaskAt(e.clientX - rect.left, e.clientY - rect.top);
-        
-        if (task) {
-            this.dispatchEvent('task-clicked', { taskId: task.id });
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        // Only the left sidebar opens the task form; clicking a task bar in
+        // the chart area does nothing (it is a drag surface).
+        if (x >= this.sidebarWidth) {
+            return;
+        }
+        const rows = this.getRows(this.props.data);
+        const index = Math.floor((y - this.headerHeight + this.state.scrollY) / this.cellHeight);
+        const row = rows[index];
+        if (row && row.type === 'task') {
+            this.dispatchEvent('task-clicked', { taskId: row.task.id });
         }
     }
 
