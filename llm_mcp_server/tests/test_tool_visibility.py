@@ -25,17 +25,16 @@ class TestMCPToolVisibility(TransactionCase):
         result = self.env["llm.tool"].with_user(user).get_mcp_tools_list()
         return {tool.name for tool in result.tools}
 
-    def test_unassigned_tool_visible_to_everyone(self):
+    def test_unassigned_tool_admin_only(self):
         group = self._make_group("MCP Visibility A")
-        other = self._make_group("MCP Visibility B")
         tool = self.env["llm.tool"].search([], limit=1)
         tool.allowed_group_ids = [(5,)]
 
         member = self._make_user("mcp_vis_member_a", group)
-        outsider = self._make_user("mcp_vis_outsider_a", other)
+        admin = self.env.ref("base.user_admin")
 
-        self.assertIn(tool.name, self._tool_names(member))
-        self.assertIn(tool.name, self._tool_names(outsider))
+        self.assertNotIn(tool.name, self._tool_names(member))
+        self.assertIn(tool.name, self._tool_names(admin))
 
     def test_group_restricted_tool_hidden_from_outsider(self):
         group = self._make_group("MCP Visibility C")
@@ -75,7 +74,8 @@ class TestMCPToolVisibility(TransactionCase):
         self.assertIn(member, tool.authorized_user_ids)
         self.assertNotIn(outsider, tool.authorized_user_ids)
 
-    def test_unrestricted_tool_has_no_authorized_users(self):
+    def test_unrestricted_tool_authorized_users_are_admins(self):
         tool = self.env["llm.tool"].search([], limit=1)
         tool.allowed_group_ids = [(5,)]
-        self.assertFalse(tool.authorized_user_ids)
+        admin = self.env.ref("base.user_admin")
+        self.assertIn(admin, tool.authorized_user_ids)

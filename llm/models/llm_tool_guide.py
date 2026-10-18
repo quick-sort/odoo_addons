@@ -36,9 +36,11 @@ class LLMToolGuide(models.Model):
     allowed_group_ids = fields.Many2many(
         "res.groups",
         string="Allowed Groups",
+        default=lambda self: self.env.ref("base.group_user").ids,
         help="Only users in one of these groups see this guide through the "
-        "retriever. Leave empty to expose it to everyone. Reference the same "
-        "group(s) as the module's tools' allowed_group_ids.",
+        "retriever. Defaults to the internal-user group; leave empty to "
+        "restrict it to administrators only. Reference the same group(s) as "
+        "the module's tools' allowed_group_ids.",
     )
     active = fields.Boolean(default=True)
 
@@ -51,14 +53,12 @@ class LLMToolGuide(models.Model):
         """Domain fragment restricting guides to the current user.
 
         Mirrors ``llm_mcp_server``'s ``_mcp_visibility_domain``: a guide with no
-        ``allowed_group_ids`` is visible to everyone; otherwise only to users in
-        one of those groups. Superusers see everything.
+        ``allowed_group_ids`` is visible to administrators only; otherwise only
+        to users in one of those groups. Superusers see everything.
         """
         if self.env.su or self.env.user.has_group("base.group_system"):
             return []
         return [
-            "|",
-            ("allowed_group_ids", "=", False),
             ("allowed_group_ids", "in", self.env.user.group_ids.ids),
         ]
 
