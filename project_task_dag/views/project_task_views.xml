@@ -11,10 +11,9 @@
         <field name="inherit_id" ref="project.edit_project"/>
         <field name="arch" type="xml">
             <xpath expr="//div[@name='button_box']" position="inside">
-                <button class="oe_stat_button" type="action"
-                        name="%(action_task_dependency_graph)d"
+                <button class="oe_stat_button" type="object"
+                        name="action_open_task_dependency_graph"
                         icon="fa-sitemap"
-                        context="{'active_id': id}"
                         string="Dependencies"/>
             </xpath>
         </field>
