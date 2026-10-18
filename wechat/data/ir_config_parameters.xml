@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <record id="wechat_token_cache_ttl" model="ir.config_parameter">
+            <field name="key">wechat.token.cache_ttl</field>
+            <field name="value">7200</field>
+        </record>
+
+        <record id="wechat_message_keep_days" model="ir.config_parameter">
+            <field name="key">wechat.message.keep_days</field>
+            <field name="value">90</field>
+        </record>
+
+        <record id="wechat_auto_reply_enabled" model="ir.config_parameter">
+            <field name="key">wechat.auto_reply_enabled</field>
+            <field name="value">True</field>
+        </record>
+
+        <record id="wechat_keywords_reply_enabled" model="ir.config_parameter">
+            <field name="key">wechat.keywords_reply_enabled</field>
+            <field name="value">True</field>
+        </record>
+    </data>
+</odoo>

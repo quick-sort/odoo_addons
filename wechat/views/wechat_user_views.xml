@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_wechat_user_list" model="ir.ui.view">
+        <field name="name">wechat.user.list</field>
+        <field name="model">wechat.user</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="display_name" string="昵称/OpenID"/>
+                <field name="company_id" groups="base.group_multi_company"/>
+                <field name="wechat_subscribe"/>
+                <field name="group_name"/>
+                <field name="wechat_subscribe_scene"/>
+                <field name="wechat_subscribe_time" optional="show"/>
+                <field name="message_count" string="消息数"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_wechat_user_form" model="ir.ui.view">
+        <field name="name">wechat.user.form</field>
+        <field name="model">wechat.user</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <group string="基本信息">
+                            <field name="company_id" groups="base.group_multi_company"/>
+                            <field name="wechat_nickname"/>
+                            <field name="wechat_openid" readonly="1"/>
+                            <field name="wechat_unionid" readonly="1"/>
+                            <field name="wechat_headimg" readonly="1"/>
+                        </group>
+                        <group string="关注状态">
+                            <field name="wechat_subscribe" readonly="1"/>
+                            <field name="wechat_subscribe_time"/>
+                            <field name="wechat_subscribe_scene"/>
+                            <field name="remark"/>
+                        </group>
+                    </group>
+                    <group string="分组与标签">
+                        <group>
+                            <field name="group_id"/>
+                            <field name="group_name"/>
+                            <field name="tag_ids" widget="many2many_tags"/>
+                        </group>
+                        <group string="场景二维码">
+                            <field name="qr_scene"/>
+                            <field name="qr_scene_str"/>
+                        </group>
+                    </group>
+                    <group string="统计">
+                        <group>
+                            <field name="message_count"/>
+                            <field name="last_message_time"/>
+                        </group>
+                        <group>
+                            <button name="action_sync_user_info" string="同步用户信息"
+                                    type="object" class="btn-secondary"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_wechat_user_search" model="ir.ui.view">
+        <field name="name">wechat.user.search</field>
+        <field name="model">wechat.user</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="wechat_nickname"/>
+                <field name="wechat_openid"/>
+                <field name="company_id" groups="base.group_multi_company"/>
+                <filter string="已关注" name="subscribed"
+                        domain="[('wechat_subscribe', '=', 'subscribed')]"/>
+                <filter string="未关注" name="unsubscribed"
+                        domain="[('wechat_subscribe', '=', 'unsubscribed')]"/>
+                <filter string="公司" name="group_company"
+                            context="{'group_by': 'company_id'}"/>
+                    <filter string="关注状态" name="group_subscribe"
+                            context="{'group_by': 'wechat_subscribe'}"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_wechat_user" model="ir.actions.act_window">
+        <field name="name">公众号用户</field>
+        <field name="res_model">wechat.user</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'search_default_subscribed': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">还没有公众号用户</p>
+            <p>用户关注公众号后会自动创建用户记录。</p>
+        </field>
+    </record>
+
+    <!-- Tags -->
+    <record id="view_wechat_user_tag_list" model="ir.ui.view">
+        <field name="name">wechat.user.tag.list</field>
+        <field name="model">wechat.user.tag</field>
+        <field name="arch" type="xml">
+            <list editable="bottom">
+                <field name="name"/>
+                <field name="company_id" groups="base.group_multi_company"/>
+                <field name="wechat_tag_id"/>
+                <field name="user_count"/>
+                <field name="active" column_invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_wechat_user_tag" model="ir.actions.act_window">
+        <field name="name">用户标签</field>
+        <field name="res_model">wechat.user.tag</field>
+        <field name="view_mode">list</field>
+    </record>
+
+
+</odoo>

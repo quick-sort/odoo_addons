@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_wechat_menu_list" model="ir.ui.view">
+        <field name="name">wechat.menu.list</field>
+        <field name="model">wechat.menu</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="company_id" groups="base.group_multi_company"/>
+                <field name="sync_status"/>
+                <field name="last_sync_time"/>
+                <field name="active" column_invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_wechat_menu_form" model="ir.ui.view">
+        <field name="name">wechat.menu.form</field>
+        <field name="model">wechat.menu</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_sync" string="同步到微信"
+                                type="object" class="btn-primary"
+                                icon="fa-cloud-upload"/>
+                        <button name="action_delete_remote" string="删除远程菜单"
+                                type="object" class="btn-secondary"
+                                icon="fa-trash-o" confirm="确认删除微信侧菜单？"/>
+                    </div>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name" placeholder="菜单名称"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                            <field name="active" widget="boolean_toggle"/>
+                        </group>
+                        <group string="同步状态">
+                            <field name="sync_status" readonly="1"/>
+                            <field name="last_sync_time" readonly="1"/>
+                            <field name="last_error" readonly="1"
+                                   invisible="sync_status != 'failed'"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="菜单结构" name="buttons">
+                            <field name="menu_buttons" nolabel="1">
+                                <list editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="name"/>
+                                    <field name="button_type"/>
+                                    <field name="key"
+                                           invisible="button_type != 'click' and button_type not in ('scancode_push', 'scancode_waitmsg', 'pic_sysphoto', 'pic_photo_or_album', 'pic_weixin', 'location_select')"/>
+                                    <field name="url" invisible="button_type != 'view' and button_type != 'miniprogram'"/>
+                                    <field name="active" column_invisible="1"/>
+                                </list>
+                            </field>
+                            <group string="子菜单">
+                                <field name="menu_buttons"
+                                       context="{'default_parent_id': id}"/>
+                            </group>
+                        </page>
+                        <page string="菜单JSON" name="json">
+                            <field name="menu_json" nolabel="1" readonly="1"/>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_wechat_menu_button_list" model="ir.ui.view">
+        <field name="name">wechat.menu.button.list</field>
+        <field name="model">wechat.menu.button</field>
+        <field name="arch" type="xml">
+            <list editable="bottom">
+                <field name="sequence" widget="handle"/>
+                <field name="menu_id"/>
+                <field name="parent_id"/>
+                <field name="name"/>
+                <field name="button_type"/>
+                <field name="key"/>
+                <field name="url"/>
+                <field name="active" column_invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_wechat_menu" model="ir.actions.act_window">
+        <field name="name">自定义菜单</field>
+        <field name="res_model">wechat.menu</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">还没有自定义菜单</p>
+            <p>创建自定义菜单，用户点击菜单可以触发相应操作。</p>
+        </field>
+    </record>
+</odoo>

@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="0">
+        <record id="group_wechat_user" model="res.groups">
+            <field name="name">WeChat User</field>
+            <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+        </record>
+
+        <record id="group_wechat_admin" model="res.groups">
+            <field name="name">WeChat Administrator</field>
+            <field name="implied_ids"
+                   eval="[(4, ref('base.group_user')), (4, ref('group_wechat_user'))]"/>
+        </record>
+    </data>
+
+    <data noupdate="1">
+        <record id="wechat_message_comp_rule" model="ir.rule">
+            <field name="name">WeChat Message: multi-company</field>
+            <field name="model_id" ref="model_wechat_message"/>
+            <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+        </record>
+
+        <record id="wechat_message_log_comp_rule" model="ir.rule">
+            <field name="name">WeChat Message Log: multi-company</field>
+            <field name="model_id" ref="model_wechat_message_log"/>
+            <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+        </record>
+
+        <record id="wechat_user_comp_rule" model="ir.rule">
+            <field name="name">WeChat User: multi-company</field>
+            <field name="model_id" ref="model_wechat_user"/>
+            <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+        </record>
+
+        <record id="wechat_user_tag_comp_rule" model="ir.rule">
+            <field name="name">WeChat User Tag: multi-company</field>
+            <field name="model_id" ref="model_wechat_user_tag"/>
+            <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+        </record>
+
+        <record id="wechat_user_group_comp_rule" model="ir.rule">
+            <field name="name">WeChat User Group: multi-company</field>
+            <field name="model_id" ref="model_wechat_user_group"/>
+            <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+        </record>
+
+        <record id="wechat_message_rule_comp_rule" model="ir.rule">
+            <field name="name">WeChat Message Rule: multi-company</field>
+            <field name="model_id" ref="model_wechat_message_rule"/>
+            <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+        </record>
+
+        <record id="wechat_auto_reply_default_comp_rule" model="ir.rule">
+            <field name="name">WeChat Default Reply: multi-company</field>
+            <field name="model_id" ref="model_wechat_auto_reply_default"/>
+            <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+        </record>
+
+        <record id="wechat_subscribe_reply_comp_rule" model="ir.rule">
+            <field name="name">WeChat Subscribe Reply: multi-company</field>
+            <field name="model_id" ref="model_wechat_subscribe_reply"/>
+            <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+        </record>
+
+        <record id="wechat_menu_comp_rule" model="ir.rule">
+            <field name="name">WeChat Menu: multi-company</field>
+            <field name="model_id" ref="model_wechat_menu"/>
+            <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+        </record>
+
+        <record id="wechat_template_message_comp_rule" model="ir.rule">
+            <field name="name">WeChat Template Message: multi-company</field>
+            <field name="model_id" ref="model_wechat_template_message"/>
+            <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+        </record>
+
+        <record id="wechat_mass_message_comp_rule" model="ir.rule">
+            <field name="name">WeChat Mass Message: multi-company</field>
+            <field name="model_id" ref="model_wechat_mass_message"/>
+            <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+        </record>
+    </data>
+</odoo>

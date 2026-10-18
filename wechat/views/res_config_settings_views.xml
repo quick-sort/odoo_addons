@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_wechat" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.wechat</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+                <app data-string="微信" string="微信" name="wechat">
+                    <block title="自动回复" name="wechat_auto_reply">
+                        <setting string="关键字回复" id="wechat_keywords_reply">
+                            <field name="wechat_keywords_reply_enabled"/>
+                        </setting>
+                        <setting string="默认回复" id="wechat_default_reply"
+                                 help="无关键字匹配时回复默认内容">
+                            <field name="wechat_auto_reply_enabled"/>
+                        </setting>
+                    </block>
+                    <block title="功能开关" name="wechat_features">
+                        <setting string="自定义菜单" id="wechat_menu_setting">
+                            <field name="wechat_menu_enabled"/>
+                        </setting>
+                        <setting string="模板消息" id="wechat_template_setting">
+                            <field name="wechat_template_message_enabled"/>
+                        </setting>
+                    </block>
+                    <block title="数据保留" name="wechat_retention">
+                        <setting string="消息保留天数"
+                                 id="wechat_keep_days_setting"
+                                 help="超过该天数的消息记录将被每日清理">
+                            <field name="wechat_message_keep_days"/>
+                        </setting>
+                    </block>
+                </app>
+            </xpath>
+        </field>
+    </record>
+</odoo>

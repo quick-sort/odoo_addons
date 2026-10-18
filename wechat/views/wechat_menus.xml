@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="wechat_menu_root"
+              name="微信"
+              web_icon="wechat,static/description/icon.png"
+              sequence="80"/>
+
+    <menuitem id="wechat_menu_config"
+              name="配置"
+              parent="wechat_menu_root"
+              sequence="90"/>
+
+    <menuitem id="wechat_menu_rule"
+              name="关键字回复"
+              parent="wechat_menu_root"
+              action="action_wechat_message_rule"
+              sequence="10"/>
+
+    <menuitem id="wechat_menu_menu_mgmt"
+              name="自定义菜单"
+              parent="wechat_menu_root"
+              action="action_wechat_menu"
+              sequence="20"/>
+
+    <menuitem id="wechat_menu_template"
+              name="模板消息"
+              parent="wechat_menu_root"
+              action="action_wechat_template_message"
+              sequence="30"/>
+
+    <menuitem id="wechat_menu_mass"
+              name="群发消息"
+              parent="wechat_menu_root"
+              action="action_wechat_mass_message"
+              sequence="40"/>
+
+    <menuitem id="wechat_menu_user"
+              name="公众号用户"
+              parent="wechat_menu_root"
+              action="action_wechat_user"
+              sequence="50"/>
+
+    <menuitem id="wechat_menu_message_log"
+              name="消息记录"
+              parent="wechat_menu_root"
+              action="action_wechat_message_log"
+              sequence="60"/>
+
+    <menuitem id="wechat_menu_default_reply"
+              name="默认回复"
+              parent="wechat_menu_config"
+              action="action_wechat_auto_reply_default"
+              sequence="10"/>
+
+    <menuitem id="wechat_menu_subscribe_reply"
+              name="关注回复"
+              parent="wechat_menu_config"
+              action="action_wechat_subscribe_reply"
+              sequence="20"/>
+
+    <menuitem id="wechat_menu_user_tag"
+              name="用户标签"
+              parent="wechat_menu_config"
+              action="action_wechat_user_tag"
+              sequence="30"/>
+</odoo>

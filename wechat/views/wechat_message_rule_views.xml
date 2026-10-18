@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_wechat_message_rule_list" model="ir.ui.view">
+        <field name="name">wechat.message.rule.list</field>
+        <field name="model">wechat.message.rule</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="keyword"/>
+                <field name="match_type"/>
+                <field name="reply_type"/>
+                <field name="company_id" groups="base.group_multi_company"/>
+                <field name="reply_count"/>
+                <field name="active" column_invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_wechat_message_rule_form" model="ir.ui.view">
+        <field name="name">wechat.message.rule.form</field>
+        <field name="model">wechat.message.rule</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <widget name="web_ribbon" title="归档"
+                            bg_color="text-bg-danger"
+                            invisible="active"/>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name" placeholder="规则名称"/></h1>
+                    </div>
+                    <group>
+                        <group string="匹配规则">
+                            <field name="active" invisible="1"/>
+                            <field name="keyword"/>
+                            <field name="match_type"/>
+                            <field name="sequence"/>
+                        </group>
+                        <group string="回复类型">
+                            <field name="reply_type"/>
+                        </group>
+                    </group>
+                    <group string="回复内容">
+                        <group invisible="reply_type != 'text'">
+                            <field name="reply_content" nolabel="1" colspan="2"/>
+                        </group>
+                        <group invisible="reply_type not in ('image', 'voice', 'video')">
+                            <field name="media_id"/>
+                        </group>
+                        <group invisible="reply_type not in ('video', 'music', 'news')">
+                            <field name="title"/>
+                            <field name="description"/>
+                            <field name="url"/>
+                            <field name="thumb_media_id"
+                                   invisible="reply_type != 'music'"/>
+                        </group>
+                    </group>
+                    <group string="统计">
+                        <group>
+                            <field name="reply_count" readonly="1"/>
+                            <field name="last_trigger_time" readonly="1"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_wechat_message_rule_search" model="ir.ui.view">
+        <field name="name">wechat.message.rule.search</field>
+        <field name="model">wechat.message.rule</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="keyword"/>
+                <filter string="已归档" name="inactive"
+                        domain="[('active', '=', False)]"/>
+                <filter string="匹配方式" name="group_match_type"
+                            context="{'group_by': 'match_type'}"/>
+                    <filter string="回复类型" name="group_reply_type"
+                            context="{'group_by': 'reply_type'}"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_wechat_message_rule" model="ir.actions.act_window">
+        <field name="name">关键字回复规则</field>
+        <field name="res_model">wechat.message.rule</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">还没有关键字回复规则</p>
+            <p>创建关键字回复规则，当用户发送特定关键字时自动回复。</p>
+        </field>
+    </record>
+
+    <!-- Default reply -->
+    <record id="view_wechat_auto_reply_default_form" model="ir.ui.view">
+        <field name="name">wechat.auto.reply.default.form</field>
+        <field name="model">wechat.auto.reply.default</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <group string="适用范围">
+                            <field name="company_id" groups="base.group_multi_company"/>
+                            <field name="active" widget="boolean_toggle"/>
+                        </group>
+                        <group string="回复类型">
+                            <field name="reply_type"/>
+                        </group>
+                    </group>
+                    <group string="回复内容">
+                        <group invisible="reply_type != 'text'">
+                            <field name="reply_content" nolabel="1" colspan="2"/>
+                        </group>
+                        <group invisible="reply_type != 'image'">
+                            <field name="media_id"/>
+                        </group>
+                        <group invisible="reply_type != 'news'">
+                            <field name="title"/>
+                            <field name="description"/>
+                            <field name="url"/>
+                            <field name="media_id" string="图片素材ID"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_wechat_auto_reply_default" model="ir.actions.act_window">
+        <field name="name">默认回复</field>
+        <field name="res_model">wechat.auto.reply.default</field>
+        <field name="view_mode">form</field>
+    </record>
+
+    <!-- Subscribe reply -->
+    <record id="view_wechat_subscribe_reply_form" model="ir.ui.view">
+        <field name="name">wechat.subscribe.reply.form</field>
+        <field name="model">wechat.subscribe.reply</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <group string="适用范围">
+                            <field name="company_id" groups="base.group_multi_company"/>
+                            <field name="active" widget="boolean_toggle"/>
+                        </group>
+                        <group string="回复类型">
+                            <field name="reply_type"/>
+                        </group>
+                    </group>
+                    <group string="回复内容">
+                        <group invisible="reply_type != 'text'">
+                            <field name="reply_content" nolabel="1" colspan="2"/>
+                        </group>
+                        <group invisible="reply_type != 'image'">
+                            <field name="media_id"/>
+                        </group>
+                        <group invisible="reply_type != 'news'">
+                            <field name="title"/>
+                            <field name="description"/>
+                            <field name="url"/>
+                            <field name="media_id" string="图片素材ID"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_wechat_subscribe_reply" model="ir.actions.act_window">
+        <field name="name">关注回复</field>
+        <field name="res_model">wechat.subscribe.reply</field>
+        <field name="view_mode">form</field>
+    </record>
+</odoo>
