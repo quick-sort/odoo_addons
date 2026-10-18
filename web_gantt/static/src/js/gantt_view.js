@@ -22,6 +22,7 @@ export class GanttController extends Component {
             isLoading: false,
             editable: true,
             hasCenteredToday: false,
+            hasLoadedOnce: false,
         });
 
         onWillStart(async () => await this.loadGanttData());
@@ -38,7 +39,14 @@ export class GanttController extends Component {
     }
 
     async loadGanttData(props = this.props) {
-        this.state.isLoading = true;
+        // Only show the spinner (which unmounts the renderer via t-if) on the
+        // first load, when there is nothing to display yet. On reloads we keep
+        // the renderer mounted with the previous data so scroll/zoom survive
+        // and the canvas just redraws in place.
+        const firstLoad = !this.state.hasLoadedOnce;
+        if (firstLoad) {
+            this.state.isLoading = true;
+        }
         try {
             this.state.ganttData = await this.orm.call(
                 props.resModel,
@@ -49,6 +57,7 @@ export class GanttController extends Component {
                     group_by: this.state.groupBy
                 }
             );
+            this.state.hasLoadedOnce = true;
             // After first successful load, center on today once
             if (!this.state.hasCenteredToday) {
                 window.dispatchEvent(new CustomEvent('gantt-navigate', { detail: { type: 'today' } }));
@@ -81,6 +90,9 @@ export class GanttController extends Component {
 
             await this.orm.write(this.props.resModel, [taskId], updateData);
             this.notification.add("Task updated successfully", { type: "success" });
+            // Reload so that any cascade from project_task_plan (auto-scheduling
+            // of dependent tasks) is reflected too; the renderer stays mounted
+            // across this reload, so no spinner flash / scroll reset.
             await this.loadGanttData();
         } catch (error) {
             this.notification.add("Failed to update task", { type: "danger" });
