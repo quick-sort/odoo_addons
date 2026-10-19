@@ -117,7 +117,13 @@ class SkillHubTool(models.AbstractModel):
                 existing.write({**values, "state": "active"})
                 skill = existing
             else:
-                skill = self.env["skillhub.skill"].create({"code": code, **values})
+                # The ACL no longer lets regular users create skill records --
+                # publishing is the only way in, which is the point. sudo keeps
+                # ``create_uid`` on the caller, so ownership stays right, and
+                # every check above already ran under the caller's identity.
+                skill = self.env["skillhub.skill"].sudo().create(
+                    {"code": code, **values}
+                )
             # The record is written, so the package may take its final place.
             # Promoting it only now is what stops a publish that dies half way
             # from replacing the package the record still points at.
@@ -149,11 +155,21 @@ class SkillHubTool(models.AbstractModel):
         # is refused and the share grants the listing but not the package.
         #
         # So elevate -- but only here, and only for what the check above has
-        # already approved. The path comes from the record, never from the
-        # arguments: this must not become an arbitrary-file-download door.
+        # already approved.
+        #
+        # The path is *derived* from ``code`` and never taken from the stored
+        # field. ``storage_path`` is writable, so a record can be built that
+        # points at any file on the backend; handing that value to the
+        # downloader would turn "share a skill" into "read any file".
+        storage_path = self._skill_path(skill.code)
+        if skill.storage_path != storage_path:
+            raise UserError(
+                "This skill record does not point at its own package; "
+                "refusing to download it."
+            )
         backend = skill.sudo().backend_id
         spec = self.env["storage.mcp.tool"].sudo()._download_spec(
-            backend, skill.storage_path
+            backend, storage_path
         )
         return {
             "download": spec,
