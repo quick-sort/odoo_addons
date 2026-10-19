@@ -99,7 +99,9 @@
         <!-- Add responsive icons to buttons -->
         <xpath expr="//button[hasclass('o-kanban-button-new')]" position="replace">
             <button
+                t-if="canCreate and props.showButtons"
                 type="button"
+                t-att-disabled="isNewButtonDisabled"
                 class="btn btn-primary o-kanban-button-new"
                 accesskey="c"
                 t-on-click="() => this.createRecord()"
@@ -117,6 +119,7 @@
         <!-- Add responsive icons to buttons -->
         <xpath expr="//button[hasclass('o_list_button_add')]" position="replace">
             <button
+                t-if="!editedRecord and activeActions.create and props.showButtons"
                 type="button"
                 class="btn btn-primary o_list_button_add"
                 data-hotkey="c"
