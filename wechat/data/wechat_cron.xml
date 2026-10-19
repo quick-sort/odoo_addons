@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <record id="ir_cron_wechat_message_cleanup" model="ir.cron">
+            <field name="name">WeChat: 清理过期消息记录</field>
+            <field name="model_id" ref="model_wechat_message_cron"/>
+            <field name="state">code</field>
+            <field name="code">model.run_cleanup()</field>
+            <field name="interval_type">days</field>
+            <field name="interval_number">1</field>
+            <field name="active">True</field>
+        </record>
+    </data>
+</odoo>

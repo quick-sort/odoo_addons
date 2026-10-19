@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_company_wechat_form" model="ir.ui.view">
+        <field name="name">res.company.wechat.form</field>
+        <field name="model">res.company</field>
+        <field name="inherit_id" ref="base.view_company_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="微信" name="wechat_config" groups="wechat.group_wechat_admin">
+                    <group string="公众号凭证" name="wechat_basic_config">
+                        <group>
+                            <field name="wechat_app_id"/>
+                            <field name="wechat_app_secret" password="True"/>
+                            <field name="wechat_token"/>
+                            <field name="wechat_aes_key"/>
+                        </group>
+                        <group string="API状态">
+                            <field name="wechat_access_token" readonly="1"/>
+                            <field name="wechat_token_expire" readonly="1"/>
+                            <button name="action_test_wechat_connection"
+                                    string="测试连接" type="object"
+                                    class="btn-secondary" colspan="2"/>
+                        </group>
+                    </group>
+                    <group string="服务器配置" name="wechat_webhook_config">
+                        <group colspan="2">
+                            <div class="alert alert-info" role="alert">
+                                <p>回调 URL: <code>/wechat/mp/webhook/&lt;公司ID&gt;</code></p>
+                                <p>请将此 URL 与上方 Token、EncodingAESKey 一起配置到微信公众平台的「服务器配置」。</p>
+                            </div>
+                        </group>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>
