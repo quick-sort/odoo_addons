@@ -273,6 +273,81 @@ channel 实现的情况下把「提问」与「回包」配对。这是 channel/
 | 独立 WS 进程（`websockets` 库）承载 aibot | 与 Odoo 解耦更彻底，但「在 Odoo 里做 addon」的诉求下多一个进程/端口/运维面；MVP 先用 gevent 承载，将来确需独立扩缩容再拆。 |
 | agent 与 channel 合并成一个模型 | 无法表达两轴正交（见上），会把 `agent_type` 与 `channel_type` 搅成一维笛卡尔积。 |
 | 用 `_component_match` 消歧 | 框架在 collection/model 之外无法消歧，会抛 `SeveralComponentError`。usage 后缀天然唯一。 |
+| impersonate owner（`with_user(owner_user_id)` 执行） | 审计里全是 owner，分不清「人干/agent 干」；且 Odoo 无「比某用户更窄」的原生机制，无法把 agent 收窄到比 owner 更小。见「执行身份与权限」。 |
+
+## 执行身份与权限（agent 挂在用户上）
+
+### 问题
+
+agent 要操作 Odoo 数据（读记录、写记录、发消息），就必须有一个**执行身份**。
+`agenthub.agent` 目前没有任何身份字段——`agent.reply()` 直接在调用者的 env 里
+跑。本层回答：agent 以谁的身份、用谁的权限，怎么既「继承某个用户的权限」，
+又「独立追踪、独立限制」。
+
+### 三个身份，拆开
+
+| 身份 | 字段 | 作用 | 用于执行？ |
+|---|---|---|---|
+| 归属/授权人 | `owner_user_id`（M2o res.users） | agent 属于谁、谁授权它；审计归属、权限上限 | 否 |
+| 执行身份 | `user_id`（M2o res.users，required） | agent 的工具调用/读写记录实际跑在谁的环境 | 是 |
+| 显示身份 | `partner_id`（M2o res.partner） | agent 在 Discuss 里的消息作者（= `user_id.partner_id`） | 否 |
+
+**「挂在某个用户上」= `user_id` 指向一个专职 service user，而不是 owner 本人。**
+粒度：**每个 agent 一个 service user**——独立审计、独立收窄，互不串扰。
+
+### 执行契约
+
+对齐 `llm.agent._run_in_thread`（`llm/models/llm_agent.py:449`）：caller 用
+`with_user` 绑定执行身份，此后 thread 消息与工具调用都留在这个 env；provider
+凭据仍由 provider 层用窄 `sudo()` 读。
+
+```python
+# agenthub.agent
+user_id = fields.Many2one("res.users", required=True)      # 执行身份（service user）
+owner_user_id = fields.Many2one("res.users")               # 归属/授权（可选）
+
+def _agent_env(self):
+    self.ensure_one()
+    return self.env(user=self.user_id)   # 不用 sudo()
+```
+
+路由层：所有 agent 动作在 `agent._agent_env()` 下执行——
+
+```python
+adapter.reply(agent.with_env(agent._agent_env()), message)
+```
+
+工具/记录访问用 `self.env[model]`（**never sudo**），绑定用户的 ACL + record
+rule 天然生效（对齐 `llm/models/llm_tool.py:482`）。`sudo()` 只允许出现在
+「读自己的 provider 配置/密钥」这种窄场景（照 `llm` provider 层的做法）。
+
+### 为什么是专职 service user，而不是 impersonate owner
+
+1. **继承**：把该有的组授给 service user 即可。
+2. **独立追踪**：`create_uid`/`write_uid`/`mail.message.author_id` 都是该
+   service user，审计永远能分清「人干的还是 agent 干的」。impersonate owner
+   会让审计里全是 owner，分不清。
+3. **独立限制**：service user 有自己的组和 record rule。从它身上摘掉一个组 =
+   agent 失去该能力，**不动 owner**。Odoo 没有「比某用户更窄」的原生机制
+   （除了按 context 写 rule），所以 impersonate owner **做不到独立收窄**。
+4. **权限上限**：约束 `service_user.groups ⊆ owner_user.groups`——把「继承用户
+   的权限」表达为**天花板**，再通过裁剪 service user 的组在内部**进一步限制**。
+   一条规则同时表达「继承 + 限制」。
+
+### 护栏
+
+- constraint：`user_id` 必须是内部用户（`share=False`）、`active=True`；
+  `user_id != owner_user_id`（agent 不能就是 owner 本人）。
+- record rule 按 `agent_id` / `user_id` 收敛，让用户只看到自己 agent 的 thread。
+- 消息作者：`message_post(author_id=agent.partner_id)`，UI 上 agent 与人类可辨。
+
+### 与 Discuss channel 的关系
+
+`discuss.channel` 是**展示/传输层**（成员是 `discuss.channel.member`，身份是
+partner，不携带 ACL），**不是授权边界**。执行身份必须是 `res.users`，不能是
+partner。会话载体仍用 `mail.thread`/`mail.message`（`agenthub.thread` 已如此，
+天然出现在 Discuss 界面）。若要把 agent 显示为一个 Discuss 会话，把它的
+partner 加成 `discuss.channel.member`——那是 `agenthub_discuss` 入口 addon 的活。
 
 ## 后续扩展（不在本阶段，仅锚定方向）
 
@@ -282,5 +357,9 @@ channel 实现的情况下把「提问」与「回包」配对。这是 channel/
   `agenthub_human` 等，各加 `agenthub.agent.<type>` component。
 - `agenthub_discuss`：薄的入口 addon，把 `agenthub.thread` 接进 Discuss 聊天
   界面（`llm_discuss` 的 `llm.chat_client_action` 同款），core 保持 UI 无关。
+- **执行身份层**：`agenthub.agent` 加 `user_id`（专职 service user，每 agent 一个）
+  / `owner_user_id`，加 `_agent_env()` 执行契约、`share=False` 约束、按
+  `agent_id` 收敛的 record rule；路由层把 agent 动作包进 `_agent_env()`。
+  详见「执行身份与权限（agent 挂在用户上）」。
 - 路由规则模型：把「channel + peer pattern → 默认 agent」的自动绑定从
   thread 上显式 `agent_id` 中抽出来，作为可选的自动建会话层。
