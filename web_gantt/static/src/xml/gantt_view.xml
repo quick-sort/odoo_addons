@@ -60,7 +60,7 @@
                             </button>
                         </div>
 
-                        <div class="o_gantt_controller_mode btn-group btn-group-sm" role="group">
+                        <div t-if="!props.readonly" class="o_gantt_controller_mode btn-group btn-group-sm" role="group">
                             <button
                                 t-attf-class="btn btn-sm {{ state.editable ? 'btn-outline-secondary' : 'btn-primary' }}"
                                 t-on-click="() => this.toggleEditable()"

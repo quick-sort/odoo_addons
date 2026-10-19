@@ -4,6 +4,7 @@ import { registry } from "@web/core/registry";
 import { Layout } from "@web/search/layout";
 import { Component, onWillStart, useState, onWillUpdateProps } from "@odoo/owl";
 import { useService } from "@web/core/utils/hooks";
+import { exprToBoolean } from "@web/core/utils/strings";
 import { GanttRenderer } from "./gantt_renderer";
 
 export class GanttController extends Component {
@@ -14,18 +15,24 @@ export class GanttController extends Component {
         this.actionService = useService("action");
         this.orm = useService("orm");
         this.notification = useService("notification");
+        this.user = useService("user");
 
         this.state = useState({
             scale: 'month',
             groupBy: this.props.groupBy?.[0] || 'project_id',
             ganttData: [],
             isLoading: false,
-            editable: true,
+            editable: !this.props.readonly,
             hasCenteredToday: false,
             hasLoadedOnce: false,
         });
 
-        onWillStart(async () => await this.loadGanttData());
+        onWillStart(async () => {
+            await this.loadGanttData();
+            if (!this.props.readonly) {
+                this.state.editable = await this.user.checkAccessRight(this.props.resModel, "write");
+            }
+        });
         onWillUpdateProps(async (nextProps) => {
             if (JSON.stringify(nextProps.domain) !== JSON.stringify(this.props.domain) ||
                 nextProps.groupBy !== this.props.groupBy) {
@@ -152,6 +159,9 @@ export class GanttController extends Component {
     }
 
     toggleEditable() {
+        if (this.props.readonly) {
+            return;
+        }
         this.state.editable = !this.state.editable;
     }
 
@@ -200,6 +210,7 @@ export class GanttView extends Component {
             groupBy: this.state.groupBy,
             dateStart: this.props.archInfo?.dateStart || "date_start",
             dateStop: this.props.archInfo?.dateStop || "date_stop",
+            readonly: this.props.readonly,
         };
     }
 }
@@ -215,11 +226,13 @@ export const ganttView = {
 
     props: (genericProps) => {
         const { arch } = genericProps;
+        const editable = exprToBoolean(arch.getAttribute("edit"), true);
         return {
             ...genericProps,
             Model: undefined,
             Renderer: undefined,
             buttonTemplate: arch.getAttribute("button_template") || undefined,
+            readonly: genericProps.readonly || !editable,
             archInfo: {
                 fieldNames: [],
                 dateStart: arch.getAttribute("date_start") || "date_start",
