@@ -18,6 +18,22 @@ class StorageMcpRelay(http.Controller):
         rec = request.env["storage.mcp.token"].sudo()._find_by_raw(token)
         if not rec:
             return Response("Not found", status=404)
+
+        # A multipart body is an envelope around the file, not the file: the
+        # relay would store the boundary headers and form fields too. There is
+        # no unambiguous "the file" to pick out, so refuse rather than write a
+        # corrupted blob. Checked before the token is spent, so the caller can
+        # retry the same URL with the raw-body form.
+        if (
+            request.httprequest.method == "PUT"
+            and request.httprequest.mimetype == "multipart/form-data"
+        ):
+            return Response(
+                "Multipart uploads are not supported; send the file as the "
+                "raw request body (curl -T <file>).",
+                status=415,
+            )
+
         if not rec._use_once():
             return Response("Token already used", status=403)
 
@@ -40,6 +56,15 @@ class StorageMcpRelay(http.Controller):
         data = request.httprequest.get_data()
         if max_size and len(data) > max_size:
             return Response("Payload too large", status=413)
+        # Never turn a body the HTTP layer already swallowed into a successful
+        # empty upload: the caller would commit a zero-byte file believing it
+        # sent content.
+        if content_length and not data:
+            return Response(
+                "Empty body received; send the file as the raw request body "
+                "(curl -T <file>).",
+                status=400,
+            )
 
         digest = hashlib.sha256(data).hexdigest()
         with backend.open(rec.relative_path, "wb") as out:

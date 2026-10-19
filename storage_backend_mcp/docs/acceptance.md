@@ -67,6 +67,17 @@
 可返回其 body，body 覆盖 stage→curl→commit→consume 协议与 `file_id` 契约。 —
 `test_storage_guide_contributed`
 
+## AC-10 上传 body 与 Content-Type
+
+中转上传的 body 就是文件本身：
+
+- `application/x-www-form-urlencoded`（`curl --data-binary` 的默认 Content-Type）
+  不得被 Odoo 的 form 解析吞掉，必须按原始字节落盘 —
+  `test_form_content_type_does_not_lose_the_body`
+- `multipart/form-data` 是包裹文件的外壳，拒绝（415），且不消耗一次性 token —
+  `test_multipart_upload_is_refused_without_spending_the_token`
+- 声明了非零 Content-Length 却读到空 body → 400，绝不静默写成空文件
+
 ## 运行方式
 
 ```bash
