@@ -410,11 +410,19 @@ class InfohubChannel(models.Model):
         }
 
     def action_fetch(self):
-        """Fetch synchronously — for the manual button and for tests."""
+        """Fetch synchronously — for the manual button and for tests.
+
+        Returns a notification action so a manual fetch says what happened
+        instead of silently reloading; ``next`` refreshes the form so
+        ``last_run_at`` / ``error_count`` reflect the run too.
+        """
+        fetched = created = skipped = 0
         for channel in self:
             try:
-                _, items = channel.fetch_news()
-                created, skipped = channel._ingest(items)
+                # Not ``_``: that would shadow the translation function for
+                # the whole method, and the notification below calls it.
+                _payload, items = channel.fetch_news()
+                channel_created, channel_skipped = channel._ingest(items)
                 channel.write(
                     {
                         "last_run_at": fields.Datetime.now(),
@@ -426,13 +434,30 @@ class InfohubChannel(models.Model):
                     "infohub: %s fetched %s item(s), created %s, skipped %s",
                     channel.display_name,
                     len(items),
-                    created,
-                    skipped,
+                    channel_created,
+                    channel_skipped,
                 )
+                fetched += len(items)
+                created += channel_created
+                skipped += channel_skipped
             except Exception as exc:  # noqa: BLE001 — surfaced to the user below
                 channel._register_failure(exc)
                 raise
-        return True
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "type": "success",
+                "message": _(
+                    "Fetched %(fetched)s item(s): %(created)s new, "
+                    "%(skipped)s duplicate(s).",
+                    fetched=fetched,
+                    created=created,
+                    skipped=skipped,
+                ),
+                "next": {"type": "ir.actions.client", "tag": "reload"},
+            },
+        }
 
     def _register_failure(self, exc):
         """Record a failed run so the counters survive a rollback.

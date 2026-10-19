@@ -341,6 +341,45 @@ class TestIngestion(TransactionComponentRegistryCase):
         self.assertEqual((created, skipped), (2, 0))
         self.assertEqual(self.channel.item_count, 2)
 
+    def test_action_fetch_reports_the_result(self):
+        """The manual button must say what the run did, not just reload.
+
+        The counters it shows (``last_run_at`` / ``error_count``) used to be
+        the only feedback, so a successful run looked like nothing happened.
+        """
+        self.items.append(
+            {"title": "One", "url": "http://x/1", "raw_data": {"id": "1"}}
+        )
+
+        result = self.channel.action_fetch()
+
+        self.assertEqual(result["type"], "ir.actions.client")
+        self.assertEqual(result["tag"], "display_notification")
+        params = result["params"]
+        self.assertEqual(params["type"], "success")
+        self.assertIn("Fetched 1 item(s)", params["message"])
+        self.assertIn("1 new", params["message"])
+        self.assertIn("0 duplicate(s)", params["message"])
+        self.assertEqual(
+            params["next"], {"type": "ir.actions.client", "tag": "reload"}
+        )
+        self.channel.invalidate_recordset()
+        self.assertEqual(self.channel.error_count, 0)
+        self.assertTrue(self.channel.last_run_at)
+
+    def test_action_fetch_reports_duplicates_on_the_second_run(self):
+        self.items.append(
+            {"title": "One", "url": "http://x/1", "raw_data": {"id": "1"}}
+        )
+        self.channel.action_fetch()
+
+        result = self.channel.action_fetch()
+
+        message = result["params"]["message"]
+        self.assertIn("Fetched 1 item(s)", message)
+        self.assertIn("0 new", message)
+        self.assertIn("1 duplicate(s)", message)
+
     def test_ingest_skips_item_without_title(self):
         created, skipped = self.channel._ingest([{"raw_data": {"id": "no-title"}}])
         self.assertEqual((created, skipped), (0, 1))

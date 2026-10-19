@@ -137,6 +137,16 @@ IPv6、解析到私网的主机名；多地址中任一为私网即拒绝；`res
 - 测试：`test_item_form_hooks_both_payload_fields`
 - 测试：`test_item_form_stylesheet_is_shipped`
 
+## AC-12 手动抓取的用户反馈
+
+**要求**：表单上的「Fetch Now」成功后返回 `display_notification` 客户端动作，
+消息报告本次抓取的条目总数与新增/去重数；`next` 为 `reload`，让
+`last_run_at` / `error_count` 跟着刷新。失败仍按既有路径抛错并记入
+`error_count`。
+
+- 测试：`test_action_fetch_reports_the_result`
+- 测试：`test_action_fetch_reports_duplicates_on_the_second_run`
+
 ## 运行方式
 
 ```bash
