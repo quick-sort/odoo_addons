@@ -19,6 +19,19 @@ agent ──tools/call──▶ storage_get_upload_url(backend, path)
 
 工具是 **URL broker**，不搬运字节。工具结果附现成 curl 命令。
 
+中转 controller 的 body 契约：**请求体就是文件本身**。
+
+- `application/x-www-form-urlencoded` 是 curl 的默认 Content-Type。Odoo 会在
+  进入 controller 之前把这种 body 当表单解析，Werkzeug 的 form parser 消费
+  stream 且不缓存，controller 的 `get_data()` 只能读到空。因此
+  `ir.http._pre_dispatch` 对该路径先 `get_data(cache=True)`，把原始字节缓存
+  下来，form 解析随后使用同一份缓存。
+- `multipart/form-data` 的 body 是信封（boundary + 表单字段），不是文件。
+  无法确定"哪个 part 才是文件"，controller 返回 415 并保留一次性 token，
+  调用方改用 `curl -T`。
+- 声明了非零 Content-Length 却读到空 body 时返回 400 —— 绝不把被 HTTP 层
+  吞掉的请求体变成一次"成功的空文件上传"。
+
 ## 多态维度：URL 生成策略
 
 **设计考虑：Odoo 不成为文件传输瓶颈。** 下载/上传能直连对象存储就直连
