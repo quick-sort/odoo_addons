@@ -61,3 +61,16 @@
 
 - [ ] **AC17** 全部测试在无外部 API key、无网络下可过（core 本身无出网，
   出网只在 channel 实现 addon）。
+
+## 8. 执行身份与权限（agent 挂在用户上）
+
+- [ ] **AC18** `agenthub.agent` 具备 `user_id`（M2o res.users，required）、
+  `owner_user_id`（M2o res.users，可选）、`partner_id`（related
+  `user_id.partner_id`）字段。
+- [ ] **AC19** `_agent_env()` 返回绑定执行用户的 env：`uid == user_id`、
+  `su == False`，且从 `sudo()` 环境调用时仍 `su == False`。
+- [ ] **AC20** `reply()` 在 `_agent_env()` 下执行——adapter 收到的 `agent`
+  已绑定到执行用户 env。
+- [ ] **AC21** 约束：`user_id` 必须是内部用户（`share=False`）且 `active=True`；
+  `user_id != owner_user_id`（agent 不能就是 owner 本人）。违规抛
+  `ValidationError`。
