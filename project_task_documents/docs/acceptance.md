@@ -8,3 +8,5 @@
 | AC4 | 列表范围 | action 的 domain 只包含本项目任务的附件，不包含其他项目 | `test_action_domain_is_scoped_to_project_tasks` |
 | AC5 | 只读 | action 的 context 禁止 create/edit/delete | 人工检查（`action_view_task_attachments`） |
 | AC6 | 项目隔离（UI） | 从项目表单打开列表只看到本项目任务附件 | 人工检查 |
+| AC7 | 任务视图入口 | 从项目进入任务视图，Top Menu 中有 Documents；active_id 非项目时不显示 | `test_embedded_action_in_project_task_action` |
+| AC8 | 入口一致性 | 任务视图入口打开与 smart button 相同的附件列表（同一方法） | 代码审查（共用 `action_view_task_attachments`） |
