@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="project_project_form" model="ir.ui.view">
+        <field name="name">project.project.form.task.meetings</field>
+        <field name="model">project.project</field>
+        <field name="inherit_id" ref="project.edit_project"/>
+        <field name="arch" type="xml">
+            <div name="button_box" position="inside">
+                <button class="oe_stat_button" type="object" name="action_view_task_meetings" icon="fa-calendar">
+                    <field name="task_meeting_count" widget="statinfo" string="Meetings"/>
+                </button>
+            </div>
+        </field>
+    </record>
+</odoo>
