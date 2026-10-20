@@ -101,6 +101,17 @@
                     string="Channel Type"
                     context="{'group_by': 'channel_type'}"
                 />
+                <!-- Same pattern as the Product page: a tree on the left that
+                     filters the list on the right. The channel is the pool's
+                     classification, so no separate category model is needed. -->
+                <searchpanel>
+                    <field
+                        name="channel_id"
+                        string="Channels"
+                        icon="fa-th-list"
+                        enable_counters="1"
+                    />
+                </searchpanel>
             </search>
         </field>
     </record>

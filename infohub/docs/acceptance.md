@@ -137,6 +137,14 @@ IPv6、解析到私网的主机名；多地址中任一为私网即拒绝；`res
 - 测试：`test_item_form_hooks_both_payload_fields`
 - 测试：`test_item_form_stylesheet_is_shipped`
 
+## AC-14 新闻分类（按渠道）
+
+Items 列表使用 Odoo 的 search panel：页面左侧是一棵渠道树（带各渠道条数），右侧是
+新闻列表，点渠道即筛选该渠道的新闻 —— 与 Product 页“左分类、右列表”的布局一致。
+渠道本身就是分类，不新增模型，也不额外生成菜单。
+
+- 测试：`test_item_search_panel_lists_channels`
+
 ## 运行方式
 
 ```bash
