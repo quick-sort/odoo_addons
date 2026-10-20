@@ -130,7 +130,7 @@ class TestAgentIdentity(common.TransactionCase):
             {
                 "name": "Agent Service",
                 "login": "agent_service_agenthub_test",
-                "groups_id": [(6, 0, [cls.env.ref("base.group_user").id])],
+                "group_ids": [(6, 0, [cls.env.ref("base.group_user").id])],
             }
         )
 
@@ -172,7 +172,7 @@ class TestAgentIdentity(common.TransactionCase):
             {
                 "name": "Portal",
                 "login": "portal_agenthub_test",
-                "groups_id": [(6, 0, [self.env.ref("base.group_portal").id])],
+                "group_ids": [(6, 0, [self.env.ref("base.group_portal").id])],
             }
         )
         with self.assertRaises(ValidationError):
