@@ -42,6 +42,24 @@ class TestProjectTaskDocuments(TransactionCase):
         self.task.message_post(body="Please review", attachments=[("notes.txt", b"data")])
         self.assertEqual(self.project.task_attachment_count, 2)
 
+    def test_embedded_action_in_project_task_action(self):
+        embedded_action = self.env.ref(
+            "project_task_documents.embedded_action_project_task_documents"
+        )
+        parent_action = self.env.ref("project.act_project_project_2_project_task_all")
+        self.assertEqual(embedded_action.parent_action_id, parent_action)
+        self.assertEqual(embedded_action.parent_res_model, "project.project")
+        # is_visible is a non-stored compute read from env.context; force it to
+        # evaluate instead of relying on the record cache.
+        embedded_action._compute_is_visible()
+        self.assertFalse(embedded_action.is_visible)
+        embedded_action.with_context(active_id=self.project.id)._compute_is_visible()
+        self.assertTrue(embedded_action.is_visible)
+        self.assertIn(
+            embedded_action,
+            parent_action.with_context(active_id=self.project.id).embedded_action_ids,
+        )
+
     def test_action_domain_is_scoped_to_project_tasks(self):
         other_project = self.env["project.project"].create({"name": "Other Project"})
         other_task = self.env["project.task"].create(

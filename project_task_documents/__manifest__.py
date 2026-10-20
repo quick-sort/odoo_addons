@@ -9,6 +9,7 @@
     "depends": ["project"],
     "data": [
         "views/project_project_views.xml",
+        "views/embedded_actions.xml",
     ],
     "installable": True,
     "application": False,
