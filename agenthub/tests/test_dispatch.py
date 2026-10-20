@@ -80,7 +80,13 @@ class TestAgentDispatch(_DispatchCase):
         super().setUp()
         Agent = self.env["agenthub.agent"]
         self._add_selection(Agent, "agent_type", FAKE_AGENT)
-        self.agent = Agent.create({"name": "probe", "agent_type": FAKE_AGENT})
+        self.agent = Agent.create(
+            {
+                "name": "probe",
+                "agent_type": FAKE_AGENT,
+                "user_id": self.env.ref("base.user_admin").id,
+            }
+        )
 
     def _build_stub(self, usage, name):
         class _Stub(Component):

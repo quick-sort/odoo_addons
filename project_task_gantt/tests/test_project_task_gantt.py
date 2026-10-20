@@ -11,7 +11,7 @@ class TestGanttTree(TransactionCase):
         super().setUpClass()
         cls.start = datetime(2026, 5, 1, 9, 0, 0)
 
-    def _make_task(self, name, project, start, parent=False):
+    def _make_task(self, name, project, start, parent=False, sequence=False):
         vals = {
             'name': name,
             'project_id': project.id,
@@ -20,7 +20,16 @@ class TestGanttTree(TransactionCase):
         }
         if parent:
             vals['parent_id'] = parent.id
+        if sequence is not False:
+            vals['sequence'] = sequence
         return self.env['project.task'].create(vals)
+
+    def _task_names(self, project):
+        data = self.env['project.task'].get_gantt_data(
+            domain=[('project_id', '=', project.id)],
+            group_by='project_id',
+        )
+        return [t['name'] for t in data[0]['tasks']]
 
     def test_get_gantt_data_tree_order_and_depth(self):
         project = self.env['project.project'].create({'name': 'Tree Project'})
@@ -49,6 +58,30 @@ class TestGanttTree(TransactionCase):
         names = [t['name'] for t in tasks]
         self.assertLess(names.index('Parent'), names.index('Child'))
         self.assertLess(names.index('Child'), names.index('Grandchild'))
+
+    def test_order_follows_sequence_not_start_date(self):
+        project = self.env['project.project'].create({'name': 'Sequence Project'})
+
+        self._make_task('Second', project, self.start, sequence=20)
+        self._make_task('First', project, self.start + timedelta(days=2), sequence=10)
+
+        self.assertEqual(self._task_names(project), ['First', 'Second'])
+
+    def test_order_stable_when_dates_change(self):
+        project = self.env['project.project'].create({'name': 'Stable Project'})
+
+        self._make_task('First', project, self.start)
+        second = self._make_task('Second', project, self.start + timedelta(days=2))
+
+        # Same sequence: id breaks the tie
+        self.assertEqual(self._task_names(project), ['First', 'Second'])
+
+        # Simulate a gantt drag: only dates change, rows must not reorder
+        second.write({
+            'task_start_date': self.start - timedelta(days=5),
+            'task_end_date': self.start - timedelta(days=4),
+        })
+        self.assertEqual(self._task_names(project), ['First', 'Second'])
 
     def test_subtask_with_parent_filtered_out_is_root(self):
         project = self.env['project.project'].create({'name': 'Filtered Project'})

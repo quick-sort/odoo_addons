@@ -43,9 +43,13 @@
 | owner（create_uid） | 读 / 写 / 删 / 分享 / 下载 |
 | shared_user_ids | 读 + 下载 |
 | is_public | 所有人读 + 下载 |
+| 管理员（`base.group_system`） | 读 / 写全部（`create` / `unlink` 仍由模型 ACL 决定） |
 
 - 读 record rule：`owner OR shared OR public`。
 - 写 / 删 / 分享：仅 owner。
+- 管理员放行：一条 `base.group_system` 的组规则（`[(1, '=', 1)]`）。Odoo 对同一
+  操作的组规则取 **OR**，所以普通用户的可见范围不变，管理员能看/改全部 ——
+  不这样做，管理员连自己没拥有、没被分享的 skill 都看不到，无法做审计和处理。
 
 鉴权双层：**技能级**（skillhub 的 record rules + `skill_download`/`skill_share` 显式校验）
 管「谁能拿这个 skill」；**后端级**（storage backend 的 `mcp_read_enabled`）管「谁能读这个 backend」。

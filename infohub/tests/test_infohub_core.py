@@ -258,6 +258,46 @@ class TestInfohubCore(TransactionComponentCase):
         )
         self.assertEqual(got, "g-1")
 
+    def test_external_id_prefers_identifier_over_guid(self):
+        """A localized guid is not an identity when the release has one.
+
+        GlobeNewswire publishes one release in several languages: each
+        translation gets its own ``guid``/``link`` URL while ``identifier``
+        stays the release number. The identifier is the stable identity, so it
+        must win over the localized guid — otherwise every language becomes a
+        separate item.
+        """
+        got = self.env["infohub.channel"]._external_id(
+            {"guid": "https://x/de/a", "identifier": "3383977"}, {}
+        )
+        self.assertEqual(got, "3383977")
+
+    def test_external_id_prefers_id_over_identifier(self):
+        """An Atom ``<id>`` remains the canonical identity."""
+        got = self.env["infohub.channel"]._external_id(
+            {"id": "urn:uuid:1", "identifier": "3383977"}, {}
+        )
+        self.assertEqual(got, "urn:uuid:1")
+
+    def test_external_id_reads_identifier_from_raw_data(self):
+        """The identity keys are read from the channel payload too."""
+        got = self.env["infohub.channel"]._external_id(
+            {"title": "T"},
+            {"identifier": "3383977", "guid": "https://x/de/a"},
+        )
+        self.assertEqual(got, "3383977")
+
+    def test_external_id_takes_first_value_when_repeated(self):
+        """A repeated tag is collected as a list; identity stays scalar."""
+        got = self.env["infohub.channel"]._external_id(
+            {"identifier": ["3383977", "3383978"]}, {}
+        )
+        self.assertEqual(got, "3383977")
+
+    def test_external_id_falls_back_to_guid_without_identifier(self):
+        got = self.env["infohub.channel"]._external_id({"guid": "g-1"}, {})
+        self.assertEqual(got, "g-1")
+
     def test_external_id_falls_back_to_url(self):
         got = self.env["infohub.channel"]._external_id({"url": "http://x/1"}, {})
         self.assertEqual(got, "http://x/1")
@@ -373,6 +413,45 @@ class TestIngestion(TransactionComponentRegistryCase):
         self.assertEqual((created, skipped), (2, 0))
         self.assertEqual(self.channel.item_count, 2)
 
+    def test_action_fetch_reports_the_result(self):
+        """The manual button must say what the run did, not just reload.
+
+        The counters it shows (``last_run_at`` / ``error_count``) used to be
+        the only feedback, so a successful run looked like nothing happened.
+        """
+        self.items.append(
+            {"title": "One", "url": "http://x/1", "raw_data": {"id": "1"}}
+        )
+
+        result = self.channel.action_fetch()
+
+        self.assertEqual(result["type"], "ir.actions.client")
+        self.assertEqual(result["tag"], "display_notification")
+        params = result["params"]
+        self.assertEqual(params["type"], "success")
+        self.assertIn("Fetched 1 item(s)", params["message"])
+        self.assertIn("1 new", params["message"])
+        self.assertIn("0 duplicate(s)", params["message"])
+        self.assertEqual(
+            params["next"], {"type": "ir.actions.client", "tag": "reload"}
+        )
+        self.channel.invalidate_recordset()
+        self.assertEqual(self.channel.error_count, 0)
+        self.assertTrue(self.channel.last_run_at)
+
+    def test_action_fetch_reports_duplicates_on_the_second_run(self):
+        self.items.append(
+            {"title": "One", "url": "http://x/1", "raw_data": {"id": "1"}}
+        )
+        self.channel.action_fetch()
+
+        result = self.channel.action_fetch()
+
+        message = result["params"]["message"]
+        self.assertIn("Fetched 1 item(s)", message)
+        self.assertIn("0 new", message)
+        self.assertIn("1 duplicate(s)", message)
+
     def test_ingest_skips_item_without_title(self):
         created, skipped = self.channel._ingest([{"raw_data": {"id": "no-title"}}])
         self.assertEqual((created, skipped), (0, 1))
@@ -383,6 +462,54 @@ class TestIngestion(TransactionComponentRegistryCase):
         second, skipped = self.channel._ingest(entries)
         self.assertEqual(first, 1)
         self.assertEqual((second, skipped), (0, 1))
+
+    def test_ingest_deduplicates_localized_variants(self):
+        """The same release in two languages yields one item.
+
+        This is the GlobeNewswire shape: translated titles, per-language
+        ``guid``/``link`` URLs, and one shared ``identifier``.
+        """
+        created, skipped = self.channel._ingest(
+            [
+                {
+                    "title": "XBiotech (de)",
+                    "raw_data": {
+                        "identifier": "3383977",
+                        "guid": "https://x/de/xbiotech.html",
+                        "link": "https://x/de/xbiotech.html",
+                        "language": "de",
+                    },
+                },
+                {
+                    "title": "XBiotech (fr)",
+                    "raw_data": {
+                        "identifier": "3383977",
+                        "guid": "https://x/fr/xbiotech.html",
+                        "link": "https://x/fr/xbiotech.html",
+                        "language": "fr",
+                    },
+                },
+            ]
+        )
+        self.assertEqual((created, skipped), (1, 1))
+        self.assertEqual(self.channel.item_count, 1)
+        self.assertEqual(self.channel.item_ids.external_id, "3383977")
+
+    def test_ingest_keeps_items_with_different_identifiers(self):
+        """Distinct releases in the same feed stay distinct."""
+        created, skipped = self.channel._ingest(
+            [
+                {
+                    "title": "A",
+                    "raw_data": {"identifier": "1", "guid": "https://x/a"},
+                },
+                {
+                    "title": "B",
+                    "raw_data": {"identifier": "2", "guid": "https://x/b"},
+                },
+            ]
+        )
+        self.assertEqual((created, skipped), (2, 0))
 
     def test_ingest_honours_filter_domain(self):
         """filter_domain is evaluated against each item's raw_data."""

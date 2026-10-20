@@ -5,6 +5,7 @@ import { Layout } from "@web/search/layout";
 import { Component, onWillStart, useState, onWillUpdateProps } from "@odoo/owl";
 import { useService } from "@web/core/utils/hooks";
 import { exprToBoolean } from "@web/core/utils/strings";
+import { user } from "@web/core/user";
 import { GanttRenderer } from "./gantt_renderer";
 
 export class GanttController extends Component {
@@ -15,7 +16,6 @@ export class GanttController extends Component {
         this.actionService = useService("action");
         this.orm = useService("orm");
         this.notification = useService("notification");
-        this.user = useService("user");
 
         this.state = useState({
             scale: 'month',
@@ -30,7 +30,7 @@ export class GanttController extends Component {
         onWillStart(async () => {
             await this.loadGanttData();
             if (!this.props.readonly) {
-                this.state.editable = await this.user.checkAccessRight(this.props.resModel, "write");
+                this.state.editable = await user.checkAccessRight(this.props.resModel, "write");
             }
         });
         onWillUpdateProps(async (nextProps) => {
@@ -156,13 +156,6 @@ export class GanttController extends Component {
 
     async refresh() {
         await this.loadGanttData();
-    }
-
-    toggleEditable() {
-        if (this.props.readonly) {
-            return;
-        }
-        this.state.editable = !this.state.editable;
     }
 
     exportToCSV() {

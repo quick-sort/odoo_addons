@@ -336,8 +336,9 @@ rule 天然生效（对齐 `llm/models/llm_tool.py:482`）。`sudo()` 只允许�
 
 ### 护栏
 
-- constraint：`user_id` 必须是内部用户（`share=False`）、`active=True`；
-  `user_id != owner_user_id`（agent 不能就是 owner 本人）。
+- constraint：`user_id` 必须是内部用户（`share=False`）、`active=True`。
+  允许 `user_id == owner_user_id`（agent 以 owner 本人身份执行）；专职 service
+  user 仍是推荐做法，但不再是硬约束。
 - record rule 按 `agent_id` / `user_id` 收敛，让用户只看到自己 agent 的 thread。
 - 消息作者：`message_post(author_id=agent.partner_id)`，UI 上 agent 与人类可辨。
 
@@ -348,6 +349,20 @@ partner，不携带 ACL），**不是授权边界**。执行身份必须是 `res
 partner。会话载体仍用 `mail.thread`/`mail.message`（`agenthub.thread` 已如此，
 天然出现在 Discuss 界面）。若要把 agent 显示为一个 Discuss 会话，把它的
 partner 加成 `discuss.channel.member`——那是 `agenthub_discuss` 入口 addon 的活。
+
+## 管理 UI 与 API key
+
+用户通过一个管理界面登记/管理自己的 agent（「管理记录用户的 agents」）。
+
+- `agenthub.agent` 加 `api_key` 字段（Char）：外部 agent 通过 JSON-RPC 接入时
+  用于认证的凭证。明文存储，表单用 `widget="password"` 遮蔽（对齐 `llm`
+  provider 的 `api_key` 做法）。
+- 菜单 `Agent Hub → Agents`，list/form 视图。
+- 默认值：`owner_user_id` / `user_id` 都默认当前用户（`default=lambda self:
+  self.env.user.id`），即「我的 agent 以我本人身份执行」的简单场景。
+- 权限：`agenthub.agent` 对 `base.group_user` 开放 CRUD；record rule 按
+  `owner_user_id` 隔离——普通用户只看/管自己的 agent，`base.group_system`
+  看全部。
 
 ## 后续扩展（不在本阶段，仅锚定方向）
 
