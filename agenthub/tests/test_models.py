@@ -193,11 +193,18 @@ class TestAgentIdentity(common.TransactionCase):
         self.assertTrue(agent.id)
 
     def test_default_owner_and_execution_user(self):
-        agent = self.Agent.create(
+        user = self.env["res.users"].create(
+            {
+                "name": "Default Owner",
+                "login": "agenthub_default_owner",
+                "group_ids": [(6, 0, [self.env.ref("base.group_user").id])],
+            }
+        )
+        agent = self.Agent.with_user(user).create(
             {"name": "Default Identity", "agent_type": FAKE_AGENT}
         )
-        self.assertEqual(agent.user_id, self.env.user)
-        self.assertEqual(agent.owner_user_id, self.env.user)
+        self.assertEqual(agent.user_id, user)
+        self.assertEqual(agent.owner_user_id, user)
 
     def test_user_sees_only_own_agents(self):
         group_user = self.env.ref("base.group_user")
