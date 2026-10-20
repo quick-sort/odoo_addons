@@ -61,7 +61,7 @@
         <field name="model">infohub.item</field>
         <field name="inherit_id" ref="infohub.view_infohub_item_search" />
         <field name="arch" type="xml">
-            <filter name="state_accepted" position="after">
+            <filter name="last_month" position="after">
                 <field name="tag_ids" />
                 <filter
                     name="tagging_error"
