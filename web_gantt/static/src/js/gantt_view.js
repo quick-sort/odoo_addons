@@ -158,13 +158,6 @@ export class GanttController extends Component {
         await this.loadGanttData();
     }
 
-    toggleEditable() {
-        if (this.props.readonly) {
-            return;
-        }
-        this.state.editable = !this.state.editable;
-    }
-
     exportToCSV() {
         const data = this.state.ganttData;
         if (!data || data.length === 0) {
