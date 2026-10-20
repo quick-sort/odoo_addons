@@ -72,7 +72,20 @@ export class GanttRenderer extends Component {
         });
 
         onWillUpdateProps(() => {
-            this.scheduleRedraw();
+            // onWillUpdateProps fires before the new props (scale/data) are
+            // committed, so drawing here would use stale values. Defer one
+            // frame and re-clamp the scroll so the redraw sees the new cell
+            // width and content extent (otherwise a scale switch leaves the
+            // canvas blank until the next wheel/pan event).
+            if (this.animationFrame) {
+                cancelAnimationFrame(this.animationFrame);
+            }
+            this.animationFrame = requestAnimationFrame(() => {
+                this.animationFrame = null;
+                this.clampScrollIntoView();
+                this.drawGantt();
+                this.lastDrawTime = Date.now();
+            });
         });
     }
     formatDateLocal(date) {
