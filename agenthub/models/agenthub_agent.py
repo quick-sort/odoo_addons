@@ -40,12 +40,14 @@ class AgenthubAgent(models.Model):
         string="Execution User",
         required=True,
         ondelete="restrict",
-        help="Dedicated service user the agent acts as (tools, record reads/writes).",
+        default=lambda self: self.env.user.id,
+        help="User the agent acts as (tools, record reads/writes).",
     )
     owner_user_id = fields.Many2one(
         "res.users",
         string="Owner",
         ondelete="set null",
+        default=lambda self: self.env.user.id,
         help="Who authorised this agent; the permission ceiling.",
     )
     partner_id = fields.Many2one(
@@ -53,6 +55,10 @@ class AgenthubAgent(models.Model):
         string="Display Partner",
         related="user_id.partner_id",
         readonly=True,
+    )
+    api_key = fields.Char(
+        string="API Key",
+        help="Credential the external agent presents to authenticate over JSON-RPC.",
     )
 
     @api.constrains("user_id", "owner_user_id")
@@ -66,11 +72,6 @@ class AgenthubAgent(models.Model):
             if not agent.user_id.active:
                 raise ValidationError(
                     _("The execution user of agent '%s' must be active.") % agent.name
-                )
-            if agent.owner_user_id and agent.user_id == agent.owner_user_id:
-                raise ValidationError(
-                    _("The execution user of agent '%s' cannot also be its owner.")
-                    % agent.name
                 )
 
     def _agent_env(self):

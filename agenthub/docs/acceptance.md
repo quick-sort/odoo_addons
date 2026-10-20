@@ -71,6 +71,15 @@
   `su == False`，且从 `sudo()` 环境调用时仍 `su == False`。
 - [ ] **AC20** `reply()` 在 `_agent_env()` 下执行——adapter 收到的 `agent`
   已绑定到执行用户 env。
-- [ ] **AC21** 约束：`user_id` 必须是内部用户（`share=False`）且 `active=True`；
-  `user_id != owner_user_id`（agent 不能就是 owner 本人）。违规抛
-  `ValidationError`。
+- [ ] **AC21** 约束：`user_id` 必须是内部用户（`share=False`）且 `active=True`。
+  违规抛 `ValidationError`。`user_id == owner_user_id`（agent 以 owner 本人
+  身份执行）是允许的。
+
+## 9. 管理 UI 与 API key
+
+- [ ] **AC22** `agenthub.agent` 具备 `api_key` 字段。
+- [ ] **AC23** 默认值：`owner_user_id` / `user_id` 默认当前用户（创建时不指定
+  即为 `self.env.user`）。
+- [ ] **AC24** record rule：`agenthub.agent` 对 `base.group_user` 开放访问，
+  但普通用户只能看到 `owner_user_id == 自己` 的 agent。
+- [ ] **AC25** 存在 `Agents` 的 list/form 视图与菜单（代码审查）。

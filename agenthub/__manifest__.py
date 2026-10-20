@@ -9,6 +9,8 @@
     "depends": ["base", "component", "mail"],
     "data": [
         "security/ir.model.access.csv",
+        "security/agenthub_security.xml",
+        "views/agenthub_agent_views.xml",
     ],
     "installable": True,
     "application": True,
