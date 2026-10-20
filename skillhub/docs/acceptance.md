@@ -69,3 +69,9 @@ owner / shared / public 可见；其他用户不可见（record rule）。 — `
 记录及其 `sha256` 仍描述磁盘上实际存在的那个文件。 —
 `test_failed_publish_keeps_the_previous_blob`
 
+## AC-15 管理员可见全部
+
+管理员（`base.group_system`）不受 owner / shared / public 限制，能看到、编辑并下载
+其他人的 skill；普通用户（不带管理员组）仍只看到 owner / shared / public 的记录。 —
+`test_admin_sees_and_can_edit_any_skill` / `test_read_isolation`
+

@@ -8,6 +8,21 @@
         <field name="groups" eval="[(4, ref('base.group_user'))]" />
     </record>
 
+    <!-- Group rules are OR'ed, so this widens the read rule above for
+         administrators without changing what regular users see. A skill is
+         shared data an administrator has to be able to audit even when it is
+         neither owned nor shared with them. -->
+    <record id="skill_rule_admin" model="ir.rule">
+        <field name="name">Skill: administrators have full access</field>
+        <field name="model_id" ref="model_skillhub_skill" />
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="perm_read" eval="True" />
+        <field name="perm_write" eval="True" />
+        <field name="perm_create" eval="True" />
+        <field name="perm_unlink" eval="True" />
+        <field name="groups" eval="[(4, ref('base.group_system'))]" />
+    </record>
+
     <record id="skill_rule_owner_write" model="ir.rule">
         <field name="name">Skill: write/delete only by owner</field>
         <field name="model_id" ref="model_skillhub_skill" />
