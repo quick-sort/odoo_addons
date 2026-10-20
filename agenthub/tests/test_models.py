@@ -45,6 +45,9 @@ class TestModelDefinitions(common.TransactionCase):
         for name in ("user_id", "owner_user_id", "partner_id"):
             self.assertIn(name, agent_fields)
 
+    def test_agent_has_api_key_field(self):
+        self.assertIn("api_key", self.env["agenthub.agent"]._fields)
+
 
 @tagged("post_install", "-at_install")
 class TestRecordBehaviors(common.TransactionCase):
@@ -178,13 +181,63 @@ class TestAgentIdentity(common.TransactionCase):
         with self.assertRaises(ValidationError):
             self._make_agent(user_id=portal.id)
 
-    def test_constraint_rejects_owner_as_execution_user(self):
-        with self.assertRaises(ValidationError):
-            self._make_agent(
-                user_id=self.user_admin.id,
-                owner_user_id=self.user_admin.id,
-            )
+    def test_allows_owner_as_execution_user(self):
+        agent = self._make_agent(
+            user_id=self.user_admin.id,
+            owner_user_id=self.user_admin.id,
+        )
+        self.assertEqual(agent.user_id, agent.owner_user_id)
 
     def test_constraint_accepts_internal_user(self):
         agent = self._make_agent()
         self.assertTrue(agent.id)
+
+    def test_default_owner_and_execution_user(self):
+        user = self.env["res.users"].create(
+            {
+                "name": "Default Owner",
+                "login": "agenthub_default_owner",
+                "group_ids": [(6, 0, [self.env.ref("base.group_user").id])],
+            }
+        )
+        agent = self.Agent.with_user(user).create(
+            {"name": "Default Identity", "agent_type": FAKE_AGENT}
+        )
+        self.assertEqual(agent.user_id, user)
+        self.assertEqual(agent.owner_user_id, user)
+
+    def test_user_sees_only_own_agents(self):
+        group_user = self.env.ref("base.group_user")
+        user_a = self.env["res.users"].create(
+            {
+                "name": "Owner A",
+                "login": "agenthub_owner_a",
+                "group_ids": [(6, 0, [group_user.id])],
+            }
+        )
+        user_b = self.env["res.users"].create(
+            {
+                "name": "Owner B",
+                "login": "agenthub_owner_b",
+                "group_ids": [(6, 0, [group_user.id])],
+            }
+        )
+        agent_a = self.Agent.create(
+            {
+                "name": "Agent A",
+                "agent_type": FAKE_AGENT,
+                "owner_user_id": user_a.id,
+                "user_id": user_a.id,
+            }
+        )
+        agent_b = self.Agent.create(
+            {
+                "name": "Agent B",
+                "agent_type": FAKE_AGENT,
+                "owner_user_id": user_b.id,
+                "user_id": user_b.id,
+            }
+        )
+        visible = self.env["agenthub.agent"].with_user(user_a).search([])
+        self.assertIn(agent_a, visible)
+        self.assertNotIn(agent_b, visible)
