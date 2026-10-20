@@ -69,3 +69,15 @@ owner / shared / public 可见；其他用户不可见（record rule）。 — `
 记录及其 `sha256` 仍描述磁盘上实际存在的那个文件。 —
 `test_failed_publish_keeps_the_previous_blob`
 
+## AC-13 下载只认自己那条包
+
+`skill_download` 的路径**由 `code` 推导**（`skillhub/<code>.zip`），不信任记录里存的
+`storage_path`；两者不一致时拒绝下载。否则一条伪造的记录可以把「分享 skill」变成
+「读取存储后端任意文件」。 — `test_download_refuses_a_record_pointing_at_another_skills_package`
+
+## AC-14 记录只能由发布产生
+
+`skillhub.skill` 的模型级 ACL **不授予 `create` / `unlink`**：记录只能经 `skill_publish`
+产生，UI 与 ORM 都不允许手工新建或删除。owner 仍可在表单里修改元数据。 —
+`test_skill_records_cannot_be_created_by_hand`
+

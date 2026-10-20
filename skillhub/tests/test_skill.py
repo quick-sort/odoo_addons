@@ -1,7 +1,7 @@
 import hashlib
 
 from odoo import Command
-from odoo.exceptions import UserError, ValidationError
+from odoo.exceptions import AccessError, UserError, ValidationError
 from odoo.tests.common import TransactionCase, tagged
 from psycopg2 import errors
 
@@ -76,8 +76,10 @@ class TestSkillHub(TransactionCase):
 
     def test_code_unique_and_slug(self):
         self._publish(self.owner_user, "dup", "Dup")
+        # sudo: creation is refused outright at the ACL now, so exercising the
+        # unique constraint has to get past it deliberately.
         with self.assertRaises(errors.UniqueViolation):
-            self.env["skillhub.skill"].create({
+            self.env["skillhub.skill"].sudo().create({
                 "code": "dup",
                 "title": "X",
                 "backend_id": self.backend.id,
@@ -288,6 +290,54 @@ class TestSkillHub(TransactionCase):
 
         with self.assertRaises(UserError):
             self.Tool.with_user(self.plain_user).skill_download(skill.id)
+
+    def test_download_refuses_a_record_pointing_at_another_skills_package(self):
+        """A skill may only hand out the package its own ``code`` names.
+
+        ``storage_path`` is a plain writable field, so anything able to create
+        a ``skillhub.skill`` row can point it at another skill's blob. The
+        download must not turn that pointer into a read of somebody else's
+        file: the path is derived from ``code``, and a record whose stored
+        path disagrees is refused.
+        """
+        victim = self._publish(self.owner_user, "victim", "Victim", data=b"victim-bytes")
+        # sudo: whether a forged row can be created at all is a separate
+        # question (the ACL); this test is about what download does with it.
+        forged = (
+            self.env["skillhub.skill"]
+            .with_user(self.owner_user)
+            .sudo()
+            .create({
+                "code": "forged",
+                "title": "Forged",
+                "backend_id": self.backend.id,
+                "storage_path": victim.storage_path,
+            })
+        )
+
+        with self.assertRaises(UserError):
+            self.Tool.with_user(self.owner_user).skill_download(forged.id)
+
+        # The legitimate owner keeps working.
+        self.assertIn(
+            "download",
+            self.Tool.with_user(self.owner_user).skill_download(victim.id),
+        )
+
+    def test_skill_records_cannot_be_created_by_hand(self):
+        """Publishing is the only way a skill record comes into existence.
+
+        Hiding the create button is not enough: without the ACL saying the
+        same, any internal user can mint a record straight through the ORM --
+        and set its ``storage_path`` to whatever they like.
+        """
+        with self.assertRaises(AccessError):
+            self.env["skillhub.skill"].with_user(self.plain_user).create({
+                "code": "byhand",
+                "title": "By Hand",
+                "backend_id": self.backend.id,
+                "storage_path": "skillhub/byhand.zip",
+            })
 
     # archive --------------------------------------------------------------
 
