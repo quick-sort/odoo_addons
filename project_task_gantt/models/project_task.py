@@ -195,7 +195,9 @@ class ProjectTask(models.Model):
             if 'progress' in self.env['project.task']._fields:
                 fields_to_read.append('progress')
 
-            tasks_data = self.search_read(gantt_domain, fields_to_read, order='task_start_date asc')
+            # Order by sequence, not dates, so dragging a bar only moves it in
+            # time without reordering the row list; id breaks ties.
+            tasks_data = self.search_read(gantt_domain, fields_to_read, order='sequence asc, id asc')
 
             if not tasks_data:
                 _logger.info("No tasks found matching criteria")
@@ -316,6 +318,7 @@ class ProjectTask(models.Model):
 
         A task whose parent is not in the same list is treated as a root
         (depth 0), so a subtask grouped apart from its parent still shows.
+        Roots and siblings keep the input order (sequence asc, id asc).
         """
         ids = {t['id'] for t in tasks}
         children = {}
