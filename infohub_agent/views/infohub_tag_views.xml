@@ -8,6 +8,7 @@
                 <field name="sequence" widget="handle" />
                 <field name="name" />
                 <field name="code" />
+                <field name="tag_type" />
                 <field name="item_count" />
                 <field name="color" invisible="1" />
             </list>
@@ -40,6 +41,7 @@
                         <group>
                             <field name="name" placeholder="e.g. Clinical" />
                             <field name="code" placeholder="e.g. clinical" />
+                            <field name="tag_type" />
                             <field name="sequence" />
                         </group>
                         <group>
@@ -67,9 +69,25 @@
                 <field name="name" />
                 <field name="code" />
                 <filter
+                    name="type_event"
+                    string="Event Type"
+                    domain="[('tag_type', '=', 'event')]"
+                />
+                <filter
+                    name="type_area"
+                    string="Therapeutic Area"
+                    domain="[('tag_type', '=', 'area')]"
+                />
+                <filter
                     name="inactive"
                     string="Archived"
                     domain="[('active', '=', False)]"
+                />
+                <separator />
+                <filter
+                    name="group_type"
+                    string="Tag Type"
+                    context="{'group_by': 'tag_type'}"
                 />
             </search>
         </field>

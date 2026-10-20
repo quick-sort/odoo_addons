@@ -110,12 +110,26 @@ class InfohubItem(models.Model):
         """Build the user message: taxonomy plus item titles, nothing else.
 
         Bodies are deliberately left out — for classification the headline
-        carries the signal and the payload stays a fraction of the size.
+        carries the signal and the payload stays a fraction of the size. The
+        taxonomy is grouped by ``tag_type``: an item may both be a clinical
+        readout (event) and concern oncology (area), so the model is asked for
+        up to two tags per group rather than a single flat category.
         """
-        lines = ["Taxonomy:"]
-        for tag in tags:
-            use_when = tag.description or tag.name
-            lines.append(f"- code: {tag.code} | name: {tag.name} | use when: {use_when}")
+        lines = ["Taxonomy (choose 0-3 tags in total, at most 2 per group):"]
+        for tag_type, heading in (
+            ("event", "Event type"),
+            ("area", "Therapeutic area (only when the title clearly names one)"),
+        ):
+            group = tags.filtered(lambda tag, tt=tag_type: tag.tag_type == tt)
+            if not group:
+                continue
+            lines.append("")
+            lines.append(f"{heading}:")
+            for tag in group:
+                use_when = tag.description or tag.name
+                lines.append(
+                    f"- code: {tag.code} | name: {tag.name} | use when: {use_when}"
+                )
         lines.append("")
         lines.append("Items:")
         for item in self:

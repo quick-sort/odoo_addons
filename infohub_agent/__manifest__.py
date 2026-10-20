@@ -27,6 +27,7 @@ never installs the LLM stack.
         "security/ir.model.access.csv",
         "data/infohub_guide.xml",
         "data/llm_agent_tag_data.xml",
+        "data/infohub_tag_data.xml",
         "data/llm_agent_data.xml",
         "data/ir_cron_data.xml",
         "views/infohub_tag_views.xml",

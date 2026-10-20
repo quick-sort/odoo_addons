@@ -25,6 +25,15 @@ class InfohubTag(models.Model):
         "\"clinical\". Renaming it changes what the model matches on; "
         "prefer fixing the display name instead.",
     )
+    tag_type = fields.Selection(
+        [("event", "Event Type"), ("area", "Therapeutic Area")],
+        required=True,
+        default="event",
+        index=True,
+        help="Which tagging dimension this entry belongs to: what the news "
+        "reports (event type), or which disease area it covers (therapeutic "
+        "area). The tagging prompt lists the two groups separately.",
+    )
     description = fields.Text(
         help="When to apply this tag. Included verbatim in the tagging "
         "prompt, so write it for the model, not for humans.",

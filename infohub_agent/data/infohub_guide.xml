@@ -13,7 +13,7 @@ Models:
 - infohub.item — a news item: title, url, published_at, content (sanitized HTML), content_text (plain-text copy for search), state, channel_id, source_id, channel_type, external_id, tag_ids, tagging_state.
 - infohub.source — the publisher: name, url, description, active.
 - infohub.channel — how news is obtained: name, channel_type (rss/email/mcp), active, enable_cron, filter_domain, last_run_at, error_count, last_error.
-- infohub.tag — taxonomy entry (added by infohub_agent): name, code, description, active.
+- infohub.tag — taxonomy entry (added by infohub_agent): name, code, tag_type (event = what the news reports, area = which disease area), description, active.
 
 Read / search — use the generic odoo_record_retriever; ir.model.access gives group_infohub_user read-only on all four models:
 - Latest curated news: odoo_record_retriever(model="infohub.item", domain=[["state","=","accepted"]], fields=["id","title","url","published_at","source_id","channel_id","tag_ids"], limit=20). Default order is published_at desc, id desc.
@@ -26,7 +26,7 @@ Field notes:
 - state is new / accepted / rejected (default new). "accepted" is the curated pool an agent normally reads.
 - source_id is nullable — items whose publisher was not matched have no source.
 - (channel_id, external_id) is the dedup key: UNIQUE(channel_id, external_id). Do not dedup by external_id globally.
-- tag_ids and tagging_state (pending/queued/done/skipped/error) are machine-managed: an internal classifier (infohub_tagger) assigns tags on a cron + queue_job. Treat both as read-only.
+- tag_ids and tagging_state (pending/queued/done/skipped/error) are machine-managed: an internal classifier (infohub_tagger) assigns up to three tags on a cron + queue_job, across two dimensions (tag_type event / area). Treat both as read-only.
 
 Writes:
 - infohub.item is created by channel fetch jobs, never by an agent. Do not create items manually.

@@ -17,10 +17,28 @@ class TestTaggingJob(StubSelectionMixin, TransactionCase):
         cls.channel = cls._make_channel()
         cls.agent = cls.env["llm.agent"].search([("code", "=", TAGGER_CODE)])
         cls.tag_clinical = cls.env["infohub.tag"].create(
-            {"name": "Clinical", "code": "clinical", "description": "Trials."}
+            {
+                "name": "Clinical",
+                "code": "test_clinical",
+                "tag_type": "event",
+                "description": "Trials.",
+            }
         )
         cls.tag_ai = cls.env["infohub.tag"].create(
-            {"name": "AI", "code": "ai", "description": "Model releases."}
+            {
+                "name": "AI",
+                "code": "test_ai",
+                "tag_type": "event",
+                "description": "Model releases.",
+            }
+        )
+        cls.tag_oncology = cls.env["infohub.tag"].create(
+            {
+                "name": "Oncology",
+                "code": "test_oncology",
+                "tag_type": "area",
+                "description": "Cancer.",
+            }
         )
         cls._configure_agent()
 
@@ -95,7 +113,7 @@ class TestTaggingJob(StubSelectionMixin, TransactionCase):
         answer = json.dumps(
             {
                 "results": [
-                    {"id": items[0].id, "tags": ["clinical"]},
+                    {"id": items[0].id, "tags": ["test_clinical"]},
                     {"id": items[1].id, "tags": []},
                 ]
             }
@@ -120,14 +138,32 @@ class TestTaggingJob(StubSelectionMixin, TransactionCase):
         # bound method: the query is the first positional argument.
         query = patched.call_args[0][0]
         self.assertIn("Phase III trial results", query)
-        self.assertIn("clinical", query)
+        self.assertIn("test_clinical", query)
+        self.assertIn("Event type:", query)
+        self.assertIn("Therapeutic area", query)
         self.assertTrue(patched.call_args[1].get("new_cursor") is False)
+
+    def test_query_groups_tags_by_type(self):
+        """The prompt keeps the two dimensions apart.
+
+        A clinical readout about an oncology asset needs both tags; a flat
+        list invites the model to treat them as alternatives.
+        """
+        item = self._make_item("Phase III oncology trial")
+        query = item._build_tagging_query(self.tag_clinical | self.tag_oncology)
+
+        event_at = query.index("Event type:")
+        area_at = query.index("Therapeutic area")
+        self.assertLess(event_at, area_at)
+        self.assertLess(query.index("code: test_clinical"), area_at)
+        self.assertGreater(query.index("code: test_oncology"), area_at)
+        self.assertIn("at most 2 per group", query)
 
     def test_job_parses_fenced_answer(self):
         item = self._make_item("A model release")
         item.tagging_state = "queued"
         answer = "```json\n%s\n```" % json.dumps(
-            {"results": [{"id": item.id, "tags": ["ai"]}]}
+            {"results": [{"id": item.id, "tags": ["test_ai"]}]}
         )
         with self._invoke_returning(answer):
             item._job_tag_items()
@@ -137,7 +173,7 @@ class TestTaggingJob(StubSelectionMixin, TransactionCase):
         item = self._make_item("A model release")
         item.tagging_state = "queued"
         answer = "<p>%s</p>" % json.dumps(
-            {"results": [{"id": item.id, "tags": ["ai"]}]}
+            {"results": [{"id": item.id, "tags": ["test_ai"]}]}
         )
         with self._invoke_returning(answer):
             item._job_tag_items()
@@ -149,8 +185,8 @@ class TestTaggingJob(StubSelectionMixin, TransactionCase):
         answer = json.dumps(
             {
                 "results": [
-                    {"id": item.id, "tags": ["clinical", "invented"]},
-                    {"id": 999999, "tags": ["ai"]},
+                    {"id": item.id, "tags": ["test_clinical", "invented"]},
+                    {"id": 999999, "tags": ["test_ai"]},
                 ]
             }
         )
@@ -190,7 +226,7 @@ class TestTaggingJob(StubSelectionMixin, TransactionCase):
         item.tagging_state = "queued"
         other = self._make_item("Untouched")
         with self._invoke_returning(
-            json.dumps({"results": [{"id": item.id, "tags": ["ai"]}]})
+            json.dumps({"results": [{"id": item.id, "tags": ["test_ai"]}]})
         ):
             item._job_tag_items()
 
@@ -200,7 +236,7 @@ class TestTaggingJob(StubSelectionMixin, TransactionCase):
     def test_retagging_replaces_existing_tags(self):
         item = self._make_item("Phase III trial results")
         item.write({"tag_ids": [(6, 0, self.tag_ai.ids)], "tagging_state": "queued"})
-        answer = json.dumps({"results": [{"id": item.id, "tags": ["clinical"]}]})
+        answer = json.dumps({"results": [{"id": item.id, "tags": ["test_clinical"]}]})
         with self._invoke_returning(answer):
             item._job_tag_items()
 

@@ -1,0 +1,234 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo noupdate="1">
+    <!--
+      Starter taxonomy, derived from what the pool actually contains. Two
+      dimensions: what the news reports (event type) and which disease area
+      it covers (therapeutic area). Managers can rename, archive or extend
+      these records; the tagging job reads whatever is active.
+    -->
+    <record id="tag_event_clinical" model="infohub.tag">
+        <field name="name">Clinical and Data</field>
+        <field name="code">clinical</field>
+        <field name="tag_type">event</field>
+        <field name="sequence">10</field>
+        <field name="description">Clinical-stage news: trial start or enrollment, phase 1-4 data, topline or interim results, endpoints, efficacy or safety readouts.</field>
+    </record>
+    <record id="tag_event_regulatory" model="infohub.tag">
+        <field name="name">Regulatory and Approvals</field>
+        <field name="code">regulatory</field>
+        <field name="tag_type">event</field>
+        <field name="sequence">20</field>
+        <field name="description">Regulatory decisions and filings: FDA, EMA or NMPA approvals and rejections, 510(k) clearance, IND, NDA or BLA submissions, orphan or breakthrough designations, label changes.</field>
+    </record>
+    <record id="tag_event_preclinical" model="infohub.tag">
+        <field name="name">Preclinical and Research</field>
+        <field name="code">preclinical</field>
+        <field name="tag_type">event</field>
+        <field name="sequence">30</field>
+        <field name="description">Preclinical or basic research: target discovery, mechanism, in-vivo or in-vitro data, peer-reviewed papers and academic studies.</field>
+    </record>
+    <record id="tag_event_licensing" model="infohub.tag">
+        <field name="name">Licensing and Partnerships</field>
+        <field name="code">licensing</field>
+        <field name="tag_type">event</field>
+        <field name="sequence">40</field>
+        <field name="description">Licensing, collaboration, partnership, joint venture, co-development or other business-development deals; excludes mergers and acquisitions.</field>
+    </record>
+    <record id="tag_event_mna" model="infohub.tag">
+        <field name="name">Mergers and Acquisitions</field>
+        <field name="code">mna</field>
+        <field name="tag_type">event</field>
+        <field name="sequence">50</field>
+        <field name="description">Mergers, acquisitions, takeovers, divestitures, or the sale of a company or asset.</field>
+    </record>
+    <record id="tag_event_financing" model="infohub.tag">
+        <field name="name">Financing and Capital Markets</field>
+        <field name="code">financing</field>
+        <field name="tag_type">event</field>
+        <field name="sequence">60</field>
+        <field name="description">Equity or debt financing, venture rounds, IPOs and follow-on offerings, buybacks, stock splits, grants or loans.</field>
+    </record>
+    <record id="tag_event_earnings" model="infohub.tag">
+        <field name="name">Financial Results</field>
+        <field name="code">earnings</field>
+        <field name="tag_type">event</field>
+        <field name="sequence">70</field>
+        <field name="description">Quarterly or annual financial results, revenue or net sales, profit or loss, and guidance.</field>
+    </record>
+    <record id="tag_event_launch" model="infohub.tag">
+        <field name="name">Launch and Commercialization</field>
+        <field name="code">launch</field>
+        <field name="tag_type">event</field>
+        <field name="sequence">80</field>
+        <field name="description">Product launch, commercial availability, a new or expanded indication, or market introduction.</field>
+    </record>
+    <record id="tag_event_device" model="infohub.tag">
+        <field name="name">Devices, Diagnostics and Digital</field>
+        <field name="code">device</field>
+        <field name="tag_type">event</field>
+        <field name="sequence">90</field>
+        <field name="description">Medical devices, diagnostics, imaging, digital health, software or AI products, wearables and sensors.</field>
+    </record>
+    <record id="tag_event_policy" model="infohub.tag">
+        <field name="name">Policy, Legal and Access</field>
+        <field name="code">policy</field>
+        <field name="tag_type">event</field>
+        <field name="sequence">100</field>
+        <field name="description">Policy, regulation, litigation, patents, reimbursement, payer coverage, Medicare or Medicaid, and health-policy debate.</field>
+    </record>
+    <record id="tag_event_safety" model="infohub.tag">
+        <field name="name">Safety and Recalls</field>
+        <field name="code">safety</field>
+        <field name="tag_type">event</field>
+        <field name="sequence">110</field>
+        <field name="description">Recalls, safety warnings, adverse events, or pharmacovigilance signals.</field>
+    </record>
+    <record id="tag_event_manufacturing" model="infohub.tag">
+        <field name="name">Manufacturing and Supply</field>
+        <field name="code">manufacturing</field>
+        <field name="tag_type">event</field>
+        <field name="sequence">120</field>
+        <field name="description">Manufacturing, CDMO, facilities, production capacity, or supply-chain news.</field>
+    </record>
+    <record id="tag_event_personnel" model="infohub.tag">
+        <field name="name">People and Organization</field>
+        <field name="code">personnel</field>
+        <field name="tag_type">event</field>
+        <field name="sequence">130</field>
+        <field name="description">Executive appointments, board changes, CEO succession, hires or promotions.</field>
+    </record>
+    <record id="tag_event_corporate" model="infohub.tag">
+        <field name="name">Corporate and Events</field>
+        <field name="code">corporate</field>
+        <field name="tag_type">event</field>
+        <field name="sequence">140</field>
+        <field name="description">Corporate news not covered elsewhere: awards, rankings, ESG or sustainability, conferences or webinars, investor events, facility openings.</field>
+    </record>
+    <record id="tag_event_consumer" model="infohub.tag">
+        <field name="name">Consumer and Wellness</field>
+        <field name="code">consumer</field>
+        <field name="tag_type">event</field>
+        <field name="sequence">150</field>
+        <field name="description">Consumer health, OTC, nutrition, food or beverage, cosmetics or skincare, retail, cannabis or wellness products.</field>
+    </record>
+    <record id="tag_event_services" model="infohub.tag">
+        <field name="name">Healthcare Services and Insurance</field>
+        <field name="code">services</field>
+        <field name="tag_type">event</field>
+        <field name="sequence">160</field>
+        <field name="description">Hospitals, health systems, clinics, providers, insurers, home care, telehealth or care-delivery news.</field>
+    </record>
+    <record id="tag_event_market_report" model="infohub.tag">
+        <field name="name">Market Reports</field>
+        <field name="code">market_report</field>
+        <field name="tag_type">event</field>
+        <field name="sequence">170</field>
+        <field name="description">Market research reports, forecasts, CAGR figures or industry analysis.</field>
+    </record>
+
+    <record id="tag_area_oncology" model="infohub.tag">
+        <field name="name">Oncology</field>
+        <field name="code">oncology</field>
+        <field name="tag_type">area</field>
+        <field name="sequence">210</field>
+        <field name="description">Cancer: solid tumors, hematologic malignancies, ADC, immuno-oncology or oncology deals.</field>
+    </record>
+    <record id="tag_area_immunology" model="infohub.tag">
+        <field name="name">Immunology and Inflammation</field>
+        <field name="code">immunology</field>
+        <field name="tag_type">area</field>
+        <field name="sequence">220</field>
+        <field name="description">Immune-mediated or inflammatory disease: lupus, rheumatoid arthritis, psoriasis, atopic dermatitis, hidradenitis suppurativa.</field>
+    </record>
+    <record id="tag_area_cns" model="infohub.tag">
+        <field name="name">Neurology and Psychiatry</field>
+        <field name="code">cns</field>
+        <field name="tag_type">area</field>
+        <field name="sequence">230</field>
+        <field name="description">Neurology or psychiatry: Parkinson's, Alzheimer's, ALS, epilepsy, multiple sclerosis, migraine, depression or pain.</field>
+    </record>
+    <record id="tag_area_cardiovascular" model="infohub.tag">
+        <field name="name">Cardiovascular</field>
+        <field name="code">cardiovascular</field>
+        <field name="tag_type">area</field>
+        <field name="sequence">240</field>
+        <field name="description">Heart and circulation: heart failure, hypertension, stroke, thrombosis or lipids.</field>
+    </record>
+    <record id="tag_area_metabolic" model="infohub.tag">
+        <field name="name">Metabolic and Endocrine</field>
+        <field name="code">metabolic</field>
+        <field name="tag_type">area</field>
+        <field name="sequence">250</field>
+        <field name="description">Metabolic or endocrine disease: diabetes, obesity or GLP-1, MASH or NASH, thyroid or weight loss.</field>
+    </record>
+    <record id="tag_area_rare_disease" model="infohub.tag">
+        <field name="name">Rare Disease</field>
+        <field name="code">rare_disease</field>
+        <field name="tag_type">area</field>
+        <field name="sequence">260</field>
+        <field name="description">Rare or orphan disease: Duchenne, SMA, Fabry, Gaucher, hemophilia, PKU or similar.</field>
+    </record>
+    <record id="tag_area_infectious" model="infohub.tag">
+        <field name="name">Infectious Disease and Vaccines</field>
+        <field name="code">infectious</field>
+        <field name="tag_type">area</field>
+        <field name="sequence">270</field>
+        <field name="description">Infection or vaccines: HIV, hepatitis, influenza, COVID or RSV, antibiotics or antimicrobial resistance.</field>
+    </record>
+    <record id="tag_area_ophthalmology" model="infohub.tag">
+        <field name="name">Ophthalmology</field>
+        <field name="code">ophthalmology</field>
+        <field name="tag_type">area</field>
+        <field name="sequence">280</field>
+        <field name="description">Eye or vision: retina, macular degeneration, glaucoma, dry eye or optometry.</field>
+    </record>
+    <record id="tag_area_respiratory" model="infohub.tag">
+        <field name="name">Respiratory</field>
+        <field name="code">respiratory</field>
+        <field name="tag_type">area</field>
+        <field name="sequence">290</field>
+        <field name="description">Lung or airway disease: COPD, asthma, pulmonary fibrosis, cystic fibrosis or bronchiectasis.</field>
+    </record>
+    <record id="tag_area_dermatology" model="infohub.tag">
+        <field name="name">Dermatology</field>
+        <field name="code">dermatology</field>
+        <field name="tag_type">area</field>
+        <field name="sequence">300</field>
+        <field name="description">Skin: eczema, psoriasis, acne, alopecia or wound care.</field>
+    </record>
+    <record id="tag_area_womens_health" model="infohub.tag">
+        <field name="name">Women's Health</field>
+        <field name="code">womens_health</field>
+        <field name="tag_type">area</field>
+        <field name="sequence">310</field>
+        <field name="description">Women's health: fertility or IVF, endometriosis, menopause, pregnancy or maternal care.</field>
+    </record>
+    <record id="tag_area_nephrology" model="infohub.tag">
+        <field name="name">Nephrology</field>
+        <field name="code">nephrology</field>
+        <field name="tag_type">area</field>
+        <field name="sequence">320</field>
+        <field name="description">Kidney or renal disease: CKD, dialysis or nephrology.</field>
+    </record>
+    <record id="tag_area_hematology" model="infohub.tag">
+        <field name="name">Hematology</field>
+        <field name="code">hematology</field>
+        <field name="tag_type">area</field>
+        <field name="sequence">330</field>
+        <field name="description">Blood disorders: anemia, sickle cell, thalassemia, platelets or neutropenia.</field>
+    </record>
+    <record id="tag_area_gi_liver" model="infohub.tag">
+        <field name="name">Gastroenterology and Liver</field>
+        <field name="code">gi_liver</field>
+        <field name="tag_type">area</field>
+        <field name="sequence">340</field>
+        <field name="description">Gastroenterology or liver: IBD, ulcerative colitis, Crohn's, liver disease or pancreas.</field>
+    </record>
+    <record id="tag_area_animal_health" model="infohub.tag">
+        <field name="name">Animal Health</field>
+        <field name="code">animal_health</field>
+        <field name="tag_type">area</field>
+        <field name="sequence">350</field>
+        <field name="description">Animal health or veterinary: pets, livestock or veterinary medicine.</field>
+    </record>
+</odoo>

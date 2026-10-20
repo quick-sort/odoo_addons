@@ -16,11 +16,16 @@ Depends on ``infohub`` and ``llm``. It also needs an LLM provider addon
 Setup
 =====
 
-1. **Define the taxonomy** under *InfoHub ▸ Settings ▸ Tags*. Each tag needs
-   a ``code`` (the identifier the model answers with, e.g. ``clinical``) and a
-   ``description`` saying when to apply it — that text is sent to the model
-   verbatim, so write it for the model. While the taxonomy is empty, nothing
-   happens: items stay pending and no LLM call is made.
+1. **Review the taxonomy** under *InfoHub ▸ Settings ▸ Tags*. The addon ships
+   a starter taxonomy in two dimensions, selected by ``tag_type``: **event
+   type** (what the news reports — clinical, regulatory, licensing, financing,
+   personnel...) and **therapeutic area** (which disease area it covers —
+   oncology, immunology, CNS, metabolic...). Each tag needs a ``code`` (the
+   identifier the model answers with, e.g. ``clinical``) and a ``description``
+   saying when to apply it — that text is sent to the model verbatim, so write
+   it for the model. Rename, archive or add entries as needed; the job reads
+   whatever is active. While the taxonomy is empty, nothing happens: items stay
+   pending and no LLM call is made.
 2. **Configure the agent.** *LLM ▸ Agents ▸ InfoHub Tagger* (``code``
    ``infohub_tagger``) ships without a provider or model, since those are per
    environment. Pick both, and set the assistant's model under *LLM ▸ Providers*
@@ -40,8 +45,11 @@ A dispatch-only cron claims up to ``TAGGING_BATCH_SIZE * TAGGING_MAX_JOBS_PER_RU
 (20 × 10) pending items per pass, marks each batch ``queued`` and enqueues one
 queue job per batch on the ``root.infohub`` channel (capacity in ``odoo.conf``).
 The job sends the taxonomy plus the item **titles** — no bodies — as a single
-user message, and parses the JSON answer back into ``tag_ids``. Re-tagging
-replaces the previous tags, so the job is idempotent.
+user message, and parses the JSON answer back into ``tag_ids``. The taxonomy is
+listed in two groups (``tag_type`` = event / area) and the model is asked for
+0-3 tags in total, at most 2 per group, so "a clinical readout about an
+oncology asset" can carry both dimensions. Re-tagging replaces the previous
+tags, so the job is idempotent.
 
 Tag storage is a plain many2many (``infohub_item_tag_rel``). Odoo gives the
 relation table a ``PRIMARY KEY(item_id, tag_id)`` and an
