@@ -96,6 +96,15 @@ export class GanttRenderer extends Component {
         return new Date(start.getTime() + 86400000); // default: start + 1 day
     }
 
+    addMonths(date, months) {
+        const result = new Date(date);
+        const day = result.getDate();
+        result.setDate(1);
+        result.setMonth(result.getMonth() + months);
+        const daysInMonth = new Date(result.getFullYear(), result.getMonth() + 1, 0).getDate();
+        result.setDate(Math.min(day, daysInMonth));
+        return result;
+    }
 
     get cellWidth() {
         // Adjust base width per scale for better zooming behavior
@@ -826,13 +835,25 @@ export class GanttRenderer extends Component {
         }
 
         if (this.state.draggedTask) {
-            const deltaX = e.clientX - this.state.draggedTask.startX;
-            const daysDelta = Math.round(deltaX / this.cellWidth);
-            const msDelta = daysDelta * 86400000;
-            
-            const newStartDate = new Date(this.state.draggedTask.originalStart.getTime() + msDelta);
-            const newEndDate = new Date(this.state.draggedTask.originalEnd.getTime() + msDelta);
-            
+            const { originalStart, originalEnd, startX } = this.state.draggedTask;
+            const deltaX = e.clientX - startX;
+            const scale = this.props.scale || 'month';
+
+            let newStartDate, newEndDate;
+            if (scale === 'year') {
+                // One cell is one month at year scale, so snap to whole months.
+                const monthsDelta = Math.round(deltaX / this.cellWidth);
+                newStartDate = this.addMonths(originalStart, monthsDelta);
+                newEndDate = this.addMonths(originalEnd, monthsDelta);
+            } else {
+                // One cell is a week at week scale and a day otherwise.
+                const daysPerCell = scale === 'week' ? 7 : 1;
+                const daysDelta = Math.round((deltaX / this.cellWidth) * daysPerCell);
+                const msDelta = daysDelta * 86400000;
+                newStartDate = new Date(originalStart.getTime() + msDelta);
+                newEndDate = new Date(originalEnd.getTime() + msDelta);
+            }
+
             const taskInUI = this.props.data
                 .flatMap(g => g.tasks)
                 .find(t => t.id === this.state.draggedTask.id);
