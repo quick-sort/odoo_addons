@@ -54,8 +54,23 @@ usage 由类型后缀天然唯一，绕开了 `SeveralComponentError`——不�
 1. 归一化 raw payload（`entry["raw_data"]` 或 entry 本身）
 2. 过滤（`filter_domain`）
 3. 取标题（entry 的 `title` 或 `content.subject()`）
-4. 渠道内去重（external_id）
+4. 渠道内去重（external_id，见下）
 5. 建 item（`content.build_content()` 渲染正文）
+
+### 外部身份的取值顺序
+
+`_external_id()` 按 `id → identifier → guid → external_id → link → url` 取第一个
+非空值，重复 tag 被解析成 list 时取第一个元素。
+
+`identifier` 排在 `guid`/`link` 之前，是因为**多语言发布**：同一篇稿件被翻译成
+多种语言时，发布方给每种语言一个独立的 `guid`/`link` URL，但 `<identifier>`
+（发布方编号）不变。若按 URL 去重，每种语言都会成为一条 item。Atom 的 `<id>`
+仍是第一优先——它本来就是语言无关的 canonical id。
+
+### 跨渠道不去重
+
+`external_id` 唯一约束带 `channel_id`：同一篇文章经 RSS 和邮件进来是两条，这是
+设计意图（不同渠道的抓取/生命周期各自独立）。
 
 ## 关键取舍与理由
 

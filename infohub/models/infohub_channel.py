@@ -271,9 +271,19 @@ class InfohubChannel(models.Model):
 
     @staticmethod
     def _external_id(entry, raw_data):
-        """Stable per-channel identity, used for dedup."""
-        for key in ("id", "guid", "external_id", "link", "url"):
+        """Stable per-channel identity, used for dedup.
+
+        ``identifier`` outranks ``guid``/``link``: publishers that translate a
+        release give every language its own URL but keep the release number, so
+        the URL is not an identity. Atom's ``<id>`` stays first — it is already
+        language-neutral. Repeated tags are collected as lists by the RSS
+        parser; the first value is the identity, and a list must never be
+        stringified into the key.
+        """
+        for key in ("id", "identifier", "guid", "external_id", "link", "url"):
             value = entry.get(key) or raw_data.get(key)
+            if isinstance(value, (list, tuple)):
+                value = next((item for item in value if item), "")
             if value:
                 return str(value)[:255]
         return ""

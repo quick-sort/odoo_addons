@@ -51,6 +51,33 @@ RDF = """<?xml version="1.0"?>
 """
 
 
+#: GlobeNewswire publishes one release in several languages. Each translation
+#: carries its own ``link``/``guid`` while ``identifier`` names the release.
+RSS2_LOCALIZED = """<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>GlobeNewswire - Industry News on Biotechnology</title>
+    <item>
+      <title>XBiotech (de)</title>
+      <link>https://www.globenewswire.com/news-release/2026/10/19/3383977/35550/de/xbiotech.html</link>
+      <guid>https://www.globenewswire.com/news-release/2026/10/19/3383977/35550/de/xbiotech.html</guid>
+      <identifier>3383977</identifier>
+      <language>de</language>
+      <pubDate>Mon, 19 Oct 2026 22:59 GMT</pubDate>
+    </item>
+    <item>
+      <title>XBiotech (fr)</title>
+      <link>https://www.globenewswire.com/news-release/2026/10/19/3383977/35550/fr/xbiotech.html</link>
+      <guid>https://www.globenewswire.com/news-release/2026/10/19/3383977/35550/fr/xbiotech.html</guid>
+      <identifier>3383977</identifier>
+      <language>fr</language>
+      <pubDate>Mon, 19 Oct 2026 22:59 GMT</pubDate>
+    </item>
+  </channel>
+</rss>
+"""
+
+
 @tagged("post_install", "-at_install")
 class TestFeedParsing(TransactionCase):
     """The feed parser handles the three layout families, offline."""
@@ -86,6 +113,11 @@ class TestFeedParsing(TransactionCase):
         self.assertEqual(len(entries), 1)
         self.assertEqual(entries[0]["title"], "RDF item")
         self.assertEqual(entries[0]["feed_title"], "RDF Feed")
+
+    def test_identifier_is_kept_for_deduplication(self):
+        """Publisher-specific identity fields survive parsing."""
+        entry = parse_feed(RSS2_LOCALIZED)[0]
+        self.assertEqual(entry["identifier"], "3383977")
 
     def test_invalid_xml_raises_value_error(self):
         with self.assertRaises(ValueError):
@@ -201,6 +233,15 @@ class TestRssChannel(TransactionCase):
             channel.action_fetch()
             channel.action_fetch()
         self.assertEqual(channel.item_count, 1)
+
+    def test_localized_variants_are_deduplicated(self):
+        """Two translations of one release become one item, across runs too."""
+        channel = self._channel()
+        with self._stub_http(RSS2_LOCALIZED):
+            channel.action_fetch()
+            channel.action_fetch()
+        self.assertEqual(channel.item_count, 1)
+        self.assertEqual(channel.item_ids.external_id, "3383977")
 
     def test_fetch_failure_is_recorded_and_reraised(self):
         """A transport error reaches ``_register_failure`` and is re-raised.
