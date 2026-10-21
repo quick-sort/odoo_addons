@@ -120,6 +120,38 @@ class TestInfohubCore(TransactionComponentCase):
             os.path.isfile(os.path.join(get_module_path("infohub"), relative))
         )
 
+    def test_item_search_filters_are_time_windows(self):
+        """The search panel filters by time only: 1 day / 7 days / 30 days.
+
+        The old state filters are gone. Each time filter must target
+        ``published_at`` and be computed from the user's today, so the window
+        follows the user's timezone rather than a hard-coded date.
+        """
+        arch = self.env.ref("infohub.view_infohub_item_search").arch
+        root = etree.fromstring(arch.encode())
+        filters = root.xpath("//filter")
+        names = [f.get("name") for f in filters]
+        self.assertEqual(
+            names,
+            [
+                "last_day",
+                "last_week",
+                "last_month",
+                "group_source",
+                "group_channel",
+                "group_type",
+            ],
+        )
+        expected_days = {"last_day": -1, "last_week": -7, "last_month": -30}
+        for node in filters:
+            if node.get("name") not in expected_days:
+                continue
+            domain = node.get("domain") or ""
+            self.assertIn("published_at", domain)
+            self.assertIn(f"days={expected_days[node.get('name')]}", domain)
+            self.assertIn("context_today()", domain)
+        self.assertFalse({"state_new", "state_accepted"} & set(names))
+
     # -- content_text derivation ----------------------------------------
 
     def test_content_text_derived_from_html(self):

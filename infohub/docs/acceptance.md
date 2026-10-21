@@ -160,6 +160,14 @@ IPv6、解析到私网的主机名；多地址中任一为私网即拒绝；`res
 - 测试：`test_action_fetch_reports_the_result`
 - 测试：`test_action_fetch_reports_duplicates_on_the_second_run`
 
+## AC-13 搜索时间过滤
+
+Items 搜索面板的过滤项只有三个时间窗口：Last 1 Day / Last 7 Days / Last 30 Days。
+都基于 `published_at`，用 `context_today() + relativedelta` 按用户当天计算；原有的
+New / Accepted 状态过滤已移除。Group By（Source / Channel / Channel Type）保留。 —
+
+- 测试：`test_item_search_filters_are_time_windows`
+
 ## 运行方式
 
 ```bash
