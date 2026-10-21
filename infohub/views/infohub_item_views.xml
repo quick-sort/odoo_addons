@@ -79,11 +79,20 @@
                 <field name="title" />
                 <field name="source_id" />
                 <field name="url" />
-                <filter name="state_new" string="New" domain="[('state', '=', 'new')]" />
                 <filter
-                    name="state_accepted"
-                    string="Accepted"
-                    domain="[('state', '=', 'accepted')]"
+                    name="last_day"
+                    string="Last 1 Day"
+                    domain="[('published_at', '&gt;=', (context_today() + relativedelta(days=-1)).strftime('%Y-%m-%d'))]"
+                />
+                <filter
+                    name="last_week"
+                    string="Last 7 Days"
+                    domain="[('published_at', '&gt;=', (context_today() + relativedelta(days=-7)).strftime('%Y-%m-%d'))]"
+                />
+                <filter
+                    name="last_month"
+                    string="Last 30 Days"
+                    domain="[('published_at', '&gt;=', (context_today() + relativedelta(days=-30)).strftime('%Y-%m-%d'))]"
                 />
                 <separator />
                 <filter

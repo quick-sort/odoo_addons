@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <template id="login_disable_footer" inherit_id="web.login_layout">
+        <xpath expr="//div[hasclass('border-top') and hasclass('text-center')]" position="replace" />
+    </template>
+</odoo>

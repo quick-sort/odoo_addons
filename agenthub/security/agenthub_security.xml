@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="agenthub_agent_rule_own" model="ir.rule">
+        <field name="name">Agents: own only</field>
+        <field name="model_id" ref="model_agenthub_agent"/>
+        <field name="domain_force">[('owner_user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('base.group_user'))]"/>
+    </record>
+
+    <record id="agenthub_agent_rule_all" model="ir.rule">
+        <field name="name">Agents: all (managers)</field>
+        <field name="model_id" ref="model_agenthub_agent"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('base.group_system'))]"/>
+    </record>
+
+</odoo>

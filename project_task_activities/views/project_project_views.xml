@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="project_project_form" model="ir.ui.view">
+        <field name="name">project.project.form.task.activities</field>
+        <field name="model">project.project</field>
+        <field name="inherit_id" ref="project.edit_project"/>
+        <field name="arch" type="xml">
+            <div name="button_box" position="inside">
+                <button class="oe_stat_button" type="object" name="action_view_task_activities" icon="fa-clock-o">
+                    <field name="task_activity_count" widget="statinfo" string="Activities"/>
+                </button>
+            </div>
+        </field>
+    </record>
+</odoo>

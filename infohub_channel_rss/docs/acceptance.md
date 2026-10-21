@@ -7,9 +7,10 @@
 ## AC-2 feed 解析
 
 RSS 2.0 基础字段、分类收集、命名空间字段（dc:creator）、Atom 的 alternate link、
-RDF 兄弟节点、非法 XML 报 ValueError、空 feed 无条目、Media RSS 的 content 不当正文。
+RDF 兄弟节点、非法 XML 报 ValueError、空 feed 无条目、Media RSS 的 content 不当正文、
+发布方 `<identifier>` 原样保留（供 core 去重）。
 
-- `TestFeedParsing` 全部 8 个方法
+- `TestFeedParsing` 全部 9 个方法（含 `test_identifier_is_kept_for_deduplication`）
 
 ## AC-3 保存期 URL 校验
 
@@ -24,12 +25,14 @@ RDF 兄弟节点、非法 XML 报 ValueError、空 feed 无条目、Media RSS �
 
 ## AC-4 抓取
 
-无 URL 时抓取抛 `UrlNotAllowed`；端到端抓取+入库+来源匹配；重抓不重复；失败被
-记录且重新抛出；成功清错误状态；簿记失败不掩盖原始错误。
+无 URL 时抓取抛 `UrlNotAllowed`；端到端抓取+入库+来源匹配；重抓不重复；同一稿件
+的多语言版本只入库一条；失败被记录且重新抛出；成功清错误状态；簿记失败不掩盖原始
+错误。
 
 - `test_fetch_without_url_raises`
 - `test_fetch_and_ingest_end_to_end`
 - `test_refetch_does_not_duplicate`
+- `test_localized_variants_are_deduplicated`
 - `test_fetch_failure_is_recorded_and_reraised`
 - `test_register_failure_never_masks_the_cause`
 - `test_successful_fetch_clears_error_state`

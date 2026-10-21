@@ -37,6 +37,8 @@ external_id 是两条。
 
 - 测试：`test_duplicate_external_id_in_same_channel_is_rejected`
 - 测试：`test_same_external_id_in_different_channels_is_allowed`
+- 测试：`test_ingest_deduplicates_localized_variants`（同一稿件 de/fr 两条 → 1 条）
+- 测试：`test_ingest_keeps_items_with_different_identifiers`
 
 ## AC-6 过滤域
 
@@ -52,11 +54,22 @@ external_id 是两条。
 
 ## AC-7 外部身份提取
 
-**要求**：`external_id` 优先取 guid/id，回退到 url；都无则空。
+**要求**：`external_id` 按 `id → identifier → guid → external_id → link → url`
+取第一个非空值；重复 tag 的 list 取第一个元素；都无则空。
 
+`identifier` 优先于 `guid`：多语言发布的每个语言版本有独立 URL，但共享发布方
+编号。
+
+- 测试：`test_external_id_prefers_identifier_over_guid`
+- 测试：`test_external_id_prefers_id_over_identifier`
+- 测试：`test_external_id_reads_identifier_from_raw_data`
+- 测试：`test_external_id_takes_first_value_when_repeated`
 - 测试：`test_external_id_prefers_guid_over_url`
+- 测试：`test_external_id_falls_back_to_guid_without_identifier`
 - 测试：`test_external_id_falls_back_to_url`
 - 测试：`test_external_id_empty_when_nothing_usable`
+- 测试（RSS 端到端）：`test_identifier_is_kept_for_deduplication`、
+  `test_localized_variants_are_deduplicated`
 
 ## AC-8 日期解析容错
 
@@ -136,6 +149,24 @@ IPv6、解析到私网的主机名；多地址中任一为私网即拒绝；`res
 
 - 测试：`test_item_form_hooks_both_payload_fields`
 - 测试：`test_item_form_stylesheet_is_shipped`
+
+## AC-12 手动抓取的用户反馈
+
+**要求**：表单上的「Fetch Now」成功后返回 `display_notification` 客户端动作，
+消息报告本次抓取的条目总数与新增/去重数；`next` 为 `reload`，让
+`last_run_at` / `error_count` 跟着刷新。失败仍按既有路径抛错并记入
+`error_count`。
+
+- 测试：`test_action_fetch_reports_the_result`
+- 测试：`test_action_fetch_reports_duplicates_on_the_second_run`
+
+## AC-13 搜索时间过滤
+
+Items 搜索面板的过滤项只有三个时间窗口：Last 1 Day / Last 7 Days / Last 30 Days。
+都基于 `published_at`，用 `context_today() + relativedelta` 按用户当天计算；原有的
+New / Accepted 状态过滤已移除。Group By（Source / Channel / Channel Type）保留。 —
+
+- 测试：`test_item_search_filters_are_time_windows`
 
 ## AC-14 新闻分类（按渠道）
 

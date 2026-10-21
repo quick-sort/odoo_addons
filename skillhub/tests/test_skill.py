@@ -196,8 +196,10 @@ class TestSkillHub(TransactionCase):
                 [("id", "=", skill.id)]
             )
         )
+        # plain_user, not other_user: the latter holds base.group_system and
+        # is deliberately allowed to see everything (see the admin test below).
         self.assertFalse(
-            self.env["skillhub.skill"].with_user(self.other_user).search(
+            self.env["skillhub.skill"].with_user(self.plain_user).search(
                 [("id", "=", skill.id)]
             )
         )
@@ -211,9 +213,36 @@ class TestSkillHub(TransactionCase):
             {"is_public": True}
         )
         self.assertTrue(
-            self.env["skillhub.skill"].with_user(self.other_user).search(
+            self.env["skillhub.skill"].with_user(self.plain_user).search(
                 [("id", "=", skill.id)]
             )
+        )
+
+    def test_admin_sees_and_can_edit_any_skill(self):
+        """Administrators are not limited to own/shared/public skills.
+
+        ``other_user`` holds ``base.group_system`` and is neither the owner nor
+        on the share list, so without an administrator record rule the row is
+        invisible to it -- which is exactly the bug: an admin cannot audit or
+        curate skills they do not own.
+        """
+        skill = self._publish(self.owner_user, "admview", "Admin View")
+        Skill = self.env["skillhub.skill"]
+
+        self.assertTrue(
+            Skill.with_user(self.other_user).search([("id", "=", skill.id)]),
+            "an administrator should see every skill",
+        )
+        Skill.with_user(self.other_user).browse(skill.id).write(
+            {"title": "Edited by admin"}
+        )
+        self.assertEqual(
+            Skill.with_user(self.other_user).browse(skill.id).title,
+            "Edited by admin",
+        )
+        self.assertIn(
+            "download",
+            self.Tool.with_user(self.other_user).skill_download(skill.id),
         )
 
     # AC-7 -----------------------------------------------------------------
@@ -231,7 +260,7 @@ class TestSkillHub(TransactionCase):
     def test_download_requires_access(self):
         skill = self._publish(self.owner_user, "dla", "Download Auth")
         with self.assertRaises(UserError):
-            self.Tool.with_user(self.other_user).skill_download(skill.id)
+            self.Tool.with_user(self.plain_user).skill_download(skill.id)
         self.Tool.with_user(self.owner_user).skill_share(skill.id, [self.shared_user.id])
         self.assertIn(
             "download",
@@ -242,7 +271,7 @@ class TestSkillHub(TransactionCase):
         )
         self.assertIn(
             "download",
-            self.Tool.with_user(self.other_user).skill_download(skill.id),
+            self.Tool.with_user(self.plain_user).skill_download(skill.id),
         )
 
     def test_plain_user_can_download_shared_skill(self):
