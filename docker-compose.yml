@@ -1,0 +1,132 @@
+# Production stack: nginx (edge, HTTP only -- TLS terminates upstream) -> odoo
+# (image built from this repo, addons + pip deps baked in) -> pgvector Postgres
+# (internal network, port never published).
+#
+# Secrets live in .env (gitignored, see .env.example):
+#   POSTGRES_PASSWORD  Odoo DB user password, shared by the db and odoo services
+#   ODOO_ADMIN_PASSWD  Plaintext of the hashed admin_passwd in odoo.conf
+#                      (records the value; odoo itself only reads the hash)
+#
+# Deploy / upgrade:
+#   docker compose build && docker compose up -d
+#   docker compose run --rm odoo -i base --stop-after-init --workers=0 --no-http             # first boot
+#   docker compose run --rm odoo -i <addon>,<addon> --stop-after-init --workers=0 --no-http   # install
+#   docker compose run --rm odoo -u <addon> --stop-after-init --workers=0 --no-http           # upgrade
+# Odoo 19 refuses to boot into an empty database -- the -i base one-shot above
+# is mandatory on a fresh db-data volume.
+#
+# Migrating from the previous host-Postgres deployment (../docker-compose.yml):
+#   docker compose -f ../docker-compose.yml down
+#   pg_dump -U odoo -Fc odoo > odoo.dump
+#   docker compose up -d db && docker compose exec -T db pg_restore -U odoo -d odoo --clean odoo.dump < odoo.dump
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "50m"
+    max-file: "5"
+
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    restart: unless-stopped
+    container_name: odoo-db
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      POSTGRES_USER: odoo
+      POSTGRES_DB: odoo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    shm_size: 256mb
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U odoo -d odoo"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - backend
+    logging: *default-logging
+
+  odoo:
+    build:
+      context: .
+      args:
+        PIP_INDEX_URL: https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple/
+        # Runtime pip dependencies, baked into the image at build time.
+        # Edit to match the addons installed in the database.
+        INSTALL_ADDONS: >-
+          base_pgvector
+          llm
+          llm_openai
+          llm_anthropic
+          llm_openai_compatible
+          llm_store
+          llm_knowledge
+          llm_knowledge_pgvector
+          llm_discuss
+          llm_mcp_server
+          infohub
+          infohub_channel_rss
+          infohub_channel_email
+          infohub_channel_mcp
+          agenthub
+          agenthub_wecom
+          agenthub_openclaw
+          one_storage
+    image: odoo-addons:19.0
+    restart: unless-stopped
+    container_name: odoo
+    security_opt:
+      - no-new-privileges:true
+    init: true
+    stop_grace_period: 60s
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Consumed by the odoo image entrypoint: db_* keys missing from odoo.conf
+      # are injected as CLI arguments. PGPASSWORD additionally covers
+      # `docker exec odoo odoo ...` invocations that bypass the entrypoint.
+      HOST: db
+      PORT: "5432"
+      USER: odoo
+      PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - odoo-data:/var/lib/odoo
+      - ./odoo.conf:/etc/odoo/odoo.conf:ro
+    # Size against the workers below: roughly workers * limit_memory_hard plus
+    # headroom. Leave unset until the host's total memory is known.
+    # mem_limit: 4g
+    networks:
+      - frontend
+      - backend
+    logging: *default-logging
+
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    container_name: nginx
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      - odoo
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - frontend
+    logging: *default-logging
+
+volumes:
+  db-data:
+  odoo-data:
+
+networks:
+  frontend:
+  backend:
+    internal: true
