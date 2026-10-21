@@ -79,6 +79,22 @@ class TestInfohubCore(TransactionComponentCase):
         self.assertNotIn("llm", depends)
         self.assertEqual(sorted(depends), ["base", "component", "queue_job"])
 
+    # -- search panel ----------------------------------------------------
+
+    def test_item_search_panel_lists_channels(self):
+        """The Items list gets a left-side channel tree.
+
+        This is the product-catalog pattern: the search panel filters the
+        list by the chosen channel, so browsing by channel needs neither a
+        second model nor a separate menu entry.
+        """
+        arch = self.env.ref("infohub.view_infohub_item_search").arch
+        root = etree.fromstring(arch.encode())
+        panel = root.xpath("//searchpanel")
+        self.assertEqual(len(panel), 1)
+        channels = panel[0].xpath("field[@name='channel_id']")
+        self.assertEqual(len(channels), 1)
+
     # -- views -----------------------------------------------------------
 
     def test_item_form_hooks_both_payload_fields(self):
