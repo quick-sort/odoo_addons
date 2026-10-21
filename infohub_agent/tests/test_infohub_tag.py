@@ -20,12 +20,12 @@ class TestInfohubTag(StubSelectionMixin, TransactionCase):
         )
 
     def test_code_is_unique(self):
-        self.Tag.create({"name": "Clinical", "code": "clinical"})
+        self.Tag.create({"name": "Clinical", "code": "test_clinical"})
         with self.assertRaises(IntegrityError), self.cr.savepoint():
-            self.Tag.create({"name": "Duplicate", "code": "clinical"})
+            self.Tag.create({"name": "Duplicate", "code": "test_clinical"})
 
     def test_tagging_links_items_both_ways(self):
-        tag = self.Tag.create({"name": "Clinical", "code": "clinical"})
+        tag = self.Tag.create({"name": "Clinical", "code": "test_clinical"})
         item = self._make_item("A phase III trial reports ...")
         item.write({"tag_ids": [(6, 0, tag.ids)]})
 
@@ -34,7 +34,7 @@ class TestInfohubTag(StubSelectionMixin, TransactionCase):
         self.assertEqual(tag.item_count, 1)
 
     def test_archived_tag_leaves_the_taxonomy(self):
-        tag = self.Tag.create({"name": "Clinical", "code": "clinical"})
+        tag = self.Tag.create({"name": "Clinical", "code": "test_clinical"})
         tag.active = False
         self.assertNotIn(tag, self.Tag.search([]))
 
