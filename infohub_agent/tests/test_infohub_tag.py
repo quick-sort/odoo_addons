@@ -33,6 +33,20 @@ class TestInfohubTag(StubSelectionMixin, TransactionCase):
         self.assertEqual(tag.item_ids, item)
         self.assertEqual(tag.item_count, 1)
 
+    def test_item_count_reads_for_multiple_tags(self):
+        """The list view computes item_count on a batch of tags.
+
+        ``item_ids`` is the inverse of ``infohub.item.tag_ids``, a many2many;
+        modelling it as a one2many made the ORM treat the related recordset as
+        a singleton and fail as soon as more than one tag was read.
+        """
+        tag_a = self.Tag.create({"name": "A", "code": "test_count_a"})
+        tag_b = self.Tag.create({"name": "B", "code": "test_count_b"})
+        item = self._make_item("A phase III trial reports ...")
+        item.write({"tag_ids": [(6, 0, (tag_a | tag_b).ids)]})
+
+        self.assertEqual((tag_a | tag_b).mapped("item_count"), [1, 1])
+
     def test_archived_tag_leaves_the_taxonomy(self):
         tag = self.Tag.create({"name": "Clinical", "code": "test_clinical"})
         tag.active = False
