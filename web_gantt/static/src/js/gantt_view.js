@@ -158,6 +158,15 @@ export class GanttController extends Component {
         await this.loadGanttData();
     }
 
+    exportImage() {
+        const hasTasks = (this.state.ganttData || []).some(g => (g.tasks || []).length);
+        if (!hasTasks) {
+            this.notification.add("No data to export", { type: "warning" });
+            return;
+        }
+        window.dispatchEvent(new CustomEvent('gantt-export-image'));
+    }
+
     exportToCSV() {
         const data = this.state.ganttData;
         if (!data || data.length === 0) {
