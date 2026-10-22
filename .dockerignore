@@ -26,7 +26,17 @@ node_modules/
 # Editor / tooling state.
 .idea/
 .vscode/
+.claude/
 .playwright-mcp/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+
+# Repo meta / deploy files -- the image only needs addon code.
+.github/
+docs/
+Dockerfile
+docker-compose.yml
+nginx.conf
+odoo.conf
+.env.example
