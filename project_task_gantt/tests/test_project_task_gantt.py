@@ -101,3 +101,18 @@ class TestGanttTree(TransactionCase):
         tasks = data[0]['tasks']
         self.assertEqual([t['name'] for t in tasks], ['Child'])
         self.assertEqual(tasks[0]['depth'], 0)
+
+    def test_get_gantt_data_includes_assignees(self):
+        project = self.env['project.project'].create({'name': 'Assignee Project'})
+        task = self._make_task('Assigned', project, self.start)
+        task.user_ids = [(6, 0, self.env.user.ids)]
+
+        data = self.env['project.task'].get_gantt_data(
+            domain=[('project_id', '=', project.id)],
+            group_by='project_id',
+        )
+
+        self.assertEqual(
+            data[0]['tasks'][0]['assignees'],
+            [self.env.user.display_name],
+        )

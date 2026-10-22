@@ -28,6 +28,9 @@
                             <button class="btn btn-secondary btn-sm" t-on-click="() => this.exportToCSV()" title="Export to CSV">
                                 <i class="fa fa-download"/> Export
                             </button>
+                            <button class="btn btn-secondary btn-sm" t-on-click="() => this.exportImage()" title="Export the whole chart as a PNG image">
+                                <i class="fa fa-file-image-o"/> Export Image
+                            </button>
                         </div>
 
                         <div class="o_gantt_controller_scales btn-group btn-group-sm" role="group">
@@ -42,6 +45,12 @@
                                 t-on-click="() => this.onScaleChange('month')"
                                 title="Month View">
                                 Month
+                            </button>
+                            <button
+                                t-attf-class="btn btn-sm {{ state.scale === 'quarter' ? 'btn-primary' : 'btn-outline-secondary' }}"
+                                t-on-click="() => this.onScaleChange('quarter')"
+                                title="Quarter View">
+                                Quarter
                             </button>
                             <button
                                 t-attf-class="btn btn-sm {{ state.scale === 'year' ? 'btn-primary' : 'btn-outline-secondary' }}"
@@ -105,7 +114,7 @@
                     <div class="d-flex justify-content-between align-items-center">
                         <span>
                             <i class="fa fa-info-circle"/>
-                            <strong>Tip:</strong> Drag tasks to reschedule (in edit mode), double-click to edit (in view mode), wheel to move left or right , Ctrl+Wheel to zoom, Shift+Wheel to move down or up .
+                            <strong>Tip:</strong> Drag tasks to reschedule (in edit mode), click a task to edit, click the caret to collapse subtasks, wheel to move left or right, Ctrl+Wheel to zoom, Shift+Wheel to move down or up.
                         </span>
                         <span>
                             Total: <strong t-esc="state.ganttData.reduce((acc, g) => acc + g.tasks.length, 0)"/> tasks

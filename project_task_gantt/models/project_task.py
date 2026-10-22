@@ -188,6 +188,7 @@ class ProjectTask(models.Model):
                 'priority',
                 'description',
                 'parent_id',
+                'user_ids',
                 group_by
             ]
 
@@ -228,6 +229,14 @@ class ProjectTask(models.Model):
                 records = self.env[model_name].sudo().browse(ids)
                 return {rec.id: rec.display_name for rec in records}
 
+            def normalize_m2m_ids(raw):
+                # search_read returns m2m values as plain ids; tolerate
+                # (id, name) pairs as well.
+                return [
+                    value[0] if isinstance(value, (list, tuple)) else value
+                    for value in (raw or [])
+                ]
+
             # Collect ids for potential m2m lookup first pass
             m2m_ids = set()
             if field_type == 'many2many':
@@ -245,6 +254,11 @@ class ProjectTask(models.Model):
                 model_name = model_map.get(group_by, 'res.users')
                 id_to_name = resolve_m2m_names(model_name, list(m2m_ids))
 
+            assignee_ids = set()
+            for task in tasks_data:
+                assignee_ids.update(normalize_m2m_ids(task.get('user_ids')))
+            assignee_names = resolve_m2m_names('res.users', list(assignee_ids))
+
             for task in tasks_data:
                 raw_value = task.get(group_by)
 
@@ -259,6 +273,10 @@ class ProjectTask(models.Model):
                     'priority': task.get('priority', '0'),
                     'description': task.get('description', '') or '',
                     'parent_id': task['parent_id'][0] if task.get('parent_id') else False,
+                    'assignees': [
+                        assignee_names.get(user_id, f"ID {user_id}")
+                        for user_id in normalize_m2m_ids(task.get('user_ids'))
+                    ],
                 }
 
                 if field_type == 'many2one':
