@@ -136,6 +136,19 @@ class TestInfohubCore(TransactionComponentCase):
             os.path.isfile(os.path.join(get_module_path("infohub"), relative))
         )
 
+    def test_item_search_panel_expands_empty_channels(self):
+        """The channel panel must list channels that have no items yet.
+
+        The search panel defaults to the field image — only values present in
+        the current result set — so a channel with zero items disappears from
+        the left panel. ``expand`` asks the server for the full comodel range.
+        """
+        arch = self.env.ref("infohub.view_infohub_item_search").arch
+        root = etree.fromstring(arch.encode())
+        field = root.xpath("//searchpanel/field[@name='channel_id']")
+        self.assertEqual(len(field), 1)
+        self.assertEqual(field[0].get("expand"), "1")
+
     def test_item_search_filters_are_time_windows(self):
         """The search panel filters by time only: 1 day / 7 days / 30 days.
 
