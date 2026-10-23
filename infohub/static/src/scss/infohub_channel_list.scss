@@ -1,0 +1,34 @@
+// The channel list is a small table of short values; centred headers and cells
+// read better than the default left/right split, which left the count columns
+// flush against their neighbours.
+//
+// The class is on the <list> root in views/infohub_channel_views.xml.
+// list_arch_parser.js reads it into `treeAttr.className` and list_controller
+// puts it on the controller root, so these rules stop at this list and cannot
+// reach any other table.
+.o_infohub_channel_list {
+    .o_list_table {
+        th,
+        td {
+            // `!important` because numeric cells get `o_list_number`, which
+            // sets `text-align: right` on the cell itself.
+            text-align: center !important;
+        }
+
+        // Header labels do not simply inherit from the <th>: they sit in a
+        // flex row, and a numeric column puts `o_list_number_th` on the label
+        // <span> itself (list_renderer.xml), whose own `text-align: right`
+        // beats any inherited value. Target the label directly.
+        th span {
+            text-align: center !important;
+        }
+
+        // The boolean widget renders a block with `width: fit-content`
+        // (core/checkbox/checkbox.scss), so text-align cannot move it; auto
+        // margins are what centre the box inside the cell.
+        td[name="enable_cron"] .o-checkbox {
+            margin-right: auto;
+            margin-left: auto;
+        }
+    }
+}

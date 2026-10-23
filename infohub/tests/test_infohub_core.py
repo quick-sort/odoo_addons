@@ -149,6 +149,34 @@ class TestInfohubCore(TransactionComponentCase):
         self.assertEqual(len(field), 1)
         self.assertEqual(field[0].get("expand"), "1")
 
+    def test_channel_list_centres_every_column(self):
+        """The channel list carries the class its stylesheet is scoped to.
+
+        The class sits on the <list> root: Odoo copies it onto the list
+        controller root, which is what keeps the centring rules from reaching
+        every other list in the backend.
+        """
+        arch = self.env.ref("infohub.view_infohub_channel_list").arch
+        root = etree.fromstring(arch.encode())
+        classes = (root.get("class") or "").split()
+        self.assertIn("o_infohub_channel_list", classes)
+
+    def test_channel_list_stylesheet_is_shipped(self):
+        """The centring rules must actually reach the browser.
+
+        Same trap as the item form: a stylesheet left out of the backend
+        bundle keeps the view and every test green while the columns stay
+        flush against each other. Odoo 19 materialises no ``ir.asset`` rows
+        for manifest entries, so the manifest and the file on disk are what
+        get checked.
+        """
+        relative = "static/src/scss/infohub_channel_list.scss"
+        manifest = get_manifest("infohub")
+        self.assertIn(f"infohub/{relative}", manifest["assets"]["web.assets_backend"])
+        self.assertTrue(
+            os.path.isfile(os.path.join(get_module_path("infohub"), relative))
+        )
+
     def test_item_search_filters_are_time_windows(self):
         """The search panel filters by time only: 1 day / 7 days / 30 days.
 
@@ -400,6 +428,28 @@ class TestInfohubCore(TransactionComponentCase):
     def test_cron_skips_disabled_channels(self):
         channel = self._make_channel(name="Off", enable_cron=False)
         self.assertNotIn(channel.id, self._run_cron())
+
+    def test_next_run_at_follows_last_run_and_interval(self):
+        """The list shows when a scheduled channel is due again."""
+        channel = self._make_channel(
+            name="Scheduled",
+            enable_cron=True,
+            fetch_interval_minutes=30,
+            last_run_at=fields.Datetime.now(),
+        )
+        self.assertEqual(
+            channel.next_run_at,
+            fields.Datetime.add(channel.last_run_at, minutes=30),
+        )
+
+    def test_next_run_at_empty_without_schedule(self):
+        """No cron, or no previous run, means no timestamp to show yet."""
+        disabled = self._make_channel(
+            name="Off", enable_cron=False, last_run_at=fields.Datetime.now()
+        )
+        never_run = self._make_channel(name="Never", enable_cron=True)
+        self.assertFalse(disabled.next_run_at)
+        self.assertFalse(never_run.next_run_at)
 
 
 @tagged("post_install", "-at_install")

@@ -4,13 +4,18 @@
         <field name="name">infohub.channel.list</field>
         <field name="model">infohub.channel</field>
         <field name="arch" type="xml">
-            <list string="Channels" decoration-muted="not active">
+            <list
+                string="Channels"
+                decoration-muted="not active"
+                class="o_infohub_channel_list"
+            >
                 <field name="name" />
                 <field name="channel_type" />
-                <field name="item_count" />
-                <field name="enable_cron" />
-                <field name="last_run_at" />
-                <field name="error_count" />
+                <field name="item_count" width="160px" />
+                <field name="enable_cron" width="180px" />
+                <field name="next_run_at" width="180px" />
+                <field name="last_run_at" width="180px" />
+                <field name="error_count" width="110px" />
                 <field name="active" column_invisible="1" />
             </list>
         </field>
@@ -51,6 +56,7 @@
                             <field name="active" />
                         </group>
                         <group>
+                            <field name="next_run_at" />
                             <field name="last_run_at" />
                             <field name="error_count" />
                         </group>
