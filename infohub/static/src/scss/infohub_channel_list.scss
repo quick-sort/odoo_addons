@@ -10,8 +10,16 @@
     .o_list_table {
         th,
         td {
-            // `!important` because numeric columns get `o_list_number_th`,
-            // which sets `text-align: right` on both header and cell.
+            // `!important` because numeric cells get `o_list_number`, which
+            // sets `text-align: right` on the cell itself.
+            text-align: center !important;
+        }
+
+        // Header labels do not simply inherit from the <th>: they sit in a
+        // flex row, and a numeric column puts `o_list_number_th` on the label
+        // <span> itself (list_renderer.xml), whose own `text-align: right`
+        // beats any inherited value. Target the label directly.
+        th span {
             text-align: center !important;
         }
 
