@@ -1,44 +1,39 @@
 from odoo import api, models
 
-
-class ProjectProject(models.Model):
-    _inherit = "project.project"
-
-    def action_open_task_dependency_graph(self):
-        """Return the client action with ``active_id`` bound to this project.
-
-        A ``type="action"`` button does not reliably propagate ``active_id``
-        into a client action's context, so the button is ``type="object"`` and
-        binds the id here instead (same pattern as ``stock_forecasted``).
-        """
-        self.ensure_one()
-        action = self.env["ir.actions.actions"]._for_xml_id(
-            "project_task_dag.action_task_dependency_graph"
-        )
-        action["context"] = {"active_id": self.id, "active_model": "project.project"}
-        return action
+_STATE_BUCKETS = {
+    "1_done": "done",
+    "1_canceled": "canceled",
+}
 
 
 class ProjectTask(models.Model):
     _inherit = "project.task"
 
     @api.model
-    def get_dependency_graph_data(self, project_id):
-        """Return the dependency DAG of a project's tasks as ``{nodes, edges}``.
+    def get_dag_data(self, domain=None):
+        """Return a recordset's dependency DAG as ``{nodes, edges}``.
 
         ``edges`` run from a predecessor (``depend_on_ids``, "Blocked By") to the
-        task it blocks, so an arrow ``A -> B`` means "A blocks B". Read-only; the
-        search below is already constrained by the caller's access rights.
+        task it blocks, so an arrow ``A -> B`` means "A blocks B". Only edges whose
+        both endpoints are inside the searched recordset are returned, and node
+        ``state`` is normalized to ``done``/``canceled``/``open`` so the generic
+        view stays unaware of ``project.task``'s concrete state values. Read-only;
+        the search is already constrained by the caller's access rights.
         """
-        tasks = self.env["project.task"].search([("project_id", "=", project_id)])
+        tasks = self.search(domain or [])
+        ids = set(tasks.ids)
         nodes = [
-            {"id": task.id, "name": task.name, "state": task.state}
+            {
+                "id": task.id,
+                "name": task.name,
+                "state": _STATE_BUCKETS.get(task.state, "open"),
+            }
             for task in tasks
         ]
         edges = [
             {"source": dep.id, "target": task.id}
             for task in tasks
             for dep in task.depend_on_ids
-            if dep.project_id.id == project_id
+            if dep.id in ids
         ]
         return {"nodes": nodes, "edges": edges}

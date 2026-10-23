@@ -1,28 +1,35 @@
-<?xml version="1.0" encoding="utf-8" ?>
-<templates>
-    <t t-name="project_task_dag.TaskDependencyGraph">
-        <div class="o_task_dependency_graph p-3">
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="web_dag.DagView" owl="1">
+        <Layout viewType="'dag'" display="props.display">
+            <DagController t-props="getControllerProps()" />
+        </Layout>
+    </t>
+
+    <t t-name="web_dag.DagController" owl="1">
+        <div class="o_dag_view p-3">
             <div t-if="state.loading" class="text-center text-muted py-5">Loading…</div>
             <div t-elif="state.error" class="alert alert-danger">
                 <t t-esc="state.error"/>
             </div>
             <t t-elif="state.nodes.length">
-                <svg class="o_dep_graph_svg" t-att-width="state.width" t-att-height="state.height">
+                <svg class="o_dag_graph_svg" t-att-width="state.width" t-att-height="state.height">
                     <defs>
-                        <marker id="o_dep_arrow" viewBox="0 0 10 10" refX="9" refY="5"
+                        <marker id="o_dag_arrow" viewBox="0 0 10 10" refX="9" refY="5"
                                 markerWidth="8" markerHeight="8" orient="auto-start-reverse">
-                            <path d="M 0 0 L 10 5 L 0 10 z" class="o_dep_arrow"/>
+                            <path d="M 0 0 L 10 5 L 0 10 z" class="o_dag_arrow"/>
                         </marker>
                     </defs>
                     <g t-foreach="state.edges" t-as="edge" t-key="edge.key">
-                        <line class="o_dep_edge" t-att-x1="edge.x1" t-att-y1="edge.y1"
+                        <line class="o_dag_edge" t-att-x1="edge.x1" t-att-y1="edge.y1"
                               t-att-x2="edge.x2" t-att-y2="edge.y2"/>
                     </g>
                     <g t-foreach="state.nodes" t-as="node" t-key="node.id"
-                       class="o_dep_node_group" t-on-click="() => this.openTask(node.id)">
+                       class="o_dag_node_group" t-on-click="() => this.openTask(node.id)">
                         <rect t-att-class="node.className" t-att-x="node.x" t-att-y="node.y"
                               width="160" height="44" rx="6"/>
-                        <text class="o_dep_label" text-anchor="middle"
+                        <text class="o_dag_label" text-anchor="middle"
                               t-att-x="node.x + 80" t-att-y="node.y + 27">
                             <t t-esc="node.name"/>
                         </text>
@@ -30,7 +37,8 @@
                 </svg>
                 <div class="text-muted small mt-2">Arrow A → B means "A blocks B". Click a task to open it.</div>
             </t>
-            <div t-else="" class="text-center text-muted py-5">No tasks in this project.</div>
+            <div t-else="" class="text-center text-muted py-5">No records to display.</div>
         </div>
     </t>
+
 </templates>
