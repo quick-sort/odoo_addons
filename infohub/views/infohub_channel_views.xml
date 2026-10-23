@@ -4,7 +4,11 @@
         <field name="name">infohub.channel.list</field>
         <field name="model">infohub.channel</field>
         <field name="arch" type="xml">
-            <list string="Channels" decoration-muted="not active">
+            <list
+                string="Channels"
+                decoration-muted="not active"
+                class="o_infohub_channel_list"
+            >
                 <field name="name" />
                 <field name="channel_type" />
                 <field name="item_count" width="160px" />

@@ -20,6 +20,7 @@
     "assets": {
         "web.assets_backend": [
             "infohub/static/src/scss/infohub_item.scss",
+            "infohub/static/src/scss/infohub_channel_list.scss",
         ],
     },
     "installable": True,
