@@ -7,10 +7,10 @@
             <list string="Channels" decoration-muted="not active">
                 <field name="name" />
                 <field name="channel_type" />
-                <field name="item_count" width="110px" />
-                <field name="enable_cron" width="130px" />
-                <field name="last_run_at" width="160px" />
-                <field name="error_count" width="100px" />
+                <field name="item_count" width="160px" />
+                <field name="enable_cron" width="180px" />
+                <field name="last_run_at" width="180px" />
+                <field name="error_count" width="110px" />
                 <field name="active" column_invisible="1" />
             </list>
         </field>
