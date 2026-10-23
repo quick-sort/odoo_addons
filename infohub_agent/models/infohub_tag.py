@@ -1,4 +1,4 @@
-from odoo import _, fields, models
+from odoo import _, api, fields, models
 
 
 class InfohubTag(models.Model):
@@ -33,7 +33,17 @@ class InfohubTag(models.Model):
     color = fields.Integer()
     active = fields.Boolean(default=True)
 
-    item_ids = fields.One2many("infohub.item", "tag_ids", string="Items")
+    # The inverse of ``infohub.item.tag_ids`` is a many2many, not a one2many:
+    # reading a one2many whose "inverse" is an m2m makes the ORM try to use the
+    # whole related recordset as a singleton, which blows up as soon as the
+    # list view computes item_count for more than one tag.
+    item_ids = fields.Many2many(
+        "infohub.item",
+        "infohub_item_tag_rel",
+        "tag_id",
+        "item_id",
+        string="Items",
+    )
     item_count = fields.Integer(compute="_compute_item_count")
 
     _code_uniq = models.Constraint(
@@ -41,6 +51,7 @@ class InfohubTag(models.Model):
         "Tag code must be unique.",
     )
 
+    @api.depends("item_ids")
     def _compute_item_count(self):
         for tag in self:
             tag.item_count = len(tag.item_ids)
