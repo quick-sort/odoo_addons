@@ -429,6 +429,28 @@ class TestInfohubCore(TransactionComponentCase):
         channel = self._make_channel(name="Off", enable_cron=False)
         self.assertNotIn(channel.id, self._run_cron())
 
+    def test_next_run_at_follows_last_run_and_interval(self):
+        """The list shows when a scheduled channel is due again."""
+        channel = self._make_channel(
+            name="Scheduled",
+            enable_cron=True,
+            fetch_interval_minutes=30,
+            last_run_at=fields.Datetime.now(),
+        )
+        self.assertEqual(
+            channel.next_run_at,
+            fields.Datetime.add(channel.last_run_at, minutes=30),
+        )
+
+    def test_next_run_at_empty_without_schedule(self):
+        """No cron, or no previous run, means no timestamp to show yet."""
+        disabled = self._make_channel(
+            name="Off", enable_cron=False, last_run_at=fields.Datetime.now()
+        )
+        never_run = self._make_channel(name="Never", enable_cron=True)
+        self.assertFalse(disabled.next_run_at)
+        self.assertFalse(never_run.next_run_at)
+
 
 @tagged("post_install", "-at_install")
 class TestIngestion(TransactionComponentRegistryCase):

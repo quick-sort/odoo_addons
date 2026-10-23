@@ -65,6 +65,12 @@ class InfohubChannel(models.Model):
     item_ids = fields.One2many("infohub.item", "channel_id", string="Items")
     item_count = fields.Integer(compute="_compute_item_count")
     last_run_at = fields.Datetime(readonly=True)
+    next_run_at = fields.Datetime(
+        string="Next Fetch",
+        compute="_compute_next_run_at",
+        help="When this channel becomes due again. The dispatcher cron runs "
+        "every 15 minutes and fetches it on the first tick after this time.",
+    )
     error_count = fields.Integer(readonly=True)
     last_error = fields.Text(readonly=True)
 
@@ -72,6 +78,19 @@ class InfohubChannel(models.Model):
     def _compute_item_count(self):
         for channel in self:
             channel.item_count = len(channel.item_ids)
+
+    @api.depends("enable_cron", "last_run_at", "fetch_interval_minutes")
+    def _compute_next_run_at(self):
+        for channel in self:
+            # No schedule, or never run: the dispatcher fetches a never-run
+            # channel on its next tick, so there is no meaningful timestamp
+            # to show yet.
+            if channel.enable_cron and channel.last_run_at:
+                channel.next_run_at = channel.last_run_at + timedelta(
+                    minutes=channel.fetch_interval_minutes
+                )
+            else:
+                channel.next_run_at = False
 
     # ------------------------------------------------------------------
     # Component dispatch
