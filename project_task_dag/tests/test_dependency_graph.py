@@ -4,7 +4,7 @@ from odoo.tests import TransactionCase, tagged
 
 
 @tagged("post_install", "-at_install")
-class TestDependencyGraph(TransactionCase):
+class TestDagView(TransactionCase):
     def _make_project(self, name="Graph Project"):
         return self.env["project.project"].create({
             "name": name,
@@ -18,6 +18,11 @@ class TestDependencyGraph(TransactionCase):
             "depend_on_ids": [Command.set(deps)],
         })
 
+    def _get_data(self, project):
+        return self.env["project.task"].get_dag_data(
+            domain=[("project_id", "=", project.id)]
+        )
+
     def test_nodes_and_edges(self):
         project = self._make_project()
         a = self._make_task(project, "A")
@@ -25,7 +30,7 @@ class TestDependencyGraph(TransactionCase):
         c = self._make_task(project, "C", [a.id])
         d = self._make_task(project, "D", [b.id, c.id])
 
-        data = self.env["project.task"].get_dependency_graph_data(project.id)
+        data = self._get_data(project)
 
         node_ids = {n["id"] for n in data["nodes"]}
         self.assertEqual(node_ids, {a.id, b.id, c.id, d.id})
@@ -40,32 +45,48 @@ class TestDependencyGraph(TransactionCase):
         other = self._make_project("Other")
         a = self._make_task(project, "A")
         b = self._make_task(project, "B", [a.id])
-        ext = self._make_task(other, "External")
+        self._make_task(other, "External")
 
-        data = self.env["project.task"].get_dependency_graph_data(project.id)
+        data = self._get_data(project)
 
         node_ids = {n["id"] for n in data["nodes"]}
         self.assertEqual(node_ids, {a.id, b.id})
-        self.assertNotIn(ext.id, node_ids)
 
-    def test_action_binds_active_id(self):
+    def test_edge_dropped_when_dependency_outside_recordset(self):
         project = self._make_project()
+        other = self._make_project("Other")
+        ext = self._make_task(other, "External")
+        self._make_task(project, "A", [ext.id])
 
-        action = project.action_open_task_dependency_graph()
+        data = self._get_data(project)
 
-        self.assertEqual(action["type"], "ir.actions.client")
-        self.assertEqual(action["tag"], "task_dependency_graph")
-        self.assertEqual(action["context"]["active_id"], project.id)
+        self.assertEqual(data["edges"], [])
 
-    def test_rpc_call_passes_project_id(self):
-        """The frontend calls this with ``[project_id]`` (no record ids), which
-        only works if the method is ``@api.model``; otherwise ``call_kw`` treats
-        the first arg as ids and the method raises ``TypeError``."""
+    def test_state_normalized(self):
+        project = self._make_project()
+        done = self._make_task(project, "Done")
+        done.state = "1_done"
+        canceled = self._make_task(project, "Canceled")
+        canceled.state = "1_canceled"
+        open_task = self._make_task(project, "Open")
+
+        states = {n["id"]: n["state"] for n in self._get_data(project)["nodes"]}
+
+        self.assertEqual(states[done.id], "done")
+        self.assertEqual(states[canceled.id], "canceled")
+        self.assertEqual(states[open_task.id], "open")
+
+    def test_rpc_call_passes_domain_as_kwarg(self):
+        """The view controller calls ``orm.call(model, 'get_dag_data', [], {domain})``;
+        the method must be ``@api.model`` and accept ``domain`` as a kwarg."""
         project = self._make_project()
         self._make_task(project, "A")
 
         data = call_kw(
-            self.env["project.task"], "get_dependency_graph_data", [project.id], {}
+            self.env["project.task"],
+            "get_dag_data",
+            [],
+            {"domain": [("project_id", "=", project.id)]},
         )
 
         self.assertEqual(len(data["nodes"]), 1)

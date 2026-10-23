@@ -1,8 +1,9 @@
+/** @odoo-module **/
+
 import { Component, onWillStart, useState } from "@odoo/owl";
-import { _t } from "@web/core/l10n/translation";
 import { registry } from "@web/core/registry";
+import { Layout } from "@web/search/layout";
 import { useService } from "@web/core/utils/hooks";
-import { standardActionServiceProps } from "@web/webclient/actions/action_service";
 
 const NODE_W = 160;
 const NODE_H = 44;
@@ -11,19 +12,18 @@ const GAP_Y = 32;
 const PAD = 24;
 
 function stateClass(state) {
-    if (state === "1_done") {
-        return "o_dep_node o_dep_done";
+    if (state === "done") {
+        return "o_dag_node o_dag_done";
     }
-    if (state === "1_canceled") {
-        return "o_dep_node o_dep_canceled";
+    if (state === "canceled") {
+        return "o_dag_node o_dag_canceled";
     }
-    return "o_dep_node o_dep_open";
+    return "o_dag_node o_dag_open";
 }
 
 /**
  * Longest-path layering over a DAG (Kahn's topological sort + depth propagation),
- * then a left-to-right grid. ``depend_on_ids`` is guaranteed acyclic by
- * ``_check_no_cyclic_dependencies``, so this always terminates cleanly.
+ * then a left-to-right grid. Edges are assumed acyclic, so this always terminates.
  */
 function layeredLayout(nodes, edges) {
     const byId = new Map(nodes.map((n) => [n.id, n]));
@@ -93,9 +93,8 @@ function layeredLayout(nodes, edges) {
     return { nodes: positioned, edges: lines, width, height };
 }
 
-export class TaskDependencyGraph extends Component {
-    static template = "project_task_dag.TaskDependencyGraph";
-    static props = { ...standardActionServiceProps };
+export class DagController extends Component {
+    static template = "web_dag.DagController";
 
     setup() {
         this.orm = useService("orm");
@@ -109,32 +108,60 @@ export class TaskDependencyGraph extends Component {
             error: null,
         });
 
-        onWillStart(async () => {
-            const projectId = this.props.action.context?.active_id;
-            try {
-                const data = await this.orm.call(
-                    "project.task",
-                    "get_dependency_graph_data",
-                    [projectId]
-                );
-                Object.assign(this.state, layeredLayout(data.nodes, data.edges), {
-                    loading: false,
-                });
-            } catch (err) {
-                this.state.error = err.message || String(err);
-                this.state.loading = false;
-            }
-        });
+        onWillStart(() => this.load());
+    }
+
+    async load() {
+        try {
+            const data = await this.orm.call(
+                this.props.resModel,
+                "get_dag_data",
+                [],
+                { domain: this.props.domain || [] }
+            );
+            Object.assign(this.state, layeredLayout(data.nodes, data.edges), {
+                loading: false,
+            });
+        } catch (err) {
+            this.state.error = err.message || String(err);
+            this.state.loading = false;
+        }
     }
 
     openTask(id) {
         this.actionService.doAction({
             type: "ir.actions.act_window",
-            res_model: "project.task",
+            res_model: this.props.resModel,
             res_id: id,
             views: [[false, "form"]],
         });
     }
 }
 
-registry.category("actions").add("task_dependency_graph", TaskDependencyGraph);
+export class DagView extends Component {
+    static template = "web_dag.DagView";
+    static components = { Layout, DagController };
+
+    getControllerProps() {
+        return {
+            resModel: this.props.resModel,
+            domain: this.props.domain,
+        };
+    }
+}
+
+export const dagView = {
+    type: "dag",
+    display_name: "DAG",
+    icon: "fa-sitemap",
+    multiRecord: true,
+    Controller: DagController,
+    Component: DagView,
+    props: (genericProps) => ({
+        ...genericProps,
+        Model: undefined,
+        Renderer: undefined,
+    }),
+};
+
+registry.category("views").add("dag", dagView);

@@ -1,21 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <record id="action_task_dependency_graph" model="ir.actions.client">
-        <field name="name">Task Dependencies</field>
-        <field name="tag">task_dependency_graph</field>
+    <record id="view_project_task_dag" model="ir.ui.view">
+        <field name="name">project.task.dag</field>
+        <field name="model">project.task</field>
+        <field name="arch" type="xml">
+            <dag string="Task Dependencies"/>
+        </field>
     </record>
 
-    <record id="view_project_form_dependency_button" model="ir.ui.view">
-        <field name="name">project.project.form.dependency.button</field>
-        <field name="model">project.project</field>
-        <field name="inherit_id" ref="project.edit_project"/>
-        <field name="arch" type="xml">
-            <xpath expr="//div[@name='button_box']" position="inside">
-                <button class="oe_stat_button" type="object"
-                        name="action_open_task_dependency_graph"
-                        icon="fa-sitemap"
-                        string="Dependencies"/>
-            </xpath>
-        </field>
+    <record id="project_task_dag_action_view" model="ir.actions.act_window.view">
+        <field name="sequence" eval="50"/>
+        <field name="view_mode">dag</field>
+        <field name="view_id" ref="view_project_task_dag"/>
+        <field name="act_window_id" ref="project.act_project_project_2_project_task_all"/>
+    </record>
+
+    <record id="project_task_dag_all_tasks_action_view" model="ir.actions.act_window.view">
+        <field name="sequence" eval="50"/>
+        <field name="view_mode">dag</field>
+        <field name="view_id" ref="view_project_task_dag"/>
+        <field name="act_window_id" ref="project.action_view_all_task"/>
     </record>
 </odoo>
