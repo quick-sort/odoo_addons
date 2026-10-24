@@ -28,5 +28,5 @@ Dependencies
 ------------
 
 * ``project``
-* ``project_task_gantt`` (reuses ``task_start_date`` / ``task_end_date`` /
+* ``project_task_gantt`` (reuses ``task_start_date`` / ``date_deadline`` /
   ``gantt_duration``)

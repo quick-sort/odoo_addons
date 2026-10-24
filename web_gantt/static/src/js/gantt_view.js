@@ -21,6 +21,7 @@ export class GanttController extends Component {
             scale: 'month',
             groupBy: this.props.groupBy?.[0] || 'project_id',
             ganttData: [],
+            markers: [],
             isLoading: false,
             editable: !this.props.readonly,
             hasCenteredToday: false,
@@ -55,7 +56,7 @@ export class GanttController extends Component {
             this.state.isLoading = true;
         }
         try {
-            this.state.ganttData = await this.orm.call(
+            const result = await this.orm.call(
                 props.resModel,
                 'get_gantt_data',
                 [],
@@ -64,6 +65,14 @@ export class GanttController extends Component {
                     group_by: this.state.groupBy
                 }
             );
+            if (Array.isArray(result)) {
+                // Legacy contract: a plain list of groups, no markers.
+                this.state.ganttData = result;
+                this.state.markers = [];
+            } else {
+                this.state.ganttData = result?.groups || [];
+                this.state.markers = result?.markers || [];
+            }
             this.state.hasLoadedOnce = true;
             // After first successful load, center on today once
             if (!this.state.hasCenteredToday) {
@@ -84,10 +93,11 @@ export class GanttController extends Component {
             // Format dates properly for Odoo
             const formatDateForOdoo = (date) => {
                 if (!date) return false;
-                if (date instanceof Date) {
-                    return date.toISOString().replace('Z', '').replace('T', ' ');
-                }
-                return date;
+                // Odoo only accepts 'YYYY-MM-DD HH:MM:SS': strip 'T', 'Z' and
+                // fractional seconds, which ISO strings and Date#toISOString()
+                // both carry.
+                const iso = date instanceof Date ? date.toISOString() : String(date);
+                return iso.replace('T', ' ').replace('Z', '').split('.')[0];
             };
 
             const updateData = {

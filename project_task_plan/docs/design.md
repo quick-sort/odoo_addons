@@ -13,7 +13,7 @@
   B 阻塞 A，即 A 排在 B 之后。
 - 排期字段复用 `project_task_gantt` 的：
   - `task_start_date` — 开始时间
-  - `task_end_date` — 结束时间
+  - `date_deadline` — 结束时间（核心字段，也是 Gantt 结束的唯一来源）
   - `gantt_duration` — 时长（天，由起止计算）
 
 ## 数据模型（新增字段，全部 `_inherit`）
@@ -54,11 +54,11 @@
 对每个参与自动排期的任务 T：
 
 ```
-T.task_start_date == max( P.task_end_date for P in T.depend_on_ids ) + T.lead_time
-T.task_end_date   == T.task_start_date + T.gantt_duration
+T.task_start_date == max( P.date_deadline for P in T.depend_on_ids ) + T.lead_time
+T.date_deadline   == T.task_start_date + T.gantt_duration
 ```
 
-- 前置结束日取 `P.task_end_date`；若为空，则退化为 `P.task_start_date`（视作
+- 前置结束日取 `P.date_deadline`；若为空，则退化为 `P.task_start_date`（视作
   零时长里程碑）。
 - 保持时长：用调整前的 `gantt_duration` 作为平移后的时长，整体平移起止。
 - 双向：目标日按不变量**确定性重算**，前置提前则后继提前，推迟则推迟。
@@ -66,7 +66,7 @@ T.task_end_date   == T.task_start_date + T.gantt_duration
 ## 传播规则
 
 - 触发点：`project.task` 的 `write`（含 create 路径）中，任何影响排期的字段
-  变化——`task_start_date`、`task_end_date`、`depend_on_ids`、`lead_time`、
+  变化——`task_start_date`、`date_deadline`、`depend_on_ids`、`lead_time`、
   `no_auto_schedule`。这些「随写随排」的传播是**静默**的（不弹窗，避免每次
   编辑都打断用户）。
 - 被编辑任务本身作为本次编辑的「锚点」，不做回溯调整；只重算其**传递后继**
@@ -101,9 +101,10 @@ T.task_end_date   == T.task_start_date + T.gantt_duration
 
 ## 与 project_task_gantt 的交互
 
-`project_task_gantt` 已有 `task_end_date ↔ date_deadline` 的同步。自动排期改
-`task_end_date` 时，`date_deadline` 会跟随变化，符合「截止日随排期走」的预期。
-设计上不重复实现该同步，直接复用既有行为。
+Gantt 的结束时间就是 `date_deadline`，不存在第二个结束字段。拖拽时前端写
+`gantt.mixin` 的两个非存储别名；mixin 的 inverse 把它们合并为一次
+`write({task_start_date, date_deadline})`，从而触发本模块的 `write` 覆盖并传播
+一次。自动排期也直接写这两个字段，不需要额外的同步逻辑。
 
 ## 约束（红线）
 

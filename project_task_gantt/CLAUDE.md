@@ -9,4 +9,4 @@
 红线（来自 design.md，勿违背）：
 
 1. `get_gantt_data` 返回的任务数组必须是 DFS 前序并带 `depth`；前端折叠逻辑依赖该顺序，禁止改成按日期排序。
-2. 起止日期与 `date_deadline` / `date_start` 的同步只在模型层做，前端不做日期推导。
+2. Gantt 日期只经 `gantt.mixin` 别名读写：开始落 `task_start_date`，结束落核心 `date_deadline`；不得新增结束日期存储字段，也不得改动核心 `date_end`（实际完成时间）。

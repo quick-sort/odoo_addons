@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from odoo import Command, fields
 from odoo.exceptions import ValidationError
 from odoo.tests import TransactionCase, tagged
@@ -29,7 +31,7 @@ class TestProjectTaskPlan(TransactionCase):
         if start:
             vals["task_start_date"] = start
         if end:
-            vals["task_end_date"] = end
+            vals["date_deadline"] = end
         return self.env["project.task"].create(vals)
 
     # AC-01
@@ -52,10 +54,10 @@ class TestProjectTaskPlan(TransactionCase):
         a = self._task(project, "A", start=self._dt("2026-01-01 00:00:00"), end=self._dt("2026-01-05 00:00:00"))
         b = self._task(project, "B", start=self._dt("2026-01-05 00:00:00"), end=self._dt("2026-01-10 00:00:00"), deps=[a.id])
 
-        a.write({"task_end_date": self._dt("2026-01-08 00:00:00")})
+        a.write({"date_deadline": self._dt("2026-01-08 00:00:00")})
 
         self.assertEqual(b.task_start_date, self._dt("2026-01-08 00:00:00"))
-        self.assertEqual(b.task_end_date, self._dt("2026-01-13 00:00:00"))
+        self.assertEqual(b.date_deadline, self._dt("2026-01-13 00:00:00"))
 
     # AC-04
     def test_predecessor_pull_earlier(self):
@@ -63,10 +65,10 @@ class TestProjectTaskPlan(TransactionCase):
         a = self._task(project, "A", start=self._dt("2026-01-01 00:00:00"), end=self._dt("2026-01-05 00:00:00"))
         b = self._task(project, "B", start=self._dt("2026-01-05 00:00:00"), end=self._dt("2026-01-10 00:00:00"), deps=[a.id])
 
-        a.write({"task_end_date": self._dt("2026-01-02 00:00:00")})
+        a.write({"date_deadline": self._dt("2026-01-02 00:00:00")})
 
         self.assertEqual(b.task_start_date, self._dt("2026-01-02 00:00:00"))
-        self.assertEqual(b.task_end_date, self._dt("2026-01-07 00:00:00"))
+        self.assertEqual(b.date_deadline, self._dt("2026-01-07 00:00:00"))
 
     # AC-05
     def test_multiple_predecessors_take_max(self):
@@ -75,10 +77,10 @@ class TestProjectTaskPlan(TransactionCase):
         a2 = self._task(project, "A2", start=self._dt("2026-01-01 00:00:00"), end=self._dt("2026-01-15 00:00:00"))
         b = self._task(project, "B", start=self._dt("2026-01-15 00:00:00"), end=self._dt("2026-01-20 00:00:00"), deps=[a1.id, a2.id])
 
-        a1.write({"task_end_date": self._dt("2026-01-18 00:00:00")})
+        a1.write({"date_deadline": self._dt("2026-01-18 00:00:00")})
 
         self.assertEqual(b.task_start_date, self._dt("2026-01-18 00:00:00"))
-        self.assertEqual(b.task_end_date, self._dt("2026-01-23 00:00:00"))
+        self.assertEqual(b.date_deadline, self._dt("2026-01-23 00:00:00"))
 
     # AC-06
     def test_lead_time_applied(self):
@@ -86,10 +88,10 @@ class TestProjectTaskPlan(TransactionCase):
         a = self._task(project, "A", start=self._dt("2026-01-01 00:00:00"), end=self._dt("2026-01-10 00:00:00"))
         b = self._task(project, "B", start=self._dt("2026-01-13 00:00:00"), end=self._dt("2026-01-18 00:00:00"), deps=[a.id], lead=3.0)
 
-        a.write({"task_end_date": self._dt("2026-01-12 00:00:00")})
+        a.write({"date_deadline": self._dt("2026-01-12 00:00:00")})
 
         self.assertEqual(b.task_start_date, self._dt("2026-01-15 00:00:00"))
-        self.assertEqual(b.task_end_date, self._dt("2026-01-20 00:00:00"))
+        self.assertEqual(b.date_deadline, self._dt("2026-01-20 00:00:00"))
 
     # AC-07
     def test_predecessor_without_end_date(self):
@@ -100,7 +102,7 @@ class TestProjectTaskPlan(TransactionCase):
         a.write({"task_start_date": self._dt("2026-01-12 00:00:00")})
 
         self.assertEqual(b.task_start_date, self._dt("2026-01-12 00:00:00"))
-        self.assertEqual(b.task_end_date, self._dt("2026-01-14 00:00:00"))
+        self.assertEqual(b.date_deadline, self._dt("2026-01-14 00:00:00"))
 
     # AC-08
     def test_project_switch_off(self):
@@ -108,10 +110,10 @@ class TestProjectTaskPlan(TransactionCase):
         a = self._task(project, "A", start=self._dt("2026-01-01 00:00:00"), end=self._dt("2026-01-10 00:00:00"))
         b = self._task(project, "B", start=self._dt("2026-01-10 00:00:00"), end=self._dt("2026-01-15 00:00:00"), deps=[a.id])
 
-        a.write({"task_end_date": self._dt("2026-01-12 00:00:00")})
+        a.write({"date_deadline": self._dt("2026-01-12 00:00:00")})
 
         self.assertEqual(b.task_start_date, self._dt("2026-01-10 00:00:00"))
-        self.assertEqual(b.task_end_date, self._dt("2026-01-15 00:00:00"))
+        self.assertEqual(b.date_deadline, self._dt("2026-01-15 00:00:00"))
 
     # AC-09
     def test_task_no_auto_schedule(self):
@@ -119,10 +121,10 @@ class TestProjectTaskPlan(TransactionCase):
         a = self._task(project, "A", start=self._dt("2026-01-01 00:00:00"), end=self._dt("2026-01-10 00:00:00"))
         b = self._task(project, "B", start=self._dt("2026-01-10 00:00:00"), end=self._dt("2026-01-15 00:00:00"), deps=[a.id], no_auto=True)
 
-        a.write({"task_end_date": self._dt("2026-01-12 00:00:00")})
+        a.write({"date_deadline": self._dt("2026-01-12 00:00:00")})
 
         self.assertEqual(b.task_start_date, self._dt("2026-01-10 00:00:00"))
-        self.assertEqual(b.task_end_date, self._dt("2026-01-15 00:00:00"))
+        self.assertEqual(b.date_deadline, self._dt("2026-01-15 00:00:00"))
 
     # AC-10
     def test_no_auto_schedule_still_constrains_successor(self):
@@ -131,10 +133,10 @@ class TestProjectTaskPlan(TransactionCase):
         b = self._task(project, "B", start=self._dt("2026-01-10 00:00:00"), end=self._dt("2026-01-15 00:00:00"), deps=[a.id], no_auto=True)
         c = self._task(project, "C", start=self._dt("2026-01-15 00:00:00"), end=self._dt("2026-01-20 00:00:00"), deps=[b.id])
 
-        b.write({"task_end_date": self._dt("2026-01-18 00:00:00")})
+        b.write({"date_deadline": self._dt("2026-01-18 00:00:00")})
 
         self.assertEqual(c.task_start_date, self._dt("2026-01-18 00:00:00"))
-        self.assertEqual(c.task_end_date, self._dt("2026-01-23 00:00:00"))
+        self.assertEqual(c.date_deadline, self._dt("2026-01-23 00:00:00"))
 
     # AC-11
     def test_task_without_predecessor_not_moved(self):
@@ -142,10 +144,10 @@ class TestProjectTaskPlan(TransactionCase):
         a = self._task(project, "A", start=self._dt("2026-01-01 00:00:00"), end=self._dt("2026-01-10 00:00:00"))
         b = self._task(project, "B", start=self._dt("2026-01-10 00:00:00"), end=self._dt("2026-01-15 00:00:00"))
 
-        a.write({"task_end_date": self._dt("2026-01-12 00:00:00")})
+        a.write({"date_deadline": self._dt("2026-01-12 00:00:00")})
 
         self.assertEqual(b.task_start_date, self._dt("2026-01-10 00:00:00"))
-        self.assertEqual(b.task_end_date, self._dt("2026-01-15 00:00:00"))
+        self.assertEqual(b.date_deadline, self._dt("2026-01-15 00:00:00"))
 
     # AC-12
     def test_transitive_cascade(self):
@@ -154,12 +156,12 @@ class TestProjectTaskPlan(TransactionCase):
         b = self._task(project, "B", start=self._dt("2026-01-10 00:00:00"), end=self._dt("2026-01-15 00:00:00"), deps=[a.id])
         c = self._task(project, "C", start=self._dt("2026-01-15 00:00:00"), end=self._dt("2026-01-20 00:00:00"), deps=[b.id])
 
-        a.write({"task_end_date": self._dt("2026-01-12 00:00:00")})
+        a.write({"date_deadline": self._dt("2026-01-12 00:00:00")})
 
         self.assertEqual(b.task_start_date, self._dt("2026-01-12 00:00:00"))
-        self.assertEqual(b.task_end_date, self._dt("2026-01-17 00:00:00"))
+        self.assertEqual(b.date_deadline, self._dt("2026-01-17 00:00:00"))
         self.assertEqual(c.task_start_date, self._dt("2026-01-17 00:00:00"))
-        self.assertEqual(c.task_end_date, self._dt("2026-01-22 00:00:00"))
+        self.assertEqual(c.date_deadline, self._dt("2026-01-22 00:00:00"))
 
     # AC-13
     def test_dependency_change_recomputes(self):
@@ -170,7 +172,7 @@ class TestProjectTaskPlan(TransactionCase):
         b.write({"depend_on_ids": [Command.set([a.id])]})
 
         self.assertEqual(b.task_start_date, self._dt("2026-01-20 00:00:00"))
-        self.assertEqual(b.task_end_date, self._dt("2026-01-25 00:00:00"))
+        self.assertEqual(b.date_deadline, self._dt("2026-01-25 00:00:00"))
 
     # AC-14
     def test_idempotent(self):
@@ -179,11 +181,11 @@ class TestProjectTaskPlan(TransactionCase):
         b = self._task(project, "B", start=self._dt("2026-01-10 00:00:00"), end=self._dt("2026-01-15 00:00:00"), deps=[a.id])
 
         target = self._dt("2026-01-12 00:00:00")
-        a.write({"task_end_date": target})
-        a.write({"task_end_date": target})
+        a.write({"date_deadline": target})
+        a.write({"date_deadline": target})
 
         self.assertEqual(b.task_start_date, self._dt("2026-01-12 00:00:00"))
-        self.assertEqual(b.task_end_date, self._dt("2026-01-17 00:00:00"))
+        self.assertEqual(b.date_deadline, self._dt("2026-01-17 00:00:00"))
 
     # AC-15
     def test_cycle_rejected(self):
@@ -195,14 +197,41 @@ class TestProjectTaskPlan(TransactionCase):
             b.write({"depend_on_ids": [Command.set([a.id])]})
 
     # AC-16
-    def test_deadline_follows(self):
+    def test_alias_drag_propagates(self):
         project = self._project()
         a = self._task(project, "A", start=self._dt("2026-01-01 00:00:00"), end=self._dt("2026-01-10 00:00:00"))
         b = self._task(project, "B", start=self._dt("2026-01-10 00:00:00"), end=self._dt("2026-01-15 00:00:00"), deps=[a.id])
 
-        a.write({"task_end_date": self._dt("2026-01-12 00:00:00")})
+        # A gantt drag writes the mixin aliases, not the backing fields.
+        a.write({
+            "gantt_date_start": self._dt("2026-01-03 00:00:00"),
+            "gantt_date_stop": self._dt("2026-01-12 00:00:00"),
+        })
 
-        self.assertEqual(b.date_deadline, b.task_end_date)
+        self.assertEqual(a.task_start_date, self._dt("2026-01-03 00:00:00"))
+        self.assertEqual(a.date_deadline, self._dt("2026-01-12 00:00:00"))
+        self.assertEqual(b.task_start_date, self._dt("2026-01-12 00:00:00"))
+        self.assertEqual(b.date_deadline, self._dt("2026-01-17 00:00:00"))
+
+    # AC-16 (propagation happens exactly once for one alias write)
+    def test_alias_drag_propagates_once(self):
+        project = self._project()
+        a = self._task(project, "A", start=self._dt("2026-01-01 00:00:00"), end=self._dt("2026-01-10 00:00:00"))
+        self._task(project, "B", start=self._dt("2026-01-10 00:00:00"), end=self._dt("2026-01-15 00:00:00"), deps=[a.id])
+
+        task_model = type(a)
+        with patch.object(
+            task_model,
+            "_propagate_schedule",
+            autospec=True,
+            side_effect=task_model._propagate_schedule,
+        ) as propagate:
+            a.write({
+                "gantt_date_start": self._dt("2026-01-03 00:00:00"),
+                "gantt_date_stop": self._dt("2026-01-12 00:00:00"),
+            })
+
+        self.assertEqual(propagate.call_count, 1)
 
     # AC-17 + AC-18
     def test_action_auto_align_and_result(self):
@@ -214,7 +243,7 @@ class TestProjectTaskPlan(TransactionCase):
         action = project.action_auto_align()
 
         self.assertEqual(b.task_start_date, self._dt("2026-01-10 00:00:00"))
-        self.assertEqual(b.task_end_date, self._dt("2026-01-13 00:00:00"))
+        self.assertEqual(b.date_deadline, self._dt("2026-01-13 00:00:00"))
 
         result = self.env["project.task.plan.result"].browse(action["res_id"])
         self.assertEqual(action["res_model"], "project.task.plan.result")
@@ -234,7 +263,7 @@ class TestProjectTaskPlan(TransactionCase):
         b = self._task(project, "B", start=self._dt("2026-01-10 00:00:00"), end=self._dt("2026-01-15 00:00:00"), deps=[a.id])
         b.write({"state": "1_done"})
 
-        a.write({"task_end_date": self._dt("2026-01-12 00:00:00")})
+        a.write({"date_deadline": self._dt("2026-01-12 00:00:00")})
 
         self.assertEqual(b.task_start_date, self._dt("2026-01-10 00:00:00"))
-        self.assertEqual(b.task_end_date, self._dt("2026-01-15 00:00:00"))
+        self.assertEqual(b.date_deadline, self._dt("2026-01-15 00:00:00"))

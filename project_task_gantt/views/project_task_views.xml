@@ -7,7 +7,6 @@
         <field name="arch" type="xml">
             <xpath expr="//field[@name='tag_ids']" position="after">   
                 <field name="task_start_date"/>
-                <field name="task_end_date"/>
                 <field name="gantt_duration" readonly="1"/>
             </xpath>
         </field>

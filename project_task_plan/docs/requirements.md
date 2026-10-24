@@ -22,7 +22,7 @@
 
 - 复用核心 `project` 的依赖关系（`depend_on_ids` / `dependent_ids`），**不新建
   依赖建模**。
-- 复用 `project_task_gantt` 的 `task_start_date` / `task_end_date` /
+- 复用 `project_task_gantt` 的 `task_start_date` / 核心 `date_deadline` /
   `gantt_duration` 作为排期的起止/时长字段。
 - 排期规则：
   - 后置任务开始 = 所有前置任务结束的最大值 + 本任务 lead time。

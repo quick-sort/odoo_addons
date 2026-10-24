@@ -6,7 +6,6 @@ from odoo.exceptions import ValidationError
 
 _SCHEDULE_FIELDS = {
     "task_start_date",
-    "task_end_date",
     "date_deadline",
     "depend_on_ids",
     "lead_time",
@@ -34,18 +33,18 @@ class ProjectTask(models.Model):
             and not self.no_auto_schedule
             and not self.is_closed
             and bool(self.depend_on_ids)
-            and bool(self.task_start_date or self.task_end_date)
+            and bool(self.task_start_date or self.date_deadline)
         )
 
     def _compute_target_dates(self):
         self.ensure_one()
         ends = [
-            pred.task_end_date or pred.task_start_date
+            pred.date_deadline or pred.task_start_date
             for pred in self.depend_on_ids
-            if pred.task_end_date or pred.task_start_date
+            if pred.date_deadline or pred.task_start_date
         ]
         if not ends:
-            return self.task_start_date, self.task_end_date
+            return self.task_start_date, self.date_deadline
         start = max(ends) + timedelta(days=self.lead_time)
         return start, start + timedelta(days=(self.gantt_duration or 0.0))
 
@@ -98,10 +97,10 @@ class ProjectTask(models.Model):
             if not task._is_auto_schedulable():
                 continue
             new_start, new_end = task._compute_target_dates()
-            if new_start != task.task_start_date or new_end != task.task_end_date:
-                old_start, old_end = task.task_start_date, task.task_end_date
+            if new_start != task.task_start_date or new_end != task.date_deadline:
+                old_start, old_end = task.task_start_date, task.date_deadline
                 task.with_context(_auto_schedule_guard=True).write(
-                    {"task_start_date": new_start, "task_end_date": new_end}
+                    {"task_start_date": new_start, "date_deadline": new_end}
                 )
                 changes.append(
                     {

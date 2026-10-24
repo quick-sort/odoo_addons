@@ -6,6 +6,7 @@ export class GanttRenderer extends Component {
     static template = "web_gantt.GanttRenderer";
     static props = {
         data: { type: Array },
+        markers: { type: Array, optional: true },
         scale: { type: String },
         editable: { type: Boolean, optional: true },
     };
@@ -40,6 +41,7 @@ export class GanttRenderer extends Component {
         this.scrollbarRect = null;
         this._scrollbarDragOffset = 0;
         this._rowsCache = null;
+        this._markerHitAreas = [];
 
         this.animationFrame = null;
         this.lastDrawTime = 0;
@@ -254,6 +256,7 @@ export class GanttRenderer extends Component {
         ctx.clearRect(0, 0, rect.width, rect.height);
         this.scrollbarMetrics = null;
         this.scrollbarRect = null;
+        this._markerHitAreas = [];
 
         if (!data || data.length === 0) {
             this.drawEmptyState(ctx, rect);
@@ -276,6 +279,7 @@ export class GanttRenderer extends Component {
         this.drawTodayMarker(ctx, dates, rect);
         this.drawTasks(ctx, data, dates, rect);
         this.drawHeader(ctx, dates, rect);
+        this.drawMarkers(ctx, dates, rect);
         this.drawSidebar(ctx, data, rect);
     }
 
@@ -334,6 +338,7 @@ export class GanttRenderer extends Component {
             this.state.scrollY = prevScrollY;
             this.state.zoom = prevZoom;
             this.state.hoveredTask = prevHover;
+            this._markerHitAreas = [];
             this.scheduleRedraw();
         }
     }
@@ -391,6 +396,13 @@ export class GanttRenderer extends Component {
             if (!maxDate || end > maxDate) maxDate = end;
         }));
 
+        this.getMarkers().forEach(marker => {
+            const date = this.parseMarkerDate(marker.date);
+            if (!date) return;
+            if (!minDate || date < minDate) minDate = date;
+            if (!maxDate || date > maxDate) maxDate = date;
+        });
+
         if (!minDate || !maxDate) {
             // If no tasks, show current month with some padding
             const today = new Date();
@@ -414,6 +426,12 @@ export class GanttRenderer extends Component {
             if (!minDate || start < minDate) minDate = start;
             if (!maxDate || end > maxDate) maxDate = end;
         }));
+        this.getMarkers().forEach(marker => {
+            const date = this.parseMarkerDate(marker.date);
+            if (!date) return;
+            if (!minDate || date < minDate) minDate = date;
+            if (!maxDate || date > maxDate) maxDate = date;
+        });
         if (!minDate || !maxDate) {
             return null;
         }
@@ -535,6 +553,161 @@ export class GanttRenderer extends Component {
                 ctx.restore();
             }
         }
+    }
+
+    getMarkers() {
+        return Array.isArray(this.props.markers) ? this.props.markers : [];
+    }
+
+    parseMarkerDate(value) {
+        if (!value) return null;
+        if (value instanceof Date) {
+            return isNaN(value.getTime()) ? null : value;
+        }
+        const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value));
+        if (dateOnly) {
+            // Date-only strings must be built in local time: `new Date('YYYY-MM-DD')`
+            // is parsed as UTC and would shift the line by one day in negative offsets.
+            return new Date(
+                Number(dateOnly[1]),
+                Number(dateOnly[2]) - 1,
+                Number(dateOnly[3])
+            );
+        }
+        const parsed = new Date(value);
+        return isNaN(parsed.getTime()) ? null : parsed;
+    }
+
+    resolveMarkerColor(marker) {
+        const color = marker && marker.color;
+        if (typeof color === 'string' &&
+            /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(color)) {
+            return color;
+        }
+        // Invalid colors are silently ignored by canvas, so validate first.
+        return '#71639e';
+    }
+
+    formatMarkerTooltip(marker) {
+        const date = this.parseMarkerDate(marker.date);
+        let text = marker.label || '';
+        if (date) {
+            text += (text ? '\n' : '') + date.toLocaleDateString();
+        }
+        if (marker.description) {
+            text += (text ? '\n' : '') + marker.description;
+        }
+        return text;
+    }
+
+    getMarkerAt(x, y) {
+        if (y < this.headerHeight || x < this.sidebarWidth) {
+            return null;
+        }
+        // Label pills take precedence over the thin vertical line.
+        for (const area of this._markerHitAreas) {
+            const rect = area.labelRect;
+            if (rect && x >= rect.x && x <= rect.x + rect.width &&
+                y >= rect.y && y <= rect.y + rect.height) {
+                return area.marker;
+            }
+        }
+        for (const area of this._markerHitAreas) {
+            if (Math.abs(x - area.x) <= 4) {
+                return area.marker;
+            }
+        }
+        return null;
+    }
+
+    drawMarkers(ctx, dates, rect) {
+        this._markerHitAreas = [];
+        const entries = [];
+        for (const marker of this.getMarkers()) {
+            const date = this.parseMarkerDate(marker.date);
+            if (!date || date < dates.start || date > dates.end) {
+                continue;
+            }
+            const x = this.dateToX(date, dates);
+            if (x < this.sidebarWidth - 4 || x > rect.width) {
+                continue;
+            }
+            entries.push({ marker, x });
+        }
+        if (!entries.length) {
+            return;
+        }
+        entries.sort((a, b) => a.x - b.x);
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(
+            this.sidebarWidth,
+            this.headerHeight,
+            rect.width - this.sidebarWidth,
+            rect.height - this.headerHeight
+        );
+        ctx.clip();
+
+        for (const entry of entries) {
+            ctx.save();
+            ctx.strokeStyle = this.resolveMarkerColor(entry.marker);
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([4, 3]);
+            ctx.beginPath();
+            ctx.moveTo(entry.x, this.headerHeight);
+            ctx.lineTo(entry.x, rect.height);
+            ctx.stroke();
+            ctx.restore();
+
+            entry.area = { x: entry.x, marker: entry.marker };
+            this._markerHitAreas.push(entry.area);
+        }
+
+        // Labels: two lanes, placed to the right of the line; skip a label
+        // when both lanes are already occupied at that x.
+        const labelHeight = 16;
+        const laneY = [this.headerHeight + 2, this.headerHeight + 20];
+        const laneRight = [this.sidebarWidth, this.sidebarWidth];
+        ctx.font = '11px Arial';
+        ctx.textBaseline = 'middle';
+        ctx.textAlign = 'left';
+        for (const entry of entries) {
+            if (!entry.marker.label) {
+                continue;
+            }
+            const text = this.truncateText(ctx, String(entry.marker.label), 180);
+            const width = ctx.measureText(text).width + 12;
+            const rightLimit = rect.width - this.scrollbarWidth - 2;
+            let left = entry.x + 3;
+            if (left + width > rightLimit) {
+                left = entry.x - width - 3;
+            }
+            left = Math.max(this.sidebarWidth + 2, Math.min(left, rightLimit - width));
+            let lane = -1;
+            for (let i = 0; i < laneY.length; i++) {
+                if (left >= laneRight[i] + 4) {
+                    lane = i;
+                    break;
+                }
+            }
+            if (lane < 0) {
+                continue;
+            }
+            ctx.fillStyle = this.resolveMarkerColor(entry.marker);
+            this.roundRect(ctx, left, laneY[lane], width, labelHeight, 4, true, false);
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText(text, left + 6, laneY[lane] + labelHeight / 2);
+            laneRight[lane] = left + width;
+            entry.area.labelRect = {
+                x: left,
+                y: laneY[lane],
+                width,
+                height: labelHeight,
+            };
+        }
+
+        ctx.restore();
     }
 
     drawHeader(ctx, dates, rect) {
@@ -1127,14 +1300,15 @@ export class GanttRenderer extends Component {
         } else {
             const task = this.getTaskAt(x, y);
             this.state.hoveredTask = task;
-            
+            const marker = task ? null : this.getMarkerAt(x, y);
+
             if (task) {
                 const start = new Date(task.start_date);
                 const end = this.getTaskEndDate(task);
                 const startDate = start.toLocaleDateString();
                 const endDate = end.toLocaleDateString();
                 const duration = ((end - start) / 86400000).toFixed(1);
-                
+
                 this.state.tooltip = {
                     visible: true,
                     content: `${task.name}\nStart: ${startDate}\nEnd: ${endDate}\nDuration: ${duration} days\nProgress: ${task.progress}%`,
@@ -1142,6 +1316,14 @@ export class GanttRenderer extends Component {
                     y: e.clientY - rect.top,
                 };
                 this.canvasRef.el.style.cursor = 'grab';
+            } else if (marker) {
+                this.state.tooltip = {
+                    visible: true,
+                    content: this.formatMarkerTooltip(marker),
+                    x: e.clientX - rect.left,
+                    y: e.clientY - rect.top,
+                };
+                this.canvasRef.el.style.cursor = 'default';
             } else {
                 this.state.tooltip.visible = false;
                 this.canvasRef.el.style.cursor = 'default';
