@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_project_milestone_form_inherit_last_task_deadline" model="ir.ui.view">
+        <field name="name">project.milestone.view.form.inherit.last.task.deadline</field>
+        <field name="model">project.milestone</field>
+        <field name="inherit_id" ref="project.project_milestone_view_form"/>
+        <field name="arch" type="xml">
+            <field name="deadline" position="after">
+                <field name="last_task_deadline"/>
+            </field>
+        </field>
+    </record>
+
+    <record id="view_project_milestone_tree_inherit_last_task_deadline" model="ir.ui.view">
+        <field name="name">project.milestone.view.list.inherit.last.task.deadline</field>
+        <field name="model">project.milestone</field>
+        <field name="inherit_id" ref="project.project_milestone_view_tree"/>
+        <field name="arch" type="xml">
+            <field name="deadline" position="after">
+                <field name="last_task_deadline" optional="show"/>
+            </field>
+        </field>
+    </record>
+</odoo>
