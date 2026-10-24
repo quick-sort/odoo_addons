@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_project_project_form_inherit_activity_notify" model="ir.ui.view">
+        <field name="name">project.project.form.inherit.activity.notify</field>
+        <field name="model">project.project</field>
+        <field name="inherit_id" ref="project.edit_project"/>
+        <field name="arch" type="xml">
+            <group name="extra_settings" position="inside">
+                <field name="activity_reminder_days"/>
+            </group>
+        </field>
+    </record>
+</odoo>
