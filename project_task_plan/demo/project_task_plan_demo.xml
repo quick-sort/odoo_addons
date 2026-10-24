@@ -16,7 +16,7 @@
         <field name="name">Design</field>
         <field name="project_id" ref="demo_project"/>
         <field name="task_start_date">2026-11-02 00:00:00</field>
-        <field name="task_end_date">2026-11-06 00:00:00</field>
+        <field name="date_deadline">2026-11-06 00:00:00</field>
     </record>
 
     <record id="demo_task_development" model="project.task">
@@ -24,7 +24,7 @@
         <field name="project_id" ref="demo_project"/>
         <field name="depend_on_ids" eval="[(6, 0, [ref('demo_task_design')])]"/>
         <field name="task_start_date">2026-11-06 00:00:00</field>
-        <field name="task_end_date">2026-11-11 00:00:00</field>
+        <field name="date_deadline">2026-11-11 00:00:00</field>
     </record>
 
     <record id="demo_task_testing" model="project.task">
@@ -33,7 +33,7 @@
         <field name="depend_on_ids" eval="[(6, 0, [ref('demo_task_development')])]"/>
         <field name="lead_time">1</field>
         <field name="task_start_date">2026-11-12 00:00:00</field>
-        <field name="task_end_date">2026-11-14 00:00:00</field>
+        <field name="date_deadline">2026-11-14 00:00:00</field>
     </record>
 
     <record id="demo_task_deployment" model="project.task">
@@ -41,7 +41,7 @@
         <field name="project_id" ref="demo_project"/>
         <field name="depend_on_ids" eval="[(6, 0, [ref('demo_task_testing')])]"/>
         <field name="task_start_date">2026-11-14 00:00:00</field>
-        <field name="task_end_date">2026-11-15 00:00:00</field>
+        <field name="date_deadline">2026-11-15 00:00:00</field>
     </record>
 
     <record id="demo_task_docs" model="project.task">
@@ -50,6 +50,6 @@
         <field name="depend_on_ids" eval="[(6, 0, [ref('demo_task_development')])]"/>
         <field name="no_auto_schedule" eval="True"/>
         <field name="task_start_date">2026-11-11 00:00:00</field>
-        <field name="task_end_date">2026-11-12 00:00:00</field>
+        <field name="date_deadline">2026-11-12 00:00:00</field>
     </record>
 </odoo>

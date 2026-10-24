@@ -102,6 +102,7 @@
                     <GanttRenderer
                         t-if="!state.isLoading"
                         data="state.ganttData"
+                        markers="state.markers"
                         scale="state.scale"
                         editable="state.editable"
                         t-on-task-updated.stop.prevent="(ev) => this.onTaskUpdated(ev)"

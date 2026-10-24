@@ -17,12 +17,12 @@
 > 前置：项目开关 `allow_auto_schedule = True`；任务 B 未开 `no_auto_schedule`，
 > 且有前置 A（`B.depend_on_ids = A`），`B.lead_time = L`。
 
-- **AC-03 前置推迟，后继顺延（保持时长）**：把 A 的 `task_end_date` 向后改
-  Δ 天 → B 的 `task_start_date` 变为 `A.task_end_date + L`，B 的
-  `task_end_date` 变为「新开始 + 原 `gantt_duration`」；B 的 `gantt_duration`
+- **AC-03 前置推迟，后继顺延（保持时长）**：把 A 的 `date_deadline` 向后改
+  Δ 天 → B 的 `task_start_date` 变为 `A.date_deadline + L`，B 的
+  `date_deadline` 变为「新开始 + 原 `gantt_duration`」；B 的 `gantt_duration`
   与改动前一致。
 
-- **AC-04 双向：前置提前，后继提前**：把 A 的 `task_end_date` 向前改 →
+- **AC-04 双向：前置提前，后继提前**：把 A 的 `date_deadline` 向前改 →
   B 的起止日期按不变量同步前移。
 
 - **AC-05 多前置取最大**：B 有前置 A1、A2（结束日分别为 E1、E2）→
@@ -31,7 +31,7 @@
 - **AC-06 lead_time 生效**：`B.lead_time = N`（N ≥ 0）→
   `B.task_start_date == max(前置结束) + N`。
 
-- **AC-07 前置无结束日**：前置 P 只有 `task_start_date`、`task_end_date` 为空 →
+- **AC-07 前置无结束日**：前置 P 只有 `task_start_date`、`date_deadline` 为空 →
   以 `P.task_start_date` 作为 P 的结束日参与取 max。
 
 - **AC-19 忽略已完成任务**：`is_closed`（Done / Cancelled）的任务，无论作为被
@@ -77,5 +77,7 @@
 
 ## 与 project_task_gantt 的交互
 
-- **AC-16 deadline 跟随**：自动排期改动 B 的 `task_end_date` 后，B 的
-  `date_deadline` 同步变化（复用 `project_task_gantt` 既有同步）。
+- **AC-16 拖拽别名触发传播**：Gantt 拖拽写 `gantt_date_start` /
+  `gantt_date_stop` 后，别名 inverse 写回 `task_start_date` / `date_deadline`，
+  依赖它的后继任务按不变量移动，且一次拖拽只触发一轮传播
+  （`test_alias_drag_propagates`、`test_alias_drag_propagates_once`）。

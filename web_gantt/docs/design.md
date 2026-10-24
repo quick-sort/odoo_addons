@@ -8,9 +8,46 @@
   列表、滚动条、今天线）都在一次 `drawGantt()` 中绘制。
 - `gantt_view.xml`：OWL 模板与工具栏按钮。
 
-数据由模型的 `get_gantt_data(domain, group_by)` 提供，结构为
-`[{id, name, tasks: [{id, name, start_date, end_date, depth, parent_id, assignees, ...}]}]`。
-任务数组必须是 DFS 前序，且 `depth` 表示树深度。
+数据由模型的 `get_gantt_data(domain, group_by)` 提供：
+
+```
+{
+  groups: [{id, name, tasks: [{id, name, start_date, end_date, depth, parent_id, assignees, ...}]}],
+  markers: [{date: "YYYY-MM-DD", label, color?, description?}],
+}
+```
+
+任务数组必须是 DFS 前序，且 `depth` 表示树深度。为向后兼容，直接返回 groups
+数组也合法（视为 `markers: []`）。
+
+## 日期映射 mixin（`gantt.mixin`）
+
+模型 `_inherit = ["<model>", "gantt.mixin"]` 并实现
+`_gantt_date_fields() -> (start_field, stop_field)` 后，即可用
+`gantt_date_start` / `gantt_date_stop` 作为视图的 `date_start` / `date_stop`：
+
+- 两个别名都是**非存储** computed+inverse 字段，不产生数据库列；
+- 计算依赖用 `@api.depends(lambda self: self._gantt_date_fields())`，由实现方决定依赖，
+  mixin 自身（抽象模型）返回 `()`；
+- 两个别名共享一个 inverse，Odoo 每次写入只调用一次；inverse 只把变化的值通过
+  `write()` 写回后端字段，因此下游模型的 `write()` 覆盖会照常触发；
+- 别名的 `search` 把 domain 原样转给后端字段，因此别名可用于过滤；
+- `default_get` 把 Gantt 工具栏 “New” 传入的 `default_gantt_date_start` 映射到后端
+  start 字段，并**移除**别名键：否则 create 会写入别名，其 inverse 反过来覆盖用户
+  明确传入的后端值。
+
+mixin 只负责日期映射，**不提供** `get_gantt_data`；数据载荷仍由各模型实现。
+
+## 标记线（markers）
+
+- 模型通过 `markers` 数组提供额外的竖向标记线（如里程碑日期）；web_gantt 不解释
+  业务语义，只按 `date` / `label` / `color` / `description` 渲染。
+- `YYYY-MM-DD` 由前端按**本地时区**构造（`new Date('YYYY-MM-DD')` 按 UTC 解析，
+  负时区会偏一天）；非法日期/颜色被忽略或回退到默认主色。
+- 绘制在表头之后、左侧列表之前，并裁剪在时间轴区域内：1.5px 虚线 + 常显标签
+  （两条 lane 错开，放不下时省略标签但保留竖线）；悬停竖线或标签显示
+  label / 日期 / description。
+- marker 日期参与可视范围与导出范围计算；PNG 导出自动包含标记线，CSV 仍只含任务。
 
 ## 时间尺度
 

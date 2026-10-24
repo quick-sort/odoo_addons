@@ -13,3 +13,11 @@
 | AC9 | Export Image | 点击后下载 PNG，内容包含左侧列表、全部任务行和完整时间范围，不含滚动条 | 人工检查 |
 | AC10 | 导出状态恢复 | 导出后屏幕滚动位置与缩放保持不变 | 人工检查 |
 | AC11 | 无数据导出 | 无任务时点击 Export Image 给出警告，不下载空文件 | 人工检查 |
+| AC12 | 日期别名读写 | 实现 `_gantt_date_fields()` 后，两个别名读取后端字段；写别名（拖动）只更新后端字段，不产生新列 | `project_task_gantt/tests/test_project_task_gantt.py`（`test_gantt_alias_*`） |
+| AC13 | 别名搜索 | `search([("gantt_date_start", "!=", False)])` 等价于后端字段过滤 | `test_search_on_gantt_date_aliases` |
+| AC14 | 新建默认值 | Gantt 的 New 按钮把开始日期映射到后端 start 字段，别名不会进入 create vals | `test_default_get_maps_gantt_start_to_backing_field` |
+| AC15 | 标记线渲染 | 返回 markers 后，在对应日期画出竖向虚线，颜色按 payload，压在任务条之上、不进入左侧列表 | 人工检查 |
+| AC16 | 标记标签 | 标签常显在图表顶部；两条 lane 错开，放不下时省略标签但竖线保留 | 人工检查 |
+| AC17 | 标记悬停 | 悬停竖线/标签显示 label、日期、description；悬停任务条仍显示任务信息 | 人工检查 |
+| AC18 | 导出与范围 | marker 日期参与时间轴范围；PNG 包含标记线且导出后滚动/缩放恢复；CSV 仍只含任务 | 人工检查 |
+| AC19 | 旧载荷兼容 | `get_gantt_data` 返回旧数组时，任务正常渲染、无标记线、footer/CSV/导出正常 | 人工检查 |
