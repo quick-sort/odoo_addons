@@ -1,0 +1,10 @@
+id,name,code,url,description
+source_exchange_sse,上海证券交易所 (SSE),exchange_sse,https://www.sse.com.cn,
+source_exchange_szse,深圳证券交易所 (SZSE),exchange_szse,https://www.szse.cn,
+source_exchange_bse,北京证券交易所 (BSE),exchange_bse,https://www.bse.cn,
+source_exchange_hkex,香港交易所 (HKEX),exchange_hkex,https://www.hkex.com.hk,
+source_eastmoney,东方财富,eastmoney,https://www.eastmoney.com,
+source_finance_sina,新浪财经,finance_sina,https://finance.sina.com.cn,
+source_cninfo,巨潮资讯,cninfo,https://www.cninfo.com.cn,
+source_cnindex,国证指数,cnindex,https://www.cnindex.com.cn,
+source_csindex,中证指数,csindex,https://www.csindex.com.cn,

@@ -1,0 +1,6 @@
+id,name,code,parent_id/id,description
+package_macroeconomy,宏观经济,macroeconomy,,
+package_price,价格指标,price,package_macroeconomy,
+package_industry_consumption,工业与消费,industry_consumption,package_macroeconomy,
+package_trade,对外贸易,trade,package_macroeconomy,
+package_money_credit,货币与信用,money_credit,package_macroeconomy,

@@ -1,0 +1,4 @@
+id,name,code,url,description
+source_nbs,国家统计局 (NBS),nbs,https://www.stats.gov.cn,
+source_gacc,海关总署 (GACC),gacc,https://www.customs.gov.cn,
+source_pbc,中国人民银行 (PBC),pbc,https://www.pbc.gov.cn,

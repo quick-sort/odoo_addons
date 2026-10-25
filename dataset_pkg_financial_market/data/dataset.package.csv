@@ -1,0 +1,6 @@
+id,name,code,parent_id/id,description
+package_financial_market,金融市场,financial_market,,
+package_stock_a,A股,stock_a,package_financial_market,
+package_bond,债券,bond,package_financial_market,
+package_fund,基金,fund,package_financial_market,
+package_stock_hk,港股,stock_hk,package_financial_market,
