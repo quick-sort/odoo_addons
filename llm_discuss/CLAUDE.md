@@ -15,3 +15,7 @@
    Live Chat 访客附件）时 fail closed，禁止升级 sudo 或切换执行主体。
 3. **附件透传只走 `_invoke_with_background`**，公开 `invoke()` 不接受
    `attachment_ids`，也不接受任意执行用户 / system 背景。
+4. **普通 Discuss 触发必须走 `discuss_agent` 接口**，不得重新实现
+   `_llm_discuss_dispatch` 之类的本地 dispatch/入队。`llm_discuss` 只做桥接
+   （`agent_type` selection_add + `_discuss_execute` 协议方法 + `discuss.agent`
+   同步 + worker）；本地 `llm.discuss.reply.queue` 仅服务 OdooBot 接管。

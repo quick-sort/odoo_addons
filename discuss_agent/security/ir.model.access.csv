@@ -1,0 +1,5 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_discuss_agent_user,discuss.agent.user,model_discuss_agent,base.group_user,1,1,1,1
+access_discuss_agent_system,discuss.agent.system,model_discuss_agent,base.group_system,1,1,1,1
+access_discuss_reply_job_user,discuss.reply.job.user,model_discuss_reply_job,base.group_user,1,1,0,0
+access_discuss_reply_job_system,discuss.reply.job.system,model_discuss_reply_job,base.group_system,1,1,1,1
