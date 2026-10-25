@@ -342,7 +342,7 @@ class LlmAssistant(models.Model):
             return
 
         page_context = self._llm_discuss_normalize_page_context(
-            self.env.context.get("llm_discuss_page_context"),
+            self.env.context.get("discuss_agent_page_context"),
             source_user,
         )
         odoobot_partner = self.env.ref("base.partner_root")
@@ -362,6 +362,8 @@ class LlmAssistant(models.Model):
         company,
         query,
         background=None,
+        thread_vals=None,
+        attachment_ids=None,
         stream=False,
     ):
         """Bridge discuss_agent's reply contract to the in-process LLM.
@@ -375,6 +377,8 @@ class LlmAssistant(models.Model):
         return agent._invoke_with_background(
             query,
             background=background or {},
+            thread_vals=thread_vals,
             new_cursor=False,
             stream=stream,
+            attachment_ids=attachment_ids,
         )

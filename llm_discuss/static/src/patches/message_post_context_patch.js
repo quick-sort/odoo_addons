@@ -15,7 +15,7 @@ patch(Store.prototype, {
         if (
             params.thread_model === "discuss.channel" &&
             llmDiscuss?.isAssistantThread(thread) &&
-            !params.context?.llm_discuss_page_context
+            !params.context?.discuss_agent_page_context
         ) {
             const pageContext = llmDiscuss.getPageContext();
             if (Object.keys(pageContext).length) {
@@ -23,7 +23,7 @@ patch(Store.prototype, {
                     ...params,
                     context: {
                         ...params.context,
-                        llm_discuss_page_context: pageContext,
+                        discuss_agent_page_context: pageContext,
                     },
                 };
             }

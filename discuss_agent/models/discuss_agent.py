@@ -104,6 +104,8 @@ class DiscussAgent(models.Model):
         company,
         query,
         background=None,
+        thread_vals=None,
+        attachment_ids=None,
         stream=False,
     ):
         """Generate a reply for ``query`` under ``execution_user``.
@@ -130,10 +132,73 @@ class DiscussAgent(models.Model):
             company=company,
             query=query,
             background=background,
+            thread_vals=thread_vals,
+            attachment_ids=attachment_ids,
             stream=stream,
         )
 
-    def _discuss_enqueue_reply(self, channel, message, source_user, reply_partner):
+    @api.model
+    def _discuss_normalize_page_context(self, page_context, user):
+        """Validate client page metadata using ``user`` record access.
+
+        Invalid or inaccessible context is ignored rather than rejecting the
+        already-authorized Discuss message. Business data is fetched again by
+        the worker, so this method stores only a validated reference snapshot.
+        """
+        if not isinstance(page_context, dict):
+            return {}
+
+        normalized = {"version": 1}
+        view_type = page_context.get("view_type")
+        if view_type in {"form", "list", "kanban", "calendar", "graph", "pivot", "activity"}:
+            normalized["view_type"] = view_type
+
+        action_id = page_context.get("action_id")
+        if isinstance(action_id, int) and action_id > 0:
+            normalized["action_id"] = action_id
+        elif isinstance(action_id, str) and 0 < len(action_id) <= 128:
+            normalized["action_id"] = action_id
+
+        model_name = page_context.get("res_model")
+        if not isinstance(model_name, str) or model_name not in self.env:
+            return normalized if len(normalized) > 1 else {}
+        normalized["res_model"] = model_name
+
+        res_id = page_context.get("res_id")
+        if not res_id:
+            return normalized
+        try:
+            res_id = int(res_id)
+        except (TypeError, ValueError):
+            return normalized
+        if res_id <= 0:
+            return normalized
+
+        try:
+            record = self.env[model_name].sudo(False).with_user(user).browse(res_id).exists()
+            if not record:
+                return normalized
+            record.check_access("read")
+        except Exception:  # noqa: BLE001 - inaccessible context is intentionally discarded
+            _logger.info(
+                "discuss_agent: user %s cannot use page context %s,%s",
+                user.id,
+                model_name,
+                res_id,
+            )
+            return normalized
+
+        normalized["res_id"] = res_id
+        return normalized
+
+    def _discuss_enqueue_reply(
+        self,
+        channel,
+        message,
+        source_user,
+        reply_partner,
+        page_context,
+    ):
         """Idempotently register one pending reply job, keeping persona and
         execution identity separate. Never blocks message posting."""
         self.ensure_one()
@@ -154,6 +219,8 @@ class DiscussAgent(models.Model):
                 "reply_partner_id": reply_partner.id,
                 "source_user_id": source_user.id,
                 "source_company_id": self.env.company.id,
+                "page_context": page_context,
+                "attachment_ids": [(6, 0, message.attachment_ids.ids)],
             }
         )
         return True
@@ -171,6 +238,10 @@ class DiscussAgent(models.Model):
         """Evaluate trigger policy for every enabled agent and enqueue replies
         without blocking the user's message post."""
         source_user = self.env.user
+        page_context = self._discuss_normalize_page_context(
+            self.env.context.get("discuss_agent_page_context"),
+            source_user,
+        )
         agents = self.sudo().search(
             [
                 ("active", "=", True),
@@ -192,6 +263,7 @@ class DiscussAgent(models.Model):
                     message,
                     source_user,
                     agent.discuss_user_id.partner_id,
+                    page_context,
                 ):
                     agent._discuss_after_enqueue()
             except Exception:  # noqa: BLE001 - agent failure must not abort posting
