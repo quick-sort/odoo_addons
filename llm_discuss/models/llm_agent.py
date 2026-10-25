@@ -41,6 +41,15 @@ class LlmAssistant(models.Model):
         "1:1 conversation with a user. @mention: the agent only "
         "replies when explicitly mentioned in a (multi-user) channel.",
     )
+    discuss_agent_id = fields.Many2one(
+        "discuss.agent",
+        string="Discuss Agent Bridge",
+        ondelete="set null",
+        copy=False,
+        help="discuss_agent interface record through which this agent "
+        "participates in Discuss. Created and kept in sync automatically "
+        "from discuss_user_id / discuss_enabled / discuss_trigger_mode.",
+    )
     odoobot_enabled = fields.Boolean(
         string="Use for OdooBot Private Chat",
         copy=False,
@@ -67,7 +76,10 @@ class LlmAssistant(models.Model):
                 ODOOBOT_UNIQUE_KEY if vals.get("odoobot_enabled") else False
             )
             normalized_vals_list.append(vals)
-        return super().create(normalized_vals_list)
+        records = super().create(normalized_vals_list)
+        for record in records:
+            record._discuss_sync_agent()
+        return records
 
     def write(self, vals):
         vals = dict(vals)
@@ -78,7 +90,41 @@ class LlmAssistant(models.Model):
         else:
             # The key is an internal database-enforced implementation detail.
             vals.pop("odoobot_unique_key", None)
-        return super().write(vals)
+        result = super().write(vals)
+        if any(field in vals for field in ("discuss_user_id", "discuss_enabled", "discuss_trigger_mode")):
+            for record in self:
+                record._discuss_sync_agent()
+        return result
+
+    def _discuss_sync_agent(self):
+        """Create/update/delete the discuss.agent bridge mirroring this agent.
+
+        The single source of truth for the Discuss trigger config stays on this
+        llm.agent; the bridge record is what discuss_agent's dispatcher reads.
+        """
+        self.ensure_one()
+        DiscussAgent = self.env["discuss.agent"].sudo()
+        if not (self.discuss_enabled and self.discuss_user_id):
+            if self.discuss_agent_id:
+                bridge = self.discuss_agent_id
+                self.discuss_agent_id = False
+                bridge.unlink()
+            return
+
+        vals = {
+            "name": self.name,
+            "agent_type": "llm",
+            "res_model": "llm.agent",
+            "res_id": self.id,
+            "discuss_user_id": self.discuss_user_id.id,
+            "discuss_enabled": True,
+            "discuss_trigger_mode": self.discuss_trigger_mode,
+        }
+        if self.discuss_agent_id:
+            self.discuss_agent_id.write(vals)
+        else:
+            bridge = DiscussAgent.create(vals)
+            self.discuss_agent_id = bridge.id
 
     def action_create_discuss_user(self):
         """Create the least-privileged internal user representing the bot."""
@@ -283,52 +329,6 @@ class LlmAssistant(models.Model):
         if cron:
             cron.sudo()._trigger()
 
-    @api.model
-    def _llm_discuss_dispatch(self, channel, message, msg_vals):
-        """Evaluate ordinary bot triggers and enqueue without blocking the post."""
-        source_user = self.env.user
-        raw_page_context = self.env.context.get("llm_discuss_page_context")
-        page_context = self._llm_discuss_normalize_page_context(
-            raw_page_context,
-            source_user,
-        )
-        agents = self.sudo().search(
-            [
-                ("active", "=", True),
-                ("discuss_enabled", "=", True),
-                ("discuss_user_id", "!=", False),
-            ]
-        )
-        if not agents:
-            return
-
-        triggered = False
-        for agent in agents:
-            try:
-                if not channel._llm_discuss_user_can_use_agent(
-                    agent,
-                    source_user,
-                ):
-                    continue
-                if not channel._llm_discuss_should_trigger(agent, message, msg_vals):
-                    continue
-                triggered |= agent._llm_discuss_enqueue_reply(
-                    channel,
-                    message,
-                    source_user,
-                    agent.discuss_user_id.partner_id,
-                    page_context,
-                )
-            except Exception:  # noqa: BLE001 - agent failure must not abort message posting
-                _logger.exception(
-                    "llm_discuss: error dispatching agent %s on channel %s",
-                    agent.id,
-                    channel.id,
-                )
-
-        if triggered:
-            self._llm_discuss_trigger_queue_cron()
-
     def _llm_discuss_dispatch_odoobot(self, channel, message):
         """Queue this agent behind the native OdooBot private-chat persona."""
         self.ensure_one()
@@ -354,3 +354,27 @@ class LlmAssistant(models.Model):
             page_context,
         ):
             self._llm_discuss_trigger_queue_cron()
+
+    def _discuss_execute(
+        self,
+        *,
+        execution_user,
+        company,
+        query,
+        background=None,
+        stream=False,
+    ):
+        """Bridge discuss_agent's reply contract to the in-process LLM.
+
+        Synchronous form: runs this agent under ``execution_user`` (never sudo)
+        and returns the generated reply in the discuss_agent result shape, i.e.
+        ``{"result_html"/"result"/"thread_id"}`` or ``{"error": ...}``.
+        """
+        self.ensure_one()
+        agent = self.with_user(execution_user).with_company(company)
+        return agent._invoke_with_background(
+            query,
+            background=background or {},
+            new_cursor=False,
+            stream=stream,
+        )

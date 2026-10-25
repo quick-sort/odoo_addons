@@ -1,33 +1,67 @@
 # LLM Discuss — 系统设计
 
-## 总体形态
+## 定位：llm 桥接 discuss_agent
 
-用户可见的对话始终是原生 `discuss.channel`。本模块**不渲染**平行 LLM 聊天 UI，
-**不修改** Odoo core，只在 `discuss.channel` 的 `_message_post_after_hook()` 上挂
-桥接，把命中触发条件的消息异步交给 `llm.agent`，再把结果回帖到 channel。
+`llm_discuss` 是 **llm.agent 桥接 `discuss_agent` 接口的 addon**。它不再自己实现
+普通 Discuss 的触发与队列，而是让 `llm.agent` 通过 `discuss_agent` 的统一接口接入：
+
+- `discuss_agent` core 定义多态 responder（`discuss.agent`）、统一 pending 载体
+  （`discuss.reply.job`）、统一触发（`_discuss_dispatch`）与执行契约
+  （`_discuss_execute`）。
+- `llm_discuss` 实现 llm 这一种 responder：注册 `agent_type="llm"`、给 `llm.agent`
+  加 `_discuss_execute` 协议方法、把 `llm.agent` 的 Discuss 配置同步成 `discuss.agent`
+  桥接记录、并提供消费 `discuss.reply.job` 的 worker cron。
+
+依赖：`base, mail, mail_bot, llm, discuss_agent`。**更新/安装时 `discuss_agent` 与
+`llm_discuss` 都要进 `-u` 列表**（前者是接口 core，后者是桥接）。
+
+## 数据流（普通 Discuss 触发）
 
 ```
-Composer / ChatWindow
-    -> discuss.channel.message_post()
-    -> llm.discuss.reply.queue（入队，快照执行身份）
-    -> llm.agent（stream=False）
-    -> discuss.channel.message_post(回复人格)
-    -> discuss.channel/new_message bus -> Discuss / ChatWindow
+discuss.channel._message_post_after_hook
+  ├─ llm_discuss 的 hook：仅处理 OdooBot 接管（见下），其余 super()
+  └─ discuss_agent 的 hook → discuss.agent._discuss_dispatch
+       遍历 discuss.agent（含 agent_type=llm 的桥接记录）
+       → channel._discuss_should_trigger（@mention / 私聊 / both）
+       → channel._discuss_user_can_use_agent（llm_discuss override，保留 llm 授权）
+       → agent._discuss_enqueue_reply 入 discuss.reply.job（固化 source_user + reply_partner）
+       → agent._discuss_after_enqueue()  ──▶ llm_discuss override：_trigger worker cron
+
+cron ir_cron_process_discuss_reply_job
+  → discuss.reply.job._discuss_cron_process_pending（llm_discuss 提供）
+  → _claim_pending(agent_types=["llm"])      # 只认领 llm 的 job
+  → _execution_user_and_company()            # source_user，fail-closed
+  → agent._discuss_execute()                 # 分派到 llm.agent._discuss_execute
+       → with_user(execution_user)._invoke_with_background(...)
+  → job._complete(result)                    # 回帖（作者=reply_partner）+ 置 done
 ```
 
-专用 agent 用 systray 启动器走 `mail.store.openChat({ userId: botUserId })`，由
-Odoo 创建/复用规范 1:1 channel 并选择正确 UI。OdooBot 接管则复用
-`base.partner_root` 人格，不替换任何 core 记录。
+## 桥接机制
+
+`llm.agent` 的 Discuss 参与，通过一条 `discuss.agent`（`agent_type=llm`、
+`res_model=llm.agent`、`res_id=<agent>`）承载。三个桥接动作：
+
+1. **字段同步**：`llm.agent` 的 `discuss_user_id` / `discuss_enabled` /
+   `discuss_trigger_mode` 仍是用户在 `llm.agent` 表单上的配置入口；`create`/`write`
+   触发 `_discuss_sync_agent()`，自动 upsert/删除对应的 `discuss.agent`
+   （`discuss_agent_id` 反向关联）。单一真相源在 `llm.agent`，桥接记录是 dispatcher
+   读取的对象。
+2. **执行协议**：`llm.agent._discuss_execute(execution_user, company, query, ...)`
+   转调 `_invoke_with_background`，返回 `{result_html/result/thread_id}` 或
+   `{error}`——discuss_agent 的同步执行形态。
+3. **授权收敛**：`discuss_channel._discuss_user_can_use_agent` 对 `agent_type=llm`
+   委托回 `llm.agent._get_allowed_agents_for_user`，不回退成"所有内部用户可用所有
+   agent"。
 
 ## 触发与 OdooBot 接管
 
-`discuss.channel._message_post_after_hook()` 评估启用中的专用 bot。触发模式：
-私聊、显式 `@mention`、或两者（`discuss_trigger_mode`）。bot 自身消息与非 comment
-消息被忽略。
+普通触发（@mention / 私聊 / both）在 `discuss_agent` core 完成，`llm_discuss` 只
+override `_discuss_user_can_use_agent` 收紧授权。
 
-OdooBot 接管的 eligibility 在 `super()` **之前**捕获——因为最后一条 onboarding
-消息会把用户 `odoobot_state` 从 `onboarding_canned` 置为 `idle`，该消息必须只收到
-Odoo 原生教程收尾，而不是重复的 LLM 答案。接管需**同时**满足：
+OdooBot 接管仍由 `llm_discuss` 自己负责（**尚未迁移到 discuss_agent**）：
+`_llm_discuss_odoobot_takeover_agent()` 在 `super()` **之前**捕获 eligibility（因为
+最后一条 onboarding 消息把 `odoobot_state` 置 `idle`，该消息必须只收到原生教程收尾，
+不能成为 LLM 首答）。接管需**同时**满足：
 
 - 一个 active agent 启用了 **Use for OdooBot Private Chat**；
 - 发送者是允许使用该 agent 的内部用户；
@@ -35,184 +69,130 @@ Odoo 原生教程收尾，而不是重复的 LLM 答案。接管需**同时**满
 - channel 是只含该用户与 `base.partner_root` 的真 1:1 chat；
 - 消息是用户 comment。
 
-继承 `mail.bot._apply_logic()` 仅在上述条件成立时抑制原生 idle/disabled 的
-canned 回复；onboarding 各态、`start the tour` 重启、`/help` 命令仍交给 core
-`mail_bot`。
+继承 `mail.bot._apply_logic()` 仅在上述条件成立时抑制原生 canned 回复；onboarding
+各态、`start the tour` 重启、`/help` 仍交 core `mail_bot`。命中后走
+`_llm_discuss_dispatch_odoobot` → `llm.discuss.reply.queue`（旧队列）→ 旧 cron。
 
-## 队列与栅栏
+**注意**：同一 `llm.agent` 若同时 `odoobot_enabled=True` 与 `discuss_enabled=True`，
+OdooBot 私聊会撞双路径（旧队列 + discuss.reply.job）。约定：OdooBot 接管的 agent
+不设 `discuss_enabled`。
 
-一条命中的消息按 `(agent, source message)` 各建一行 `llm.discuss.reply.queue`。
-`reply_partner_id` 独立持久化可见作者/typing 人格，与执行用户解耦。唯一约束
-`UNIQUE(agent_id, message_id)` 包在 savepoint 里，并发重复入队不会中断用户消息
-事务。
+## 队列
 
-worker：
+两条队列并存，触发条件不同、不重叠：
 
-1. `FOR UPDATE SKIP LOCKED` 认领一行 pending；
-2. 分配随机 fencing token 并提交认领；
-3. 以 `reply_partner_id` 发布原生 typing；
-4. 以 `stream=False` 调用 agent；
-5. 锁行、校验 fencing token；
-6. 以持久化的回复人格 post 一条完整消息并标记 done；
-7. 提交状态后，仅当该 persona 无其他活动 job 时清除 typing。
+| 队列 | 服务对象 | worker | 触发 |
+|---|---|---|---|
+| `discuss.reply.job`（discuss_agent） | 普通 Discuss 触发 | `llm_discuss` 的 `_discuss_cron_process_pending` | discuss_agent dispatch |
+| `llm.discuss.reply.queue`（llm_discuss） | OdooBot 接管 | 旧 `_cron_process_pending` | `_llm_discuss_dispatch_odoobot` |
 
-超时 job 被 fence 并标记 failed；**不自动重放**（工具可能有外部/非幂等副作用）。
+`discuss.reply.job` 是精简版接口载体（状态机 + `_claim_pending(agent_types)` +
+`_complete`/`_complete_error`）。`llm.discuss.reply.queue` 保留完整的 fencing /
+typing / 超时重放禁用 / GC 细节，供 OdooBot 接管使用。
 
 ## 执行身份与 sudo 边界
 
-内部用户：队列在 post 时持久化发送者、活跃公司、不可变的 `source_user` 执行模式，
-随后以 `agent.with_user(source_user).with_company(source_company)` 绑定 agent。
-隐藏 `llm.thread`、其消息、相关记录读取、所有工具都走发送者 ACL/记录规则/公司规则；
-隐藏线程 owner 即该执行用户。`reply_partner_id` 不参与授权——尤其显示
-`base.partner_root` 并不授予 root 权限。
+原则与收敛前一致（见 discuss_agent core 的 design.md）：
 
-provider/model 凭据经窄 sudo 读取；最终回复用窄
-`channel.sudo().message_post(author_id=reply_partner)`（cron 须以他人人格发帖）。
-两处 sudo recordset 都不传给工具。
+- **执行身份 = source_user**：`discuss.reply.job` 入队时固化 `source_user_id` /
+  `source_company_id`，worker 用 `_execution_user_and_company()` fail-closed 解析，
+  以 `with_user(source_user)` 绑定 agent；隐藏 `llm.thread`、消息、记录读取、工具都
+  走发送者 ACL/记录规则/公司规则。
+- **回复人格 ≠ 执行身份**：`reply_partner_id` 独立持久化，回帖用窄
+  `channel.sudo().message_post(author_id=reply_partner)`；sudo 只用于发帖，不传给工具。
+- provider/model 凭据经窄 sudo 读取；公开 `invoke()` 不收任意执行用户/系统背景，
+  Discuss 走 `_invoke_with_background`。
 
-公开 `llm.agent.invoke()` 既不接受任意执行用户，也不接受 system-role 背景；
-Discuss 走私有服务端入口（`_invoke_with_background`），且先校验 agent 可用性。
+## 尚未迁入 discuss_agent 的能力（收敛阶段回退，待迁）
 
-网站访客无内部源用户，Live Chat 桥（`llm_discuss_livechat`）持久化
-`assistant_user` 模式，回退到 agent 的专用低权限 bot 用户，**永不 sudo**。
-service-user 模式在非 Live Chat channel 会被拒绝。若源用户在处理前被删/停用/
-失去内部身份，job **fail closed**，不切换执行主体。
+以下能力原先在 `llm_discuss` 本地队列里，收敛到 `discuss_agent` 后普通 Discuss 触发
+暂不具备，仅在 OdooBot 接管路径仍生效。迁入目标在 `discuss_agent` core：
 
-## 页面上下文
+1. **页面上下文**（`page_context`）：前端 patch 捕获的 `{res_model, res_id, ...}`
+   快照，`discuss.reply.job` 尚未有对应字段，`_discuss_execute` 的 `background`
+   暂为空。需在 `discuss.reply.job` 加 `page_context`、dispatch 捕获、worker 转成
+   `background` 传给协议方法。
+2. **typing 指示**：`discuss.reply.job` 尚无 `_notify_typing` 驱动，回复期间无原生
+   "正在输入"。
+3. **入方向附件**：`_discuss_execute` 尚未透传 `attachment_ids`；桥接协议需加该
+   参数并下传 `_invoke_with_background`。
+4. **fencing / 超时重放禁用 / GC**：`discuss.reply.job` 目前是精简状态机，未实现
+   `_lock_owned_claim` / `_expire_stale_jobs` / `_gc_processed_jobs`。
 
-`/mail/message/post` 之前，`Store.doMessagePost()` 的 patch 检查 channel 是否含
-允许的专用 bot 或允许接管 agent 的 OdooBot 人格，然后捕获 Action Controller：
+## 附件支持（入方向，仅 OdooBot 路径生效）
 
-```json
-{"version": 1, "res_model": "sale.order", "res_id": 42, "view_type": "form", "action_id": 123}
-```
-
-快照放进 `context.llm_discuss_page_context`（不是受限的 `post_data`）。每次发送
-都捕获，悬浮窗跟随页面变化。非 form 视图省略 `res_id`。
-
-服务端在入队时校验 model/id/view type/读权限；worker 在最终执行身份下再校验一次。
-只有元数据 + `display_name` 进入 LLM 背景；JSON 标记为不可信引用数据，尖括号转义。
-
-## 非流式生成与原生等待
-
-Discuss 对每一轮（含 tool 调用后续轮）传 `stream=False`。最终 agent 消息即 channel
-回复；错误与 tool 消息不会被误当答案。队列用回复人格 channel 成员的
-`_notify_typing(True/False)` 驱动原生 typing，不产生临时「Thinking…」消息。
+`llm` 核心已具备多模态输入（`generate(attachment_ids=...)` → provider adapter 组装）。
+`llm_discuss` 旧队列的 `_invoke_with_background(..., attachment_ids=...)` 透传链仍只
+服务 OdooBot 接管；普通 Discuss 待上述「待迁入 #3」落地后恢复。判定沿用核心：
+图片/PDF 需多模态模型，文本恒可用，视频/Office/音频不支持。附件 `datas` 全程在
+execution principal 身份下读，读不到 fail closed，不升级 sudo。
 
 ## agent 可用性与单例
 
-专用启动器与普通 channel 都尊重 `is_public` 与 `allowed_group_ids`；OdooBot 接管
-对每个发送者走同样的规则。前端只拿到安全的 bot/user/partner id，provider 详情与
-凭据不暴露。`odoobot_enabled` 由一个隐藏的、带 DB 唯一约束的可空 key 支撑，并发
-写也无法配置两个接管 agent。队列行仅 `llm.group_llm_manager` 可读，保留 7 天后由
-cron 清理。
+`discuss_channel._discuss_user_can_use_agent` 对 `agent_type=llm` 委托回
+`_get_allowed_agents_for_user`，尊重 `is_public` 与 `allowed_group_ids`。OdooBot 接管
+对每个发送者走同样规则。`odoobot_enabled` 由隐藏可空 key + DB 唯一约束支撑，并发写
+也无法配置两个接管 agent。`discuss.reply.job` 对 `base.group_user` 可读写（供外部
+JSON-RPC 运行时轮询），`discuss.agent` 对 `base.group_user` 可管理。
 
 ## 数据模型
 
-`llm.discuss.reply.queue`：
+`discuss_agent` core（见 `discuss_agent/docs/design.md`）提供：
 
-| 字段 | 说明 |
+- `discuss.agent`：多态 responder（`agent_type` / `res_model` / `res_id` +
+  `discuss_user_id` / `discuss_enabled` / `discuss_trigger_mode`）。
+- `discuss.reply.job`：统一 pending 载体（`agent_id` / `channel_id` / `message_id` /
+  `reply_partner_id` / `source_user_id` / `source_company_id` / `state` /
+  `claim_token` / `attempt_count` / `error_message`）。
+
+`llm_discuss` 增量：
+
+| 模型 | 增量 |
 |---|---|
-| `agent_id` / `channel_id` / `message_id` | 触发三元组（message 为源消息） |
-| `reply_partner_id` | 回复人格 / typing 人格（与执行用户解耦） |
-| `source_user_id` / `source_company_id` | 业务数据与工具的执行身份 |
-| `execution_mode` | `source_user` / `assistant_user`（后者仅 Live Chat 访客） |
-| `page_context` | 入队时校验过的页面元数据快照 |
-| `attachment_ids` | **入方向附件快照**（入队时捕获，执行期不可变） |
-| `llm_thread_id` | 生成用隐藏线程 |
-| `state` / `attempt_count` / `claim_token` / `error_message` | 栅栏队列状态 |
-
-`llm.agent`（`_inherit` 增量字段）：`discuss_user_id`、`discuss_enabled`、
-`discuss_trigger_mode`、`odoobot_enabled`、`odoobot_unique_key`。
-
-## 附件支持（入方向）
-
-核心判断：`llm` 核心**已具备**多模态输入——`llm.thread.generate(attachment_ids=...)`
-→ `mail.message._get_image_attachments()` 等 → provider adapter 组装 image /
-document / text content block；并带 `_get_unsupported_attachments` 兜底校验。缺的
-只是 `llm_discuss` 这座桥没把附件接进去。
-
-```
-Discuss 消息 message.attachment_ids
-   │  ① dispatch 时校验 + 入队快照
-   ▼
-llm.discuss.reply.queue.attachment_ids
-   │  ② _invoke_with_background(attachment_ids=...)
-   ▼
-llm.thread.generate(attachment_ids=...)   ← 核心既有能力
-   │  ③ provider adapter 多模态格式化
-   ▼
-assistant message（文本回帖到 channel）
-```
-
-1. **入队捕获**：`_llm_discuss_enqueue_reply` 读 `message.attachment_ids`，存队列
-   `attachment_ids`（与 `page_context` 同款「入队即快照」）。
-2. **执行透传**：`_process_one` 调
-   `_invoke_with_background(..., attachment_ids=job.attachment_ids.ids)`。
-3. **核心格式化**：`generate` 内部已做「user message 挂附件 + 兜底校验 + adapter
-   多模态组装」，桥接层不重复。
-
-### 核心 `llm` 的最小改动
-
-`generate` 已支持 `attachment_ids`，但 invoke 链没透传。给以下签名加可选
-`attachment_ids=None`，逐层下传至 `thread.generate(attachment_ids=...)`：
-
-- `_invoke_with_background(..., attachment_ids=None)`
-- `_invoke(..., attachment_ids=None)`
-- `_run_in_thread(..., attachment_ids=None)`
-
-公开 `invoke()`（RPC 可达）**不**新增该参数——附件透传只走受信服务端入口
-`_invoke_with_background`，与「invoke 不接受任意执行用户/系统背景」一致。
-
-### 不支持附件的反馈
-
-核心 `generate` 对不支持附件是「标记 `is_error` + 在**隐藏线程**贴提示」，Discuss
-用户看不到。因此校验前移：入队前用 agent 的 `provider_id.service` +
-`model_id.supports_image_input` 调 `message._get_unsupported_attachments(...)`；
-有 unsupported → 在 channel 贴原生提示（文件名 + 原因），并从透传集合剔除；
-其余照常生成。判定沿用核心：图片/PDF 需多模态模型，文本文件恒可用，视频/Office/
-音频不支持。（Discuss 每条消息独立隐藏线程，无「中途换模型」场景，入队前校验与
-`generate` 内二次兜底不冲突。）
-
-### 附件安全
-
-附件 `datas` 读取全程在 execution principal 身份下，禁用 sudo。Live Chat 访客
-附件的可读性取决于 bot 是否对 `discuss.channel` 附件有读权；读不到 → fail closed
-（跳过 + 提示），不升级 sudo、不切换主体。
+| `llm.agent` | `discuss_user_id`、`discuss_enabled`、`discuss_trigger_mode`、`odoobot_enabled`、`odoobot_unique_key`、`discuss_agent_id` |
+| `discuss.agent` | `agent_type` selection_add `llm`；`_discuss_after_enqueue` |
+| `discuss.reply.job` | `_discuss_cron_process_pending` / `_discuss_process_one` |
+| `discuss.channel` | `_discuss_user_can_use_agent`（llm 授权）、OdooBot 接管 |
+| `mail.bot` | `_apply_logic` 抑制原生 canned 回复 |
+| `llm.discuss.reply.queue` | 旧队列（OdooBot 接管专用，含 fencing / typing / 附件透传） |
 
 ## 被否决的方案
 
 | 方案 | 否决理由 |
 |---|---|
-| 出方向图片生成（image_generation 出图回帖） | base `_generate_response` 是 stub，需 provider 侧先实现；与入方向正交，本次裁剪，留作扩展点。 |
+| 出方向图片生成（image_generation 出图回帖） | base `_generate_response` 是 stub，需 provider 侧先实现；与入方向正交。 |
 | 把附件读成文本塞进 `query` / `background` | 图片无法文本化、PDF 需解析，且绕过核心既有格式化与校验。 |
 | 在 `llm_discuss` 里重新实现图片 → base64 → content block | 重复造轮子；核心 `_get_*_attachments` + adapter 已按 provider 语义正确组装。 |
 | 公开 `invoke()` 直接收 `attachment_ids` | RPC 面扩大，违背「公开入口不收任意上下文」；只走 `_invoke_with_background`。 |
-| 出方向直接复用隐藏线程附件回帖 | 附件归属仍是隐藏线程消息，channel 成员可能读不到，产生孤儿引用。 |
+| 继续让 `llm_discuss` 自己 dispatch 普通 Discuss | 与 `discuss_agent` 双触发、双队列，同 agent 可重复回复；收敛为桥接消除双路径。 |
+| 一次性把 OdooBot 接管也迁入 `discuss_agent` | 涉及 `base.partner_root` 人格 + `odoobot_state` 判定，风险高；先保留本地队列，后续单独迁。 |
 
 ## 扩展点
 
-1. **多轮上下文**（v2）：把绑定 channel 的隐藏线程 `get_llm_messages()` override
-   为按 channel 查询，role 映射 bot→assistant、人→user（单一真相源，无双写漂移）。
-2. **流式呈现**（v2）：先做「占位消息 + 完成更新」复用 `generate()` 的 yield 事件，
-   经 bus 转发；验证后再演进到完全流式（后端按时间窗聚合 chunk 防打爆 websocket）。
-3. **出方向图片**：待 image_generation 接入后，把最终 assistant 消息的附件复制到
-   channel 回帖（复制/重归属，不与隐藏线程共享归属）。
-4. **音频输入**：核心 `mail.message` 已有 `_get_audio_attachments` 与 adapter 分支，
-   放开 `_get_unsupported_attachments` 的 gate 即可。
-5. **Office → PDF**：将来接 `llm_knowledge` extractor 或独立转换工具，再透传 PDF。
+1. **多轮上下文**（v2）：把绑定 channel 的隐藏线程 `get_llm_messages()` override 为
+   按 channel 查询，role 映射 bot→assistant、人→user。
+2. **流式呈现**（v2）：先「占位消息 + 完成更新」复用 `generate()` 的 yield 事件经
+   bus 转发，再演进到完全流式。
+3. **出方向图片**：image_generation 接入后，把 assistant 消息附件复制到 channel 回帖。
+4. **音频 / Office→PDF 输入**：核心已有分支，放开 gate 或接 extractor。
+5. **OdooBot 接管迁入 discuss_agent**：把 `base.partner_root` 人格 + `odoobot_state`
+   判定抽象成 discuss_agent 的一种触发，弃用 `llm.discuss.reply.queue`。
+6. **待迁入能力补齐**：页面上下文、typing、附件透传、fencing/GC 迁入
+   `discuss_agent` core。
 
 ## 布局
 
 ```
 llm_discuss/
 ├── models/
-│   ├── llm_agent.py               # discuss 增量字段 + bot 用户 + 入队
-│   ├── discuss_channel.py         # 触发规则 / OdooBot 接管
+│   ├── llm_agent.py               # discuss 配置字段 + 同步 discuss.agent + 协议方法
+│   ├── discuss_agent.py           # agent_type=llm + _discuss_after_enqueue
+│   ├── discuss_channel.py         # llm 授权 override + OdooBot 接管
+│   ├── discuss_reply_job.py       # 消费 discuss.reply.job 的 worker
 │   ├── mail_bot.py                # 抑制原生 canned 回复
-│   └── llm_discuss_reply_queue.py # 栅栏队列 + 执行身份 + 附件透传
+│   └── llm_discuss_reply_queue.py # 旧队列（OdooBot 接管专用）
 ├── static/src/                    # 启动器 + 页面上下文 patch
-├── data/                          # cron
+├── data/                          # cron（旧队列 + discuss.reply.job worker）
 ├── security/                      # ACL
 └── views/                         # llm.agent 表单扩展
 ```

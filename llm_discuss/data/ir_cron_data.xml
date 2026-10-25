@@ -15,4 +15,14 @@
             immediately instead of waiting for this 1-minute interval.
         -->
     </record>
+
+    <record id="ir_cron_process_discuss_reply_job" model="ir.cron">
+        <field name="name">Discuss Agent: process LLM reply jobs</field>
+        <field name="model_id" ref="model_discuss_reply_job" />
+        <field name="state">code</field>
+        <field name="code">model._discuss_cron_process_pending()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">minutes</field>
+        <field name="active" eval="True" />
+    </record>
 </odoo>

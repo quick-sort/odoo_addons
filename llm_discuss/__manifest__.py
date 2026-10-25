@@ -10,6 +10,7 @@
         "mail",
         "mail_bot",
         "llm",
+        "discuss_agent",
     ],
     "author": "quick-sort@outlook.com",
     "website": "quick-sort@outlook.com",
