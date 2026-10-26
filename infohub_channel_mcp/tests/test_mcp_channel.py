@@ -1,3 +1,4 @@
+import datetime
 import json
 from unittest import mock
 
@@ -123,6 +124,43 @@ class TestMcpChannel(TransactionCase):
         self.assertEqual(str(item.published_at.date()), "2026-09-01")
         self.assertIn("A summary", item.content_text)
 
+    def _fetch_one(self, **record):
+        """Ingest a single tool record and return the resulting item."""
+        channel = self._channel()
+        with self._stub_call(json.dumps([record])):
+            channel.action_fetch()
+        return self.env["infohub.item"].search([("channel_id", "=", channel.id)])
+
+    def test_iso_datetime_with_z_is_parsed(self):
+        """``...T...Z`` must not be replaced by the fetch time.
+
+        ``fields.Datetime.to_datetime`` only reads the space-separated Odoo
+        format; the raw ISO string made the core log a warning and fall back
+        to ``now()``, so every MCP item looked freshly published.
+        """
+        item = self._fetch_one(
+            title="With Z",
+            url="https://x/1",
+            publishedDate="2026-09-01T10:00:00Z",
+        )
+        self.assertEqual(item.published_at, datetime.datetime(2026, 9, 1, 10, 0, 0))
+
+    def test_iso_datetime_with_offset_is_converted_to_utc(self):
+        item = self._fetch_one(
+            title="With offset",
+            url="https://x/2",
+            publishedDate="2026-09-01T18:30:00+08:00",
+        )
+        self.assertEqual(item.published_at, datetime.datetime(2026, 9, 1, 10, 30, 0))
+
+    def test_iso_datetime_without_suffix_is_read_as_utc(self):
+        item = self._fetch_one(
+            title="Naive",
+            url="https://x/3",
+            publishedDate="2026-09-01T10:00:00",
+        )
+        self.assertEqual(item.published_at, datetime.datetime(2026, 9, 1, 10, 0, 0))
+
     def test_envelope_key_is_handled(self):
         channel = self._channel()
         payload = json.dumps({"records": [{"title": "Wrapped", "url": "https://x/1"}]})
@@ -167,7 +205,6 @@ class TestMcpChannel(TransactionCase):
     def test_date_range_is_passed_to_the_tool(self):
         """The channel forwards its fetch window to the tool."""
         channel = self._channel()
-        import datetime
 
         with mock.patch.object(
             type(self.client), "call_tool", return_value={"result": "[]"}
