@@ -65,8 +65,9 @@
 
 ## 开启时的批量拉齐 + 结果窗口
 
-- **AC-17 开启批量拉齐**：`allow_auto_schedule = True` 时项目显示「自动对齐」
-  按钮；点击后，项目内所有**未完成**、参与排期且日期不符合不变量
+- **AC-17 开启批量拉齐**：`allow_auto_schedule = True` 时，项目 Settings 页的
+  Auto Schedule 开关旁显示「Schedule」按钮；点击后，项目内所有**未完成**、
+  参与排期且日期不符合不变量
   （`task_start_date ≠ max(前置结束) + lead_time`）的任务被一次性拉齐，且保持
   各自时长。
 

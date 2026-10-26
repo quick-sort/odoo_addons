@@ -19,8 +19,9 @@ Features
 * Per-task ``no_auto_schedule`` exception flag — pin a task so it is never
   moved, while still constraining its own successors.
 * Completed tasks (Done / Cancelled) are never moved.
-* An *Auto Align* button on the project re-aligns all tasks at once and opens a
-  result window listing the moved tasks (old and new dates).
+* A *Schedule* button next to the Auto Schedule toggle in the project settings
+  re-aligns all tasks at once and opens a result window listing the moved tasks
+  (old and new dates).
 
 See ``docs/`` for requirements, design and acceptance criteria.
 
