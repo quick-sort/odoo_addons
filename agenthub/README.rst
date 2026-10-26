@@ -26,8 +26,8 @@ agent 经哪条 channel 触达，agent 不关心。谁配谁，由 ``agenthub.th
 ``agenthub`` 依赖 component 框架，不依赖 ``llm``，也不绑定任何具体 channel /
 agent。要真正接通，需要再装至少一个 channel 和至少一个 agent：
 
-* ``agenthub_wecom`` —— 企微智能机器人（aibot）WebSocket 服务端。
-* ``agenthub_openclaw`` —— OpenClaw 的对话语义。
+* ``agenthub_wecom`` —— 企微智能机器人（aibot）WebSocket 服务端（已标记 legacy）。
+* ``agenthub_openclaw`` —— OpenClaw 的对话语义（已标记 legacy）。
 
 架构
 ----

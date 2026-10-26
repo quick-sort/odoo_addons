@@ -7,6 +7,11 @@ agenthub_openclaw
 分离、用关联 id 把回包对应回原提问。它**不实现传输**：消息怎么送到 OpenClaw、
 回包怎么回来，是 core 路由 + 具体 channel 的事。
 
+.. warning::
+
+   本 addon 已标记为 **legacy**（软弃用）：现有安装与代码继续保留，但不再推荐
+   用于新部署，后续版本可能移除。
+
 .. contents::
 
 安装
