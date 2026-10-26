@@ -79,9 +79,10 @@ T.date_deadline   == T.task_start_date + T.gantt_duration
 
 ### 开启时的批量拉齐 + 结果窗口
 
-- `project.project` 上有一个「自动对齐」按钮（`type="object"`），**仅在
-  `allow_auto_schedule = True` 时显示**。点击后对项目内**未完成**任务做一次
-  全量批量拉齐，然后返回 `project.task.plan.result` 结果窗口。
+- `project.project` 的 Settings 页在 `allow_auto_schedule` 开关旁有一个
+  「Schedule」按钮（`type="object"`），**仅在 `allow_auto_schedule = True` 时
+  显示**。点击后对项目内**未完成**任务做一次全量批量拉齐，然后返回
+  `project.task.plan.result` 结果窗口。
 - 用按钮而非普通布尔开关的 `write` 触发：布尔字段的普通保存无法返回 action
   去打开窗口，按钮的 object 方法可以干净地返回结果向导。
 - 批量拉齐与「随写随排」共用同一套拓扑重算逻辑，只是作用域为整个项目、且

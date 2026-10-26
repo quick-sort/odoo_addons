@@ -5,18 +5,13 @@
         <field name="model">project.project</field>
         <field name="inherit_id" ref="project.edit_project"/>
         <field name="arch" type="xml">
-            <xpath expr="//div[@name='button_box']" position="inside">
-                <button class="oe_stat_button" name="action_auto_align" type="object"
-                        icon="fa-magic" invisible="not allow_auto_schedule">
-                    <div class="o_field_widget o_stat_info">
-                        <span class="o_stat_value">Auto Align</span>
-                    </div>
-                </button>
-            </xpath>
             <xpath expr="//setting[@id='project_milestone_setting']" position="after">
                 <setting class="col-lg-12" id="auto_schedule_setting"
                          help="Automatically adjust task dates based on dependencies">
                     <field name="allow_auto_schedule"/>
+                    <button name="action_auto_align" type="object" string="Schedule"
+                            class="btn btn-secondary" icon="fa-magic"
+                            invisible="not allow_auto_schedule"/>
                 </setting>
             </xpath>
         </field>
