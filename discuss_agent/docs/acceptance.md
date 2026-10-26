@@ -39,3 +39,36 @@ QC 唯一依据。每个条款可对应一个单元测试（`TransactionCase`，
     变 done。
 17. `_complete` 收到空结果返回 False，不置 done。
 18. `_complete_error(err)` 置 error 并记录 `error_message`。
+
+## 页面上下文
+
+19. `_discuss_normalize_page_context` 对无读权限的 `res_model`/`res_id` 丢弃
+    `res_id`，不保留越权引用。
+20. `_build_background` 在 execution user 无读权限时返回不含 `record` 的
+    background，不升级 sudo。
+
+## typing
+
+21. `_set_bot_typing(True)` 对 reply_partner 所在 channel member 触发
+    `_notify_typing(True)`。
+22. 无其他 active job 时 `_clear_bot_typing_if_idle` 清除 typing。
+
+## 生命周期 / fencing / GC
+
+23. `_lock_owned_claim(claim_token)` 仅当 state=processing 且 token 匹配时返回
+    True。
+24. `_expire_stale_jobs` 把超时 processing 置 error，error_message 标注
+    timed out，不自动重放。
+25. `_gc_processed_jobs` 清理超过保留期的 done/error 记录。
+26. `_process_one` 在 fencing token 失效时丢弃结果（LostQueueClaimError），
+    不回帖、不置 done。
+27. `_process_pending(agent_types=["llm"])` 只认领 agent_type=llm 的 job。
+
+## 附件透传
+
+28. `_discuss_enqueue_reply` 把 `message.attachment_ids` 快照进 job 的
+    `attachment_ids`。
+29. `_process_one` 把 job 的 `attachment_ids` 经
+    `_discuss_execute(attachment_ids=...)` 传给 responder。
+30. `llm.agent._discuss_execute` 把 `attachment_ids` 下传
+    `_invoke_with_background`，最终到 `thread.generate`。

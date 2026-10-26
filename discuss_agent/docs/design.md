@@ -49,6 +49,8 @@
 - `channel_id` / `message_id` → 触发源
 - `reply_partner_id` → 回复人格（作者）
 - `source_user_id` / `source_company_id` → 执行身份（权限）
+- `page_context` → 入队时校验过的页面元数据快照
+- `attachment_ids` → 入方向附件快照（入队时捕获，执行期不可变）
 - `state` → pending / processing / done / error
 - `claim_token` / `attempt_count` / `started_at` / `error_message` → 认领与簿记
 
@@ -79,16 +81,19 @@ _discuss_should_trigger(agent, message, msg_vals) -> bool  # 是否触发
 
 ```
 _discuss_dispatch(channel, message, msg_vals)      # 遍历 enabled agent，判定 + 入队
-_discuss_enqueue_reply(channel, message, source_user, reply_partner) -> bool
+_discuss_enqueue_reply(channel, message, source_user, reply_partner, page_context) -> bool
 ```
 
 入队是幂等的（`UNIQUE(agent_id, message_id)` + 先查再建），固化
-`source_user`（执行身份）与 `reply_partner`（回复人格）后立即返回，不阻塞发消息。
+`source_user`（执行身份）、`reply_partner`（回复人格）与 `page_context`（页面快照）
+后立即返回，不阻塞发消息。`page_context` 由前端放进
+`context.discuss_agent_page_context`，`_discuss_dispatch` 用
+`_discuss_normalize_page_context` 校验后入队。
 
 ### 3. 执行（discuss.agent → 具体 responder）
 
 ```
-_discuss_execute(*, execution_user, company, query, background=None, stream=False) -> dict
+_discuss_execute(*, execution_user, company, query, background=None, thread_vals=None, attachment_ids=None, stream=False) -> dict
 ```
 
 这是**唯一因 responder 而异的契约**，返回值两种形态：
@@ -98,22 +103,32 @@ _discuss_execute(*, execution_user, company, query, background=None, stream=Fals
 | 同步（推模式，llm.agent） | `{"result_html"/"result"/"thread_id"}` 或 `{"error"}` | 调用现场 |
 | 异步（拉模式，agent-box） | `{"pending": True}` | 外部运行时完成后回调 `_complete` |
 
-`discuss.agent._discuss_execute` 只做分派：`_discuss_resolve()` 拿到具体记录，调
-它的同名协议方法。协议方法由桥接 addon 用 `_inherit` 加在具体模型上。
+`background` 承载页面背景（`{"page": ...}` / `{"record": ...}`），`thread_vals`
+承载隐藏线程关联（`{"model", "res_id"}`），均由 `_build_background` 从
+`page_context` 推导；`attachment_ids` 是入方向附件（入队快照）。`discuss.agent.
+_discuss_execute` 只做分派：`_discuss_resolve()` 拿到具体记录，调它的同名协议
+方法。协议方法由桥接 addon 用 `_inherit` 加在具体模型上。
 
-### 4. 完成（discuss.reply.job）
+### 4. 生命周期与完成（discuss.reply.job）
 
 ```
-_claim_pending() -> job                 # FOR UPDATE SKIP LOCKED 原子认领
-_execution_user_and_company() -> (user, company)  # fail-closed 解析执行身份
-_post_reply(body)                       # 窄 sudo，仅发帖，作者 = reply_partner
-_complete(result) -> bool               # 回帖 + 置 done
-_complete_error(error)                  # 置 error
+_claim_pending(agent_types=None) -> job          # FOR UPDATE SKIP LOCKED 原子认领，可按 responder 类型过滤
+_lock_owned_claim(claim_token) -> bool           # fencing：校验认领 token 仍归本 worker
+_expire_stale_jobs()                             # 超时 fence，不自动重放（工具副作用）
+_gc_processed_jobs()                             # 清理 done/error 旧记录
+_execution_user_and_company() -> (user, company) # fail-closed 解析执行身份
+_build_background(execution_user, company) -> (background, thread_vals)
+_set_bot_typing(True/False) / _clear_bot_typing_if_idle()
+_post_reply(body)                                # 窄 sudo，仅发帖，作者 = reply_partner
+_process_one()                                   # 推模式：完整处理一条 job（typing → 生成 → fencing → 回帖 → done）
+_process_pending(agent_types, batch_size)        # 推模式循环：stale + claim + process + gc
+_complete(result) -> bool                        # 回帖 + 置 done
+_complete_error(error)                           # 置 error
 ```
 
-同步消费方（worker）：claim → `_execution_user_and_company` → `_discuss_execute`
-→ `_complete`。
-异步消费方（agent-box）：轮询 pending → 认领 → 外部生成 → 回调 `_complete`。
+同步消费方（worker，如 llm_discuss）：cron 调 `_process_pending(agent_types=["llm"])`。
+异步消费方（agent-box）：轮询 `_claim_pending` → 外部生成 → 回调 `_complete`。
+两种消费方共享同一套 fencing / 超时 / GC 状态机。
 
 ## 多态如何实现
 
@@ -159,15 +174,17 @@ def _discuss_execute(self, **kw):
 - 对 agent-box：其 API key 绑定的账号只用于 JSON-RPC 认证与回帖，**不等于**
   `source_user`；`source_user_id` 从 job 里读出，工具执行时切到 source_user。
 
-## 与 llm_discuss 的关系（并行接口层）
+## 与 llm_discuss 的关系
 
-`llm_discuss` 已完整实现「llm.agent 进 Discuss」（reply queue + source_user 权限
-+ fencing + typing + OdooBot 接管），**本 addon 不改动它**。两者关系：
+`llm_discuss` 已收敛为 `discuss_agent` 的 llm 桥接 addon（依赖 `discuss_agent`）。
+普通 Discuss 触发走 `discuss_agent` 统一接口；OdooBot 接管暂留 llm_discuss 本地
+`llm.discuss.reply.queue`。
 
-- `discuss_agent` 是**接口抽象**，`llm_discuss` 是**llm.agent 的成熟实现**。
-- 短期：`discuss_agent` 服务外部 agent-box；`llm_discuss` 继续服务 llm.agent。
-- 收敛方向：把 `llm_discuss` 的可靠性细节（typing、超时重放、GC）迁到
-  `discuss_agent`，让 `llm_discuss` 退化为一个桥接 addon（`discuss_agent_llm`）。
+- `discuss_agent` 是**接口抽象 + pending 载体的完整生命周期**（fencing / typing /
+  page_context / GC 已迁入 core）。
+- `llm_discuss` 是**llm 桥接**：`agent_type="llm"` + `_discuss_execute` 协议方法 +
+  `discuss.agent` 同步 + worker cron（`_process_pending(agent_types=["llm"])`）。
+- 待迁入：附件透传（需先改 llm 核心 invoke 链）、OdooBot 接管。
 
 ## 被否决的方案
 
@@ -177,4 +194,4 @@ def _discuss_execute(self, **kw):
 | component collection 表达跨模型多态 | collection 只按「同模型不同 type」消歧，跨模型需额外宿主，复杂度换不来收益 |
 | `Reference` 字段（`res_model_id` + `res_id`） | 无 ondelete/索引能力，且 Odoo 的 Reference 语义在本场景没有额外价值 |
 | 让 `agenthub.agent` 直接复用 `llm_discuss` | 两者执行模型相反（推 vs 拉），强行复用会把拉模式塞进推模式的 worker |
-| 在 core 里实现 worker/cron | 消费方是「实现」不是「接口」，且 agent-box 是外部轮询，core 不该假设有 worker |
+| 在 core 里注册 cron 调度 | 消费方是「实现」不是「接口」，agent-box 是外部轮询；core 只提供无 scheduler 的 `_process_pending` 处理循环，具体 cron 由桥接 addon 注册 |

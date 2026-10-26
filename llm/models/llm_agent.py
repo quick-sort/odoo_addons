@@ -446,7 +446,7 @@ class LLMAssistant(models.Model):
             }
         ]
 
-    def _run_in_thread(self, query, thread_vals=None, stream=None, background=None):
+    def _run_in_thread(self, query, thread_vals=None, stream=None, background=None, attachment_ids=None):
         """Create a sub-thread and run the agent in the current environment.
 
         The caller controls the execution identity by binding ``self`` with
@@ -487,6 +487,7 @@ class LLMAssistant(models.Model):
         try:
             generator = thread.generate(
                 user_message_body=query,
+                attachment_ids=attachment_ids,
                 use_streaming=stream,
                 additional_messages=additional_messages,
             )
@@ -566,6 +567,7 @@ class LLMAssistant(models.Model):
         new_cursor=True,
         stream=None,
         background=None,
+        attachment_ids=None,
     ):
         """Internal implementation; callers must validate trusted background."""
         self.ensure_one()
@@ -575,6 +577,7 @@ class LLMAssistant(models.Model):
                 thread_vals=thread_vals,
                 stream=stream,
                 background=background,
+                attachment_ids=attachment_ids,
             )
 
         context = {
@@ -589,6 +592,7 @@ class LLMAssistant(models.Model):
                 thread_vals=thread_vals,
                 stream=stream,
                 background=background,
+                attachment_ids=attachment_ids,
             )
 
     def invoke(
@@ -620,6 +624,7 @@ class LLMAssistant(models.Model):
         thread_vals=None,
         new_cursor=False,
         stream=False,
+        attachment_ids=None,
     ):
         """Trusted server-side entry after caller ACL validation."""
         return self._invoke(
@@ -628,6 +633,7 @@ class LLMAssistant(models.Model):
             new_cursor=new_cursor,
             stream=stream,
             background=background,
+            attachment_ids=attachment_ids,
         )
 
     @api.model

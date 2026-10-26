@@ -86,9 +86,9 @@ OdooBot 私聊会撞双路径（旧队列 + discuss.reply.job）。约定：Odoo
 | `discuss.reply.job`（discuss_agent） | 普通 Discuss 触发 | `llm_discuss` 的 `_discuss_cron_process_pending` | discuss_agent dispatch |
 | `llm.discuss.reply.queue`（llm_discuss） | OdooBot 接管 | 旧 `_cron_process_pending` | `_llm_discuss_dispatch_odoobot` |
 
-`discuss.reply.job` 是精简版接口载体（状态机 + `_claim_pending(agent_types)` +
-`_complete`/`_complete_error`）。`llm.discuss.reply.queue` 保留完整的 fencing /
-typing / 超时重放禁用 / GC 细节，供 OdooBot 接管使用。
+`discuss.reply.job` 已具备完整生命周期（fencing / typing / 页面上下文 / GC /
+`_process_pending` 处理循环）。`llm.discuss.reply.queue` 保留 OdooBot 接管专用的
+完整细节（`execution_mode` / `llm_thread_id` 等）。
 
 ## 执行身份与 sudo 边界
 
@@ -103,29 +103,23 @@ typing / 超时重放禁用 / GC 细节，供 OdooBot 接管使用。
 - provider/model 凭据经窄 sudo 读取；公开 `invoke()` 不收任意执行用户/系统背景，
   Discuss 走 `_invoke_with_background`。
 
-## 尚未迁入 discuss_agent 的能力（收敛阶段回退，待迁）
+## 尚未迁入 discuss_agent 的能力
 
-以下能力原先在 `llm_discuss` 本地队列里，收敛到 `discuss_agent` 后普通 Discuss 触发
-暂不具备，仅在 OdooBot 接管路径仍生效。迁入目标在 `discuss_agent` core：
+页面上下文、typing、fencing / 超时 / GC、入方向附件均已迁入 `discuss_agent` core
+（见 `discuss_agent/docs/design.md`）。仅剩：
 
-1. **页面上下文**（`page_context`）：前端 patch 捕获的 `{res_model, res_id, ...}`
-   快照，`discuss.reply.job` 尚未有对应字段，`_discuss_execute` 的 `background`
-   暂为空。需在 `discuss.reply.job` 加 `page_context`、dispatch 捕获、worker 转成
-   `background` 传给协议方法。
-2. **typing 指示**：`discuss.reply.job` 尚无 `_notify_typing` 驱动，回复期间无原生
-   "正在输入"。
-3. **入方向附件**：`_discuss_execute` 尚未透传 `attachment_ids`；桥接协议需加该
-   参数并下传 `_invoke_with_background`。
-4. **fencing / 超时重放禁用 / GC**：`discuss.reply.job` 目前是精简状态机，未实现
-   `_lock_owned_claim` / `_expire_stale_jobs` / `_gc_processed_jobs`。
+1. **OdooBot 接管**：仍走本地 `llm.discuss.reply.queue`，待迁入 discuss_agent
+   （把 `base.partner_root` 人格 + `odoobot_state` 判定抽象成 discuss_agent 的一种
+   触发）。
 
-## 附件支持（入方向，仅 OdooBot 路径生效）
+## 附件支持（入方向）
 
-`llm` 核心已具备多模态输入（`generate(attachment_ids=...)` → provider adapter 组装）。
-`llm_discuss` 旧队列的 `_invoke_with_background(..., attachment_ids=...)` 透传链仍只
-服务 OdooBot 接管；普通 Discuss 待上述「待迁入 #3」落地后恢复。判定沿用核心：
-图片/PDF 需多模态模型，文本恒可用，视频/Office/音频不支持。附件 `datas` 全程在
-execution principal 身份下读，读不到 fail closed，不升级 sudo。
+`llm` 核心 invoke 链已透传 `attachment_ids`（`_invoke_with_background` → `_invoke`
+→ `_run_in_thread` → `thread.generate(attachment_ids=...)`）；`discuss_agent` 的
+`discuss.reply.job` 在入队时快照 `message.attachment_ids`，`_process_one` 经
+`_discuss_execute(attachment_ids=...)` 透传，llm 桥接再下传 `_invoke_with_background`。
+判定沿用核心：图片/PDF 需多模态模型，文本恒可用，视频/Office/音频不支持。附件
+`datas` 全程在 execution principal 身份下读，读不到 fail closed，不升级 sudo。
 
 ## agent 可用性与单例
 
@@ -177,8 +171,6 @@ JSON-RPC 运行时轮询），`discuss.agent` 对 `base.group_user` 可管理。
 4. **音频 / Office→PDF 输入**：核心已有分支，放开 gate 或接 extractor。
 5. **OdooBot 接管迁入 discuss_agent**：把 `base.partner_root` 人格 + `odoobot_state`
    判定抽象成 discuss_agent 的一种触发，弃用 `llm.discuss.reply.queue`。
-6. **待迁入能力补齐**：页面上下文、typing、附件透传、fencing/GC 迁入
-   `discuss_agent` core。
 
 ## 布局
 
