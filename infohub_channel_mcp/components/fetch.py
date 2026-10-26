@@ -69,9 +69,10 @@ class InfohubFetchMcp(Component):
                     "title": _first(record, ("title", "titleOrigin", "headline", "name")),
                     "url": _first(record, ("url", "link", "sourceUrl", "source_url")),
                     "summary": _first(record, ("summary", "abstract", "description")),
-                    "published_date": _first(
-                        record, ("published_date", "publishedDate", "date", "publishDate")
-                    ),
+                    # No ``published_date`` here on purpose: the core prefers
+                    # that entry key over ``date()``, and the raw ISO-8601
+                    # string would bypass the component's normalisation and be
+                    # rejected by ``fields.Datetime.to_datetime``.
                     # Keep every field the tool returned: filter_domain works on
                     # raw_data, and a tool's own keys are exactly what a channel
                     # filter would want to match on.
