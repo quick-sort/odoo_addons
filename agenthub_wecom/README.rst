@@ -10,6 +10,11 @@ agenthub_wecom
 本 addon 只做**传输**：收发帧、管连接、归一化成 ``mail.message``。对端是
 哪个 agent 它不关心、也不该关心——channel 只认 ``bot_id``。
 
+.. warning::
+
+   本 addon 已标记为 **legacy**（软弃用）：现有安装与代码继续保留，但不再推荐
+   用于新部署，后续版本可能移除。
+
 .. contents::
 
 安装

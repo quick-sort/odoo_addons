@@ -1,5 +1,10 @@
 # agenthub_wecom — 业务需求与边界
 
+## 状态：Legacy（软弃用）
+
+2026-10-26 起本 addon 标记为 legacy：代码与已安装实例继续可用，但不再推荐
+用于新部署，后续版本可能移除。本文件其余内容保留为历史设计记录。
+
 ## 背景
 
 外部 AI Agent 运行时（OpenClaw、OpenCode 等）要接入 Odoo，可以通过它们各自的
