@@ -23,12 +23,17 @@
             text-align: center !important;
         }
 
-        // The boolean widget renders a block with `width: fit-content`
-        // (core/checkbox/checkbox.scss), so text-align cannot move it; auto
-        // margins are what centre the box inside the cell.
+        // A read-only boolean cell is not the field component but the
+        // formatter's markup (views/fields/formatters.js):
+        // `<div class="o-checkbox d-inline-block me-2">`. `me-2` declares
+        // `margin-right: .5rem !important`, so the auto margin has to be
+        // important too — without it the right margin wins, the left one eats
+        // all the free space, and the box is pushed against the right edge.
+        // The box itself is `width: fit-content`, which is what makes auto
+        // margins able to centre it.
         td[name="enable_cron"] .o-checkbox {
-            margin-right: auto;
-            margin-left: auto;
+            margin-right: auto !important;
+            margin-left: auto !important;
         }
     }
 }
