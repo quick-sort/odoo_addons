@@ -58,11 +58,23 @@ The human-readable name of the module.
 
 ### version (str)
 
-Module version, should follow semantic versioning rules.
+Module version, format `19.0.X.Y.Z` (five segments).
 
 ```python
-'version': '1.0.0',
+'version': '19.0.1.1.0',
 ```
+
+| 段 | 含义 | 何时 +1 |
+|---|---|---|
+| `19.0` | Odoo 主版本 | 固定，不随改动变 |
+| `X` | 模块主版本 | Odoo 大版本迁移 / 破坏性重构 |
+| `Y` | 模块次版本（**中间数字**） | **仅当数据库结构有改动**：新增/修改/删除字段或模型（需写 migration） |
+| `Z` | 补丁号 | bug 修复与其它不改数据库结构的改动（纯代码 / JS / 文档 / 视图） |
+
+**中间数字（`Y`）只有数据库结构有改动时才 +1**；不改 schema 的改动（纯 bug 修复、
+前端、文档、视图）只 +1 最后一个数字（`Z`）。数据库结构改动需在
+`migrations/<改动前版本>/` 下写 migration（如删字段 `19.0.1.0.0` → 版本
+`19.0.1.1.0`，migration 目录名为改动前的 `19.0.1.0.0`）。
 
 ### description (str)
 

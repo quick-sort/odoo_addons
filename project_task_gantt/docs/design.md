@@ -47,6 +47,9 @@
 - 无任务时返回 `{groups: [], markers: []}`；异常同样返回空结构。
 - 只返回 `task_start_date` 非空的任务；`date_deadline` 可为空，前端按起始 + 1 天处理。
 - `user_ids` 以 `assignees` 名称数组下发，供左侧列表展示。
+- `progress` 为 0–100 百分比：`project.task.progress`（hr_timesheet）是「已耗小时 / 分配小时」
+  的 0–1 比例，超配时可超过 1.0；`get_gantt_data` 在此统一换算成百分比后下发。超配时值可
+  >100，前端进度条按 100% 截断显示，tooltip / CSV 保留真实值。
 - 排序固定为 `sequence asc, id asc`，拖拽日期不会重排行。
 - 分组值为空的任务归入 `Unassigned`。
 - 分组支持 `project_id` / `user_ids` / `stage_id` / `priority` / `partner_id`。

@@ -1005,7 +1005,9 @@ export class GanttRenderer extends Component {
                 // Progress bar
                 if (task.progress > 0) {
                     ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
-                    const progressWidth = (width - 4) * (task.progress / 100);
+                    // progress may exceed 100 (hr_timesheet overtime); clamp the
+                    // bar to the task width but keep the real value in tooltip/CSV.
+                    const progressWidth = (width - 4) * (Math.min(task.progress, 100) / 100);
                     this.roundRect(ctx, startX + 2, y + 2, progressWidth, height - 4, 4, true, false);
                 }
 

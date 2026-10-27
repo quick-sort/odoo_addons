@@ -22,3 +22,4 @@
 | AC18 | 标记过滤 | 无 deadline 的 milestone、域外项目的 milestone、无项目任务不产生 marker | `test_markers_exclude_milestone_without_deadline`、`test_markers_exclude_milestones_of_projects_outside_domain`、`test_markers_empty_for_private_task_without_project` |
 | AC19 | 标记状态 | 已达成为灰 `#adb5bd` / Reached，未达成为主色 `#71639e` / Unreached | `test_marker_color_and_description_reflect_is_reached` |
 | AC20 | 分组无关与去重 | 按 user 等非 project 分组时仍返回 marker；多分组/多任务不重复 | `test_markers_are_project_scoped_when_grouping_by_user`、`test_markers_not_duplicated_for_multi_group_tasks` |
+| AC21 | 进度百分比 | `get_gantt_data` 的 `progress` 为 0–100 百分比（由 hr_timesheet 的 0–1 比例换算，超配可 >100） | `test_gantt_progress_pct_converts_ratio_to_percentage` |
