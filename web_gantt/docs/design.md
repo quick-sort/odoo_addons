@@ -20,6 +20,10 @@
 任务数组必须是 DFS 前序，且 `depth` 表示树深度。为向后兼容，直接返回 groups
 数组也合法（视为 `markers: []`）。
 
+- `progress`（若模型提供）为 **0–100 百分比**：渲染器据此画任务条内的进度条，
+  并按 100% 截断（超出部分不绘制，供 over-allocated 场景兜底）；tooltip 与 CSV
+  导出原样展示该值。
+
 ## 日期映射 mixin（`gantt.mixin`）
 
 模型 `_inherit = ["<model>", "gantt.mixin"]` 并实现

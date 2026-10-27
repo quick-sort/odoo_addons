@@ -376,3 +376,16 @@ class TestGanttTree(TransactionCase):
         )
 
         self.assertEqual(data['markers'], [])
+
+    def test_gantt_progress_pct_converts_ratio_to_percentage(self):
+        Model = self.env['project.task']
+
+        self.assertEqual(Model._gantt_progress_pct(0.0), 0.0)
+        self.assertEqual(Model._gantt_progress_pct(0.5), 50.0)
+        self.assertEqual(Model._gantt_progress_pct(1.0), 100.0)
+        # Over-allocated tasks exceed 1.0; the percentage is kept (the renderer
+        # clamps the bar width, but the real value is preserved).
+        self.assertEqual(Model._gantt_progress_pct(1.25), 125.0)
+        # Field absent (no hr_timesheet) yields a falsy value -> 0.
+        self.assertEqual(Model._gantt_progress_pct(None), 0.0)
+        self.assertEqual(Model._gantt_progress_pct(False), 0.0)

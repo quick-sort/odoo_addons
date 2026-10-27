@@ -60,6 +60,16 @@ class ProjectTask(models.Model):
                 task.gantt_duration = 0.0
 
     @api.model
+    def _gantt_progress_pct(self, ratio):
+        """Convert ``project.task.progress`` (hr_timesheet 0..1 ratio) to 0..100%.
+
+        ``progress`` is hours spent over allocated hours, so it is a ratio and
+        may exceed 1.0 when over-allocated. The generic gantt renderer expects a
+        percentage; overtime values are kept (the renderer clamps the bar width).
+        """
+        return round((ratio or 0.0) * 100, 2)
+
+    @api.model
     def get_gantt_data(self, domain=None, group_by='project_id'):
         """
         Fetch and group tasks for Gantt chart display
@@ -193,7 +203,7 @@ class ProjectTask(models.Model):
                     'name': task['name'],
                     'start_date': task['gantt_date_start'].isoformat() if task['gantt_date_start'] else None,
                     'end_date': task['gantt_date_stop'].isoformat() if task['gantt_date_stop'] else None,
-                    'progress': task.get('progress', 0) or 0,
+                    'progress': self._gantt_progress_pct(task.get('progress')),
                     'color': task.get('color', 0) or 0,
                     'priority': task.get('priority', '0'),
                     'description': task.get('description', '') or '',
