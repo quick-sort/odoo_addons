@@ -43,6 +43,11 @@
   因为启动扫描要替模块写入它，而 `llm` 不能反依赖 `llm_mcp_server`。
 - 模块用 `@llm_tool(groups=("module.group_x",))` 声明；扫描仅在**声明变化**时重写
   `allowed_group_ids`，管理员在 UI 上改的组在声明不变时保留。未声明（空）留给管理员配置。
+- 内置 7 个 `odoo_*` 工具默认声明为 `("llm.group_llm_user",)`：LLM User（隐含
+  `base.group_user`）即可通过 MCP 看到；执行仍按该用户的 ORM ACL / 记录规则受限。
+- **例外：`odoo_model_method_executor` 只给 `llm.group_llm_manager`**，且永久禁止调用
+  `_` 开头的私有方法。私有方法常用裸 SQL / 内部 `sudo()` 绕过 ORM 权限（例如
+  `res.users._set_encrypted_password`），开放给普通用户等于账号接管。
 - `tools/list` 按 `_mcp_visibility_domain()` 过滤：无 group 的 tool 仅管理员可见；有 group 的
   只对组内用户可见；superuser 全见。
 - `tools/call` 用同一 domain 二次校验，杜绝越权调用。

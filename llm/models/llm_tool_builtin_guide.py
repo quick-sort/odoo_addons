@@ -11,7 +11,11 @@ class LLMToolBuiltinGuide(models.AbstractModel):
     _name = "llm.tool.builtin.guide"
     _description = "Built-in tool for retrieving module orchestration guides"
 
-    @llm_tool(read_only_hint=True, destructive_hint=False)
+    @llm_tool(
+        read_only_hint=True,
+        destructive_hint=False,
+        groups=("llm.group_llm_user",),
+    )
     def odoo_model_guide_retriever(
         self,
         code: Union[str, None] = None,
