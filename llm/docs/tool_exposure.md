@@ -39,11 +39,15 @@
 
 ### 2.3 MCP 暴露与权限（`llm_mcp_server`）
 
-- `llm_mcp_server` `_inherit = "llm.tool"`，加 `allowed_group_ids`（M2M `res.groups`）。
+- `allowed_group_ids`（M2M `res.groups`）在 **`llm.tool` 本身**（`llm` 模块）。放在 core 是
+  因为启动扫描要替模块写入它，而 `llm` 不能反依赖 `llm_mcp_server`。
+- 模块用 `@llm_tool(groups=("module.group_x",))` 声明；扫描仅在**声明变化**时重写
+  `allowed_group_ids`，管理员在 UI 上改的组在声明不变时保留。未声明（空）留给管理员配置。
 - `tools/list` 按 `_mcp_visibility_domain()` 过滤：无 group 的 tool 仅管理员可见；有 group 的
   只对组内用户可见；superuser 全见。
 - `tools/call` 用同一 domain 二次校验，杜绝越权调用。
-- 内部 agent 不经 MCP，直接 `llm.tool.execute()`。
+- 内部 agent 不经 MCP，直接 `llm.tool.execute()`；tool 级组目前只由 MCP 执行。
+- `llm.tool.guide.allowed_group_ids` 仍应引用与工具相同的组，保证"看见 tools ⟺ 看见 guide"。
 
 ## 3. 选型：通用 `odoo_*` vs 自定义 `@llm_tool`
 
@@ -107,10 +111,12 @@ model 里），agent 用 `odoo_model_method_executor` 调它。代价与自定�
 ### 4.4 分层（谁提供什么）
 
 ```
-llm             @llm_tool 装饰器 + llm.tool 注册表 + llm.tool.guide 模型 + odoo_model_guide_retriever
+llm             @llm_tool 装饰器 + llm.tool 注册表 + llm.tool.allowed_group_ids
+                + llm.tool.guide 模型 + odoo_model_guide_retriever
                 （内部 agent 直接走 registry / execute，不经 MCP）
-llm_mcp_server  依赖 llm；把注册表序列化成 MCP tools/list + tools/call；加 allowed_group_ids
-skillhub 等     依赖 llm；用 XML 贡献 llm.tool.guide 记录（+ 自定义 @llm_tool 工具）
+llm_mcp_server  依赖 llm；把注册表序列化成 MCP tools/list + tools/call，并按组过滤
+skillhub 等     依赖 llm；用 XML 贡献 llm.tool.guide 记录（+ 自定义 @llm_tool 工具，
+                用 groups= 声明可见组）
 ```
 
 **一条代码路径**：`odoo_model_guide_retriever` 是唯一实现，内部 agent 走 registry、外部走
@@ -136,13 +142,14 @@ MCP 序列化，两端落到同一个函数，不可能漂移。MCP 层不重写
 
 | 层 | 字段 | 粒度 | 类比 |
 |---|---|---|---|
-| tool 级 | `llm_mcp_server` 继承的 `allowed_group_ids` | 这条 tool 是否进 tools/list | `ir.model.access` |
+| tool 级 | `llm.tool.allowed_group_ids`（`llm` 声明，`llm_mcp_server` 执行） | 这条 tool 是否进 tools/list | `ir.model.access` |
 | guide 级 | `llm.tool.guide.allowed_group_ids` | 哪些 guide/keyword 可见 | record rule |
 
 - **一致性靠约定**：guide 的 `allowed_group_ids` 应引用与"该模块 tools 的 `allowed_group_ids`"
   **同一个 `res.groups` 记录**，保证"能看见 tools ⟺ 能看见 guide"。不强制推导，由填表人负责。
-- **依赖方向**：`llm` 不能依赖 `llm_mcp_server`（方向反了）。guide 的 group 字段只是
-  `res.groups`（base 资源），在 `llm` 里可用，无依赖问题。
+- **依赖方向**：`llm` 不能依赖 `llm_mcp_server`（方向反了）。两个 group 字段都只引用
+  `res.groups`（base 资源），因此都放在 `llm`：tool 字段必须由启动扫描写入，guide 字段
+  必须能被内部 agent 读取。`llm_mcp_server` 只消费，不拥有。
 
 ## 7. 关键取舍
 
@@ -173,7 +180,8 @@ guide 落成 record 后，才能在 `tools/list` 时按"安装 + 权限"拼出�
 
 ## 9. 状态
 
-- §2（`@llm_tool`、通用工具、`allowed_group_ids`）：**已实现**。
+- §2（`@llm_tool`、通用工具、`allowed_group_ids`）：**已实现**。`allowed_group_ids`
+  已在 `llm.tool`；`@llm_tool(groups=...)` 声明 + 启动扫描同步已落地。
 - §4–§6（`llm.tool.guide`、`odoo_model_guide_retriever`、动态 description）：**已实现**。
   模型 `llm.tool.guide`、工具 `odoo_model_guide_retriever`（`llm.tool.builtin.guide`）、
   `llm.tool.get_dynamic_description()` 钩子已落地。尚未做：下游 addon 用 XML 贡献 guide

@@ -177,6 +177,20 @@ Every Odoo user can connect their own AI client independently:
 4. For `tools/call`: Executes tool with user's permissions
 5. Response streamed back via HTTP streaming
 
+### Tool Access Groups
+
+Every `llm.tool` has `allowed_group_ids` (defined in `llm`, on the tool itself).
+`tools/list` and `tools/call` both enforce it, so knowing a tool's name does not
+let an outsider call it.
+
+- **Code tools** declare groups at registration:
+  `@llm_tool(groups=("module.group_x",))`. The startup scan rewrites the m2m
+  when the declaration changes; an administrator's edit made between code
+  changes survives restarts.
+- **Manual / remote tools** are configured in **MCP Hub → Tools**.
+- **Empty group list means administrators only** (`base.group_system`).
+  Administrators and superusers always see every active tool.
+
 ## API Reference
 
 ### Initialize
@@ -223,7 +237,7 @@ Every Odoo user can connect their own AI client independently:
 
 ## Creating Tools
 
-Tools are auto-discovered from the `llm.tool` model. See [llm/DECORATOR.md](../llm/DECORATOR.md) for creating custom tools with the `@llm_tool` decorator.
+Tools are auto-discovered from the `llm.tool` model. See [llm/DECORATOR.md](../llm/DECORATOR.md) for creating custom tools with the `@llm_tool` decorator. Declare who may use a code tool with `@llm_tool(groups=("module.group_x",))`; see [Tool Access Groups](#tool-access-groups).
 
 ## Testing & Debugging
 
@@ -272,7 +286,8 @@ odoo-bin --log-level=debug
 ## Security
 
 - **User-scoped**: Each API key executes with that user's permissions
-- **ACL enforced**: All Odoo access control rules apply
+- **ACL enforced for Odoo tools**: `model_method` / `server_action` tools run as the key's user, so access rules and record rules apply
+- **Remote MCP tools**: proxied through the stored `llm.mcp.client` credentials, so Odoo ACLs do not bound what they return; `allowed_group_ids` is the gate
 - **No shared state**: Each request is isolated
 - **Audit trail**: All tool calls logged in Odoo
 

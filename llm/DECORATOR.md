@@ -85,6 +85,25 @@ def get_data(self, id: int) -> dict:
     pass
 ```
 
+### With Groups
+
+Restrict who may use the tool by declaring the xmlids of the allowed
+`res.groups` (single string or iterable):
+
+```python
+@llm_tool(groups=("one_storage.group_one_storage_user",))
+def storage_list_files(self, backend: str, path: str = "") -> dict:
+    """List files on a storage backend."""
+    pass
+```
+
+The startup scan writes the declared set to `llm.tool.allowed_group_ids`
+**only when the declaration changes**; an administrator's edit between code
+changes survives restarts. Empty or omitted means "not declared" and leaves
+the field to the administrator. The declaring module must depend on the
+module that defines the group, and the group is enforced by consumers that
+honour tool-level access (currently `llm_mcp_server`).
+
 ## Auto-Registration Details
 
 **When a function is decorated:**
@@ -109,7 +128,9 @@ def get_data(self, id: int) -> dict:
    ```
 3. If manual schema provided via `schema=` parameter, stores it in `input_schema` field
 4. Updates existing records if metadata changed (only if `auto_update=True`)
-5. Logs registration success for debugging
+5. If `groups=` is declared and the declaration changed since the last scan,
+   rewrites `allowed_group_ids`; an unchanged declaration never touches it
+6. Logs registration success for debugging
 
 **Note on `auto_update` field:**
 

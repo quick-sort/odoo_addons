@@ -178,8 +178,9 @@ API key；capability URL 是唯一现实选择，与 S3 presigned、GitHub uploa
 本 addon 贡献一条 `llm.tool.guide`（`code="storage"`，见
 `data/llm_tool_guide_data.xml`），让 agent 经 `odoo_model_guide_retriever`
 零调用发现 storage、按需拉取 stage→curl→commit→consume 的完整协议。guide
-不设 `allowed_group_ids`，与 storage 工具无 group 限制的可见性一致（工具权限
-由 ORM ACL + 每后端读写开关把关）。
+不设 `allowed_group_ids`，与 storage 工具保持一致：空组在 MCP 里表示**仅管理员
+可见**（不是"所有人可用"）。工具执行仍由 ORM ACL + 每后端读写开关把关。若要
+让非管理员通过 MCP 使用，需在 `@llm_tool(groups=...)` 和 guide 上声明同一组。
 
 ## 边角
 

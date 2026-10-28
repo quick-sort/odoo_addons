@@ -26,7 +26,9 @@ _TOOL_ATTRS = (
 )
 
 
-def llm_tool(func=None, *, name=None, description=None, schema=None, **metadata):
+def llm_tool(
+    func=None, *, name=None, description=None, schema=None, groups=None, **metadata
+):
     """Mark a model method as an LLM tool.
 
     Everything the registry needs comes from the method itself:
@@ -53,6 +55,17 @@ def llm_tool(func=None, *, name=None, description=None, schema=None, **metadata)
         def odoo_record_retriever(self, model: str) -> dict:
             \"\"\"Read records from any model.\"\"\"
 
+    Restrict who may use the tool with the xmlids of the groups allowed to::
+
+        @llm_tool(groups=("one_storage.group_one_storage_user",))
+        def storage_list_files(...) -> dict:
+            \"\"\"List files on a backend.\"\"\"
+
+    A single string is accepted for one group. The startup scan applies the
+    declared set to ``allowed_group_ids`` only when the declaration changes, so
+    an administrator's edit survives restarts. Empty/omitted means "not
+    declared": the field stays under the administrator's control.
+
     For a legacy method without annotations, supply the schema explicitly::
 
         @llm_tool(schema={
@@ -68,6 +81,9 @@ def llm_tool(func=None, *, name=None, description=None, schema=None, **metadata)
         name: tool name override (defaults to the function name)
         description: description override (defaults to the docstring)
         schema: explicit JSON Schema, for methods without type hints
+        groups: res.groups xmlids the tool is restricted to. A single xmlid or
+            an iterable of them; declaration changes are synced to
+            ``allowed_group_ids`` at startup.
         **metadata: passed through to the row -- ``title``, ``read_only_hint``,
             ``idempotent_hint``, ``destructive_hint``, ``open_world_hint``
 
@@ -99,6 +115,9 @@ def llm_tool(func=None, *, name=None, description=None, schema=None, **metadata)
         else:
             _validate_type_hints(f, tool_name)
 
+        if groups is not None:
+            metadata["groups"] = _validate_groups(groups, tool_name)
+
         f._is_llm_tool = True
         f._llm_tool_name = tool_name
         f._llm_tool_description = tool_description
@@ -120,6 +139,28 @@ def llm_tool(func=None, *, name=None, description=None, schema=None, **metadata)
 
     # Support both @llm_tool and @llm_tool(...)
     return decorator if func is None else decorator(func)
+
+
+def _validate_groups(groups, tool_name):
+    """Normalize ``groups=`` to a tuple of ``module.name`` xmlids."""
+    if isinstance(groups, str):
+        groups = (groups,)
+    try:
+        groups = tuple(groups)
+    except TypeError:
+        raise ValueError(
+            f"@llm_tool(groups=...) must be a string or an iterable of strings.\n"
+            f"Tool '{tool_name}' got {groups!r}."
+        ) from None
+
+    for group in groups:
+        if not isinstance(group, str) or "." not in group:
+            raise ValueError(
+                f"@llm_tool(groups=...) expects res.groups xmlids, e.g. "
+                f"'one_storage.group_one_storage_user'.\n"
+                f"Tool '{tool_name}' got {group!r}."
+            )
+    return groups
 
 
 def _validate_type_hints(func, tool_name):

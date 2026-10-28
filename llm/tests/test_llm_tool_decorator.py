@@ -144,3 +144,54 @@ class TestDecoratorMetadata(TransactionCase):
             return {}
 
         self.assertFalse(hasattr(probe, "_llm_tool_xml_managed"))
+
+
+@tagged("post_install", "-at_install")
+class TestDecoratorGroups(TransactionCase):
+    def test_single_xmlid_is_normalized_to_a_tuple(self):
+        @llm_tool(groups="one_storage.group_one_storage_user")
+        def probe(self, x: str) -> dict:
+            """Doc."""
+            return {}
+
+        self.assertEqual(
+            get_tool_metadata(probe)["metadata"]["groups"],
+            ("one_storage.group_one_storage_user",),
+        )
+
+    def test_iterable_is_kept_in_order(self):
+        @llm_tool(groups=("a.group_one", "b.group_two"))
+        def probe(self, x: str) -> dict:
+            """Doc."""
+            return {}
+
+        self.assertEqual(
+            get_tool_metadata(probe)["metadata"]["groups"],
+            ("a.group_one", "b.group_two"),
+        )
+
+    def test_non_xmlid_is_an_error(self):
+        with self.assertRaises(ValueError) as ctx:
+
+            @llm_tool(groups="not_an_xmlid")
+            def probe(self, x: str) -> dict:
+                """Doc."""
+                return {}
+
+        self.assertIn("xmlid", str(ctx.exception))
+
+    def test_non_string_group_is_an_error(self):
+        with self.assertRaises(ValueError):
+
+            @llm_tool(groups=[42])
+            def probe(self, x: str) -> dict:
+                """Doc."""
+                return {}
+
+    def test_non_iterable_groups_is_an_error(self):
+        with self.assertRaises(ValueError):
+
+            @llm_tool(groups=42)
+            def probe(self, x: str) -> dict:
+                """Doc."""
+                return {}

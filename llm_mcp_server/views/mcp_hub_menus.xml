@@ -56,8 +56,8 @@
                 />
                 <separator />
                 <filter
-                    string="Open to All Users"
-                    name="open_to_all"
+                    string="Administrators Only"
+                    name="admin_only"
                     domain="[('allowed_group_ids', '=', False)]"
                 />
                 <filter
@@ -91,7 +91,8 @@
             <p>
                 Manage which tools this MCP server exposes. A tool is offered
                 when it is active; restrict it to specific user groups with
-                Allowed Groups (leave empty to expose it to everyone).
+                Allowed Groups (leave empty to restrict it to administrators
+                only).
             </p>
         </field>
     </record>
