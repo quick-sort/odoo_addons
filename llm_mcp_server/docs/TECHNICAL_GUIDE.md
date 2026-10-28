@@ -103,5 +103,12 @@ stateDiagram-v2
 
 - Bearer token authentication via Odoo's `res.users.apikeys`
 - User context binding: `request.update_env(user=authenticated_user)`
-- ACL enforcement: Tools respect Odoo's permission system
+- Tool access groups: `llm.tool.allowed_group_ids` (declared in `llm`; written by
+  `@llm_tool(groups=...)` or the MCP Hub form). Both `tools/list` and
+  `tools/call` apply `_mcp_visibility_domain()`; empty means administrators only
+- ACL enforcement for `model_method` / `server_action` tools: they run as the
+  authenticated user, so Odoo access and record rules apply
+- Remote (`mcp` executor) tools: proxied with the `llm.mcp.client` credentials,
+  so Odoo ACLs do not bound the remote response; the access-group check is the
+  gate
 - Session isolation: Each session tracks its own user context

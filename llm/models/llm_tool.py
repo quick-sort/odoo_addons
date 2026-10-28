@@ -57,12 +57,17 @@ ANNOTATION_HINTS = {
 
 #: Columns the startup scan owns on a ``source='code'`` row. Everything else --
 #: ``is_default``, ``requires_user_consent`` -- stays the user's.
+#:
+#: ``code_group_xmlids`` is bookkeeping, not the groups themselves: it records
+#: what the code last declared, so a change in the declaration is detected and
+#: applied to ``allowed_group_ids`` while a hand-edited set is left alone.
 CODE_OWNED_COLUMNS = (
     "name",
     "description",
     "input_schema",
     "title",
     "active",
+    "code_group_xmlids",
     *ANNOTATION_HINTS,
 )
 
@@ -298,6 +303,20 @@ class LLMTool(models.Model):
         default=False,
         help="Include this tool in every LLM request. Beware of enabling it on "
         "two exposures of the same callable: the model would see both.",
+    )
+    allowed_group_ids = fields.Many2many(
+        "res.groups",
+        string="Allowed Groups",
+        help="Only users in one of these groups may use this tool through a "
+        "consumer that enforces tool-level access (currently the MCP server). "
+        "Leave empty to restrict it to administrators only.",
+    )
+    code_group_xmlids = fields.Text(
+        readonly=True,
+        copy=False,
+        help="Technical: the group xmlids last declared with "
+        "@llm_tool(groups=...). Lets the startup scan tell a declaration change "
+        "from a hand-edited set, so it never clobbers a local override.",
     )
 
     _unique_tool_name = models.Constraint(
@@ -600,6 +619,14 @@ class LLMTool(models.Model):
             "description": getattr(method, "_llm_tool_description", ""),
             "title": metadata.get("title") or "",
             "active": True,
+            # Stored as a comparable string so the raw-SQL diff below can tell
+            # whether the declaration changed. Empty means "nothing declared",
+            # not "no groups": the m2m is only rewritten on a change.
+            "code_group_xmlids": (
+                json.dumps(sorted(set(metadata["groups"])))
+                if metadata.get("groups")
+                else ""
+            ),
         }
         for hint in ANNOTATION_HINTS:
             if hint in metadata:
@@ -629,6 +656,43 @@ class LLMTool(models.Model):
             if db_val != new_val:
                 return True
         return False
+
+    def _sync_code_groups(self, tool_id, xmlids_json):
+        """Rewrite a code tool's allowed groups from its declared xmlids.
+
+        Only called when the declaration itself changed; a set entered by hand
+        is otherwise never touched. Raw SQL, like the rest of the sync, so it
+        does not flush dirty ORM state during module loading.
+        """
+        cr = self.env.cr
+        group_ids = []
+        for xmlid in json.loads(xmlids_json) if xmlids_json else []:
+            module, _, name = xmlid.partition(".")
+            cr.execute(
+                "SELECT res_id, model FROM ir_model_data"
+                " WHERE module = %s AND name = %s",
+                [module, name],
+            )
+            row = cr.fetchone()
+            if not row or row[1] != "res.groups":
+                _logger.error(
+                    "Tool group %r is not a res.groups xmlid; skipping. "
+                    "Declare the group's own module as a dependency.",
+                    xmlid,
+                )
+                continue
+            group_ids.append(row[0])
+
+        cr.execute(
+            "DELETE FROM llm_tool_res_groups_rel WHERE llm_tool_id = %s",
+            [tool_id],
+        )
+        if group_ids:
+            cr.executemany(
+                "INSERT INTO llm_tool_res_groups_rel (llm_tool_id, res_groups_id)"
+                " VALUES (%s, %s)",
+                [(tool_id, group_id) for group_id in dict.fromkeys(group_ids)],
+            )
 
     @api.model
     def _sync_tools_to_db(self):
@@ -684,11 +748,17 @@ class LLMTool(models.Model):
                     continue
                 owned = [c for c in CODE_OWNED_COLUMNS if c in values]
                 assignments = ", ".join(f"{c} = %s" for c in owned)
+                groups_changed = "code_group_xmlids" in values and (
+                    (db_row.get("code_group_xmlids") or "")
+                    != (values["code_group_xmlids"] or "")
+                )
                 cr.execute(
                     f"UPDATE llm_tool SET {assignments},"
                     "       write_date = %s, write_uid = %s WHERE id = %s",
                     [*(values[c] for c in owned), now, uid, db_row["id"]],
                 )
+                if groups_changed:
+                    self._sync_code_groups(db_row["id"], values["code_group_xmlids"])
                 updated += 1
             else:
                 insert_columns = [
@@ -702,7 +772,7 @@ class LLMTool(models.Model):
                 cr.execute(
                     f"INSERT INTO llm_tool ({', '.join(insert_columns)},"
                     "   create_date, write_date, create_uid, write_uid)"
-                    f" VALUES ({placeholders})",
+                    f" VALUES ({placeholders}) RETURNING id",
                     [
                         *(values.get(c) for c in insert_columns),
                         now,
@@ -711,6 +781,9 @@ class LLMTool(models.Model):
                         uid,
                     ],
                 )
+                new_id = cr.fetchone()[0]
+                if values.get("code_group_xmlids"):
+                    self._sync_code_groups(new_id, values["code_group_xmlids"])
                 created += 1
 
         # Archive code tools whose method disappeared from the code.

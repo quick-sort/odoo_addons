@@ -254,3 +254,135 @@ class TestSyncButton(common.TransactionCase):
         result = self.LLMTool.action_sync_tools()
 
         self.assertIn(result["params"]["type"], ("info", "success"))
+
+
+@tagged("post_install", "-at_install")
+class TestSyncGroups(common.TransactionCase):
+    """Declared groups are applied when the declaration changes, not every run."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.LLMTool = cls.env["llm.tool"]
+
+    def _set_registry(self, registry):
+        patcher = patch.object(type(self.LLMTool), "_tool_registry", registry)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def _values(self, name, **kwargs):
+        values = {
+            "name": name,
+            "executor": "model_method",
+            "source": "code",
+            "res_model": "res.partner",
+            "res_method": "probe_method",
+            "description": "Scanned description",
+            "title": "",
+            "active": True,
+            "code_group_xmlids": "",
+        }
+        values.update(kwargs)
+        return values
+
+    def _group(self, xml_name, group_name):
+        group = self.env["res.groups"].create({"name": group_name})
+        self.env["ir.model.data"].create(
+            {
+                "module": "llm_test_groups",
+                "name": xml_name,
+                "model": "res.groups",
+                "res_id": group.id,
+            }
+        )
+        return group, f"llm_test_groups.{xml_name}"
+
+    def _decl(self, *xmlids):
+        return json.dumps(sorted(xmlids))
+
+    def _synced_tool(self, name):
+        self.LLMTool.invalidate_model()
+        return self.LLMTool.search([("name", "=", name)])
+
+    def test_create_applies_declared_groups(self):
+        group, xmlid = self._group("declared_a", "Declared Group A")
+        self._set_registry(
+            {
+                ("res.partner", "probe_method"): self._values(
+                    "group_probe_a", code_group_xmlids=self._decl(xmlid)
+                )
+            }
+        )
+
+        self.LLMTool._sync_tools_to_db()
+        tool = self._synced_tool("group_probe_a")
+
+        self.assertEqual(tool.allowed_group_ids, group)
+        self.assertEqual(tool.code_group_xmlids, self._decl(xmlid))
+
+    def test_declaration_change_replaces_the_set(self):
+        group_a, xmlid_a = self._group("declared_a2", "Declared Group A2")
+        group_b, xmlid_b = self._group("declared_b2", "Declared Group B2")
+        key = ("res.partner", "probe_method")
+        self._set_registry(
+            {key: self._values("group_probe_b", code_group_xmlids=self._decl(xmlid_a))}
+        )
+        self.LLMTool._sync_tools_to_db()
+        tool = self._synced_tool("group_probe_b")
+        self.assertEqual(tool.allowed_group_ids, group_a)
+
+        self._set_registry(
+            {key: self._values("group_probe_b", code_group_xmlids=self._decl(xmlid_b))}
+        )
+        self.LLMTool._sync_tools_to_db()
+        tool = self._synced_tool("group_probe_b")
+
+        self.assertEqual(tool.allowed_group_ids, group_b)
+        self.assertNotIn(group_a, tool.allowed_group_ids)
+
+    def test_removing_the_declaration_clears_the_set(self):
+        group_a, xmlid_a = self._group("declared_a3", "Declared Group A3")
+        key = ("res.partner", "probe_method")
+        self._set_registry(
+            {key: self._values("group_probe_c", code_group_xmlids=self._decl(xmlid_a))}
+        )
+        self.LLMTool._sync_tools_to_db()
+        tool = self._synced_tool("group_probe_c")
+        self.assertEqual(tool.allowed_group_ids, group_a)
+
+        self._set_registry({key: self._values("group_probe_c")})
+        self.LLMTool._sync_tools_to_db()
+        tool = self._synced_tool("group_probe_c")
+
+        self.assertFalse(tool.allowed_group_ids)
+
+    def test_hand_edited_groups_survive_an_unchanged_declaration(self):
+        group_a, xmlid_a = self._group("declared_a4", "Declared Group A4")
+        extra = self.env["res.groups"].create({"name": "Locally Added Group"})
+        key = ("res.partner", "probe_method")
+        values = {"name": "group_probe_d", "code_group_xmlids": self._decl(xmlid_a)}
+        self._set_registry({key: self._values(**values)})
+        self.LLMTool._sync_tools_to_db()
+        tool = self._synced_tool("group_probe_d")
+        tool.allowed_group_ids = [(4, extra.id)]
+
+        self._set_registry({key: self._values(**values)})
+        self.LLMTool._sync_tools_to_db()
+        tool = self._synced_tool("group_probe_d")
+
+        self.assertEqual(tool.allowed_group_ids, group_a | extra)
+
+    def test_missing_xmlid_grants_nothing(self):
+        self._set_registry(
+            {
+                ("res.partner", "probe_method"): self._values(
+                    "group_probe_e",
+                    code_group_xmlids=self._decl("nowhere.group_does_not_exist"),
+                )
+            }
+        )
+
+        self.LLMTool._sync_tools_to_db()
+        tool = self._synced_tool("group_probe_e")
+
+        self.assertFalse(tool.allowed_group_ids)

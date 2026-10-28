@@ -14,12 +14,9 @@ RESULT_SUMMARY_MAX = 2000
 class LLMTool(models.Model):
     _inherit = "llm.tool"
 
-    allowed_group_ids = fields.Many2many(
-        "res.groups",
-        string="Allowed Groups",
-        help="Only users in one of these groups see and call this tool via MCP. "
-        "Leave empty to restrict it to administrators only.",
-    )
+    # ``allowed_group_ids`` lives on llm.tool itself: the startup scan needs to
+    # write it when a module declares ``@llm_tool(groups=...)``, and llm cannot
+    # depend on llm_mcp_server.
 
     authorized_user_ids = fields.Many2many(
         "res.users",

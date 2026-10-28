@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <odoo noupdate="1">
     <!-- Orchestration guide for the storage_* tools, served to agents through
-         odoo_model_guide_retriever. No allowed_group_ids: the storage tools
-         themselves carry no group restriction (gated by ORM ACL + per-backend
-         mcp_read/write_enabled), so the guide mirrors that visibility. -->
+         odoo_model_guide_retriever. No allowed_group_ids, mirroring the storage
+         tools: an empty group list means administrators only, so the guide
+         never advertises tools the caller cannot see. Execution is still gated
+         by ORM ACL + per-backend mcp_read/write_enabled. To open the tools to
+         a wider group, declare @llm_tool(groups=...) and the same group here. -->
     <record id="guide_storage" model="llm.tool.guide">
         <field name="code">storage</field>
         <field name="title">Storage</field>
