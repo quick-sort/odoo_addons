@@ -243,6 +243,23 @@ class TestRssChannel(TransactionCase):
         self.assertEqual(channel.item_count, 1)
         self.assertEqual(channel.item_ids.external_id, "3383977")
 
+    def test_rfc822_date_without_seconds_is_parsed(self):
+        """GlobeNewswire publishes ``22:59 GMT``: no seconds, a named zone.
+
+        ``strptime`` rejects that shape, and the core then stamped the item
+        with the fetch time — every item looked freshly published. The RFC 822
+        parser accepts it, so the real publication date must survive.
+        """
+        channel = self._channel()
+        with self._stub_http(RSS2_LOCALIZED):
+            channel.action_fetch()
+        item = channel.item_ids
+        self.assertEqual(len(item), 1)
+        self.assertEqual(
+            item.published_at,
+            fields.Datetime.to_datetime("2026-10-19 22:59:00"),
+        )
+
     def test_fetch_failure_is_recorded_and_reraised(self):
         """A transport error reaches ``_register_failure`` and is re-raised.
 

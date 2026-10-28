@@ -1,5 +1,6 @@
 import datetime
 import logging
+from email.utils import parsedate_to_datetime
 
 from odoo.addons.component.core import Component
 from odoo.tools import html2plaintext
@@ -67,13 +68,24 @@ class InfohubContentRss(Component):
         if not value:
             return None
 
-        # Python 3.11+ understands most RFC 822 / ISO 8601 forms directly.
+        # ISO-8601 first: Atom uses it, and Python 3.11+ reads most forms.
         try:
             parsed = datetime.datetime.fromisoformat(
                 value.replace("Z", "+00:00")
             )
         except ValueError:
             parsed = None
+
+        if parsed is None:
+            # RFC 822/2822 is the RSS norm, and its parser is deliberately
+            # lenient where ``strptime`` is not: a time without seconds and a
+            # named zone (GlobeNewswire's ``22:59 GMT``) are both accepted.
+            # Without this, those dates were rejected and the core stamped the
+            # item with the fetch time instead.
+            try:
+                parsed = parsedate_to_datetime(value)
+            except (TypeError, ValueError):
+                parsed = None
 
         if parsed is None:
             for fmt in (
