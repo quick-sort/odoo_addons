@@ -32,7 +32,7 @@ class LLMToolInvokeAssistant(models.AbstractModel):
     _name = "llm.tool.invoke.agent"
     _description = "Agent delegation tool"
 
-    @llm_tool(destructive_hint=False, open_world_hint=False)
+    @llm_tool(groups="llm.group_llm_user", destructive_hint=False, open_world_hint=False)
     def invoke_agent(
         self,
         agent_code: str,

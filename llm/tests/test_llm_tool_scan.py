@@ -87,6 +87,17 @@ class TestScan(common.TransactionCase):
                 values["code_group_xmlids"], '["base.group_user"]', method
             )
 
+    def test_invoke_agent_declares_llm_user_group(self):
+        self.LLMTool._scan_tool_decorators()
+        values = self.LLMTool._tool_registry[
+            ("llm.tool.invoke.agent", "invoke_agent")
+        ]
+
+        self.assertEqual(
+            values["code_group_xmlids"],
+            json.dumps(["llm.group_llm_user"]),
+        )
+
 
 @tagged("post_install", "-at_install")
 class TestSync(common.TransactionCase):

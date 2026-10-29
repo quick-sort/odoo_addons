@@ -300,7 +300,7 @@ export const llmStoreService = {
           const agents = await orm.silent.searchRead(
             "llm.agent",
             [["active", "=", true]],
-            ["id", "name", "is_public", "is_default", "provider_id", "model_id", "tool_ids"]
+            ["id", "name", "is_default", "provider_id", "model_id", "tool_ids"]
           );
 
           agents.forEach((agent) => {
