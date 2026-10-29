@@ -14,7 +14,7 @@ class LLMToolBuiltinGuide(models.AbstractModel):
     @llm_tool(
         read_only_hint=True,
         destructive_hint=False,
-        groups=("llm.group_llm_user",),
+        groups=("base.group_user",),
     )
     def odoo_model_guide_retriever(
         self,

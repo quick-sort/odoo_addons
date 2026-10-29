@@ -97,10 +97,10 @@ class TestMethodExecutorSafety(LLMToolCase):
 
         self.assertNotIn("allow_private", schema.get("properties", {}))
 
-    def test_tool_is_manager_only(self):
+    def test_tool_is_declared_for_internal_users(self):
         self.assertEqual(
             self._method_tool().allowed_group_ids,
-            self.env.ref("llm.group_llm_manager"),
+            self.env.ref("base.group_user"),
         )
 
 

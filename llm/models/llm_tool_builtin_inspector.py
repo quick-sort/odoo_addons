@@ -350,7 +350,7 @@ class LLMToolBuiltinInspector(models.AbstractModel):
         read_only_hint=True,
         destructive_hint=False,
         idempotent_hint=True,
-        groups=("llm.group_llm_user",),
+        groups=("base.group_user",),
     )
     def odoo_model_inspector(
         self,

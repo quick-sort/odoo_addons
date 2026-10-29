@@ -29,7 +29,7 @@ class LLMToolBuiltinRecords(models.AbstractModel):
     @llm_tool(
         read_only_hint=True,
         destructive_hint=False,
-        groups=("llm.group_llm_user",),
+        groups=("base.group_user",),
     )
     def odoo_record_retriever(
         self,
@@ -125,7 +125,7 @@ class LLMToolBuiltinRecords(models.AbstractModel):
         # Convert to serializable format
         return json.loads(json.dumps(result, default=str))
 
-    @llm_tool(destructive_hint=False, groups=("llm.group_llm_user",))
+    @llm_tool(destructive_hint=False, groups=("base.group_user",))
     def odoo_record_creator(
         self,
         model: str,
@@ -186,7 +186,7 @@ class LLMToolBuiltinRecords(models.AbstractModel):
 
         return result
 
-    @llm_tool(groups=("llm.group_llm_user",))
+    @llm_tool(groups=("base.group_user",))
     def odoo_record_updater(
         self,
         model: str,
@@ -341,7 +341,7 @@ class LLMToolBuiltinRecords(models.AbstractModel):
 
         return result
 
-    @llm_tool(groups=("llm.group_llm_user",))
+    @llm_tool(groups=("base.group_user",))
     def odoo_record_unlinker(
         self,
         model: str,

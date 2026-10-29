@@ -43,7 +43,7 @@ class LLMToolBuiltinMethod(models.AbstractModel):
         except (TypeError, OverflowError):
             return repr(result)
 
-    @llm_tool(groups=("llm.group_llm_manager",))
+    @llm_tool(groups=("base.group_user",))
     def odoo_model_method_executor(
         self,
         model: str,
