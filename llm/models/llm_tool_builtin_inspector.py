@@ -346,7 +346,12 @@ class LLMToolBuiltinInspector(models.AbstractModel):
 
         return "\n".join(summary_parts)
 
-    @llm_tool(read_only_hint=True, destructive_hint=False, idempotent_hint=True)
+    @llm_tool(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        groups=("base.group_user",),
+    )
     def odoo_model_inspector(
         self,
         model: str,

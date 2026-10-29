@@ -43,7 +43,7 @@ class LLMToolBuiltinMethod(models.AbstractModel):
         except (TypeError, OverflowError):
             return repr(result)
 
-    @llm_tool
+    @llm_tool(groups=("base.group_user",))
     def odoo_model_method_executor(
         self,
         model: str,
@@ -51,7 +51,6 @@ class LLMToolBuiltinMethod(models.AbstractModel):
         record_ids: Union[list[int], None] = None,
         args: Union[list[Union[str, int, bool, float, None]], None] = None,
         kwargs: Union[dict[str, Union[str, int, bool, float, None]], None] = None,
-        allow_private: bool = False,
     ) -> dict[str, Any]:
         """**VERY HIGH RISK TOOL:** Executes a specified method on an Odoo model or specific records. Provide the model's technical name, the method name, and optionally a list of record IDs, positional arguments ('args'), and keyword arguments ('kwargs'). If record_ids is null/empty, the method is called on the model itself (e.g., for `search`, `create`, `@api.model`, `@staticmethod`).
 
@@ -59,7 +58,7 @@ class LLMToolBuiltinMethod(models.AbstractModel):
 
         **IMPORTANT:** The LLM using this tool MUST explicitly ask the user for confirmation before EVERY execution, clearly stating the model, method, records (if any), and arguments being used.
 
-        Private methods (starting with '_') are disallowed by default unless 'allow_private' is explicitly set to true (use with extreme caution).
+        Private methods (names starting with '_') are never allowed through this tool. They routinely bypass ORM access checks (raw SQL, internal sudo), so exposing them would let the caller escape its own permissions.
 
         Returns a JSON representation of the method's result or an error message.
 
@@ -69,7 +68,6 @@ class LLMToolBuiltinMethod(models.AbstractModel):
             record_ids: Optional list of database IDs. If provided, the method is called on this recordset; otherwise, it's called on the model.
             args: Optional list of positional arguments. Simple values (str, int, bool, float, None) are passed directly. For complex structures (lists, dicts), pass them as JSON-encoded strings - they will be automatically parsed. Example: '[["name", "=", "John"]]' for a domain.
             kwargs: Optional dictionary of keyword arguments. Simple values are passed directly. For complex values (lists, dicts), pass them as JSON-encoded strings - they will be automatically parsed. Example: {"values": '{"name": "John", "age": 30}'}.
-            allow_private: Set to true to allow calling private methods (those starting with '_'). Defaults to False.
         """
         # Parse args: convert JSON strings to Python objects
         actual_args = [self._parse_json_value(arg) for arg in args] if args else []
@@ -85,10 +83,10 @@ class LLMToolBuiltinMethod(models.AbstractModel):
         if model not in self.env:
             raise UserError(f"Model '{model}' does not exist in the environment.")
 
-        if method.startswith("_") and not allow_private:
+        if method.startswith("_"):
             raise UserError(
-                f"Execution of private method '{method}' is not allowed by default. "
-                "Set 'allow_private' to true to override."
+                f"Execution of private method '{method}' is not allowed. "
+                "Only public methods can be called through this tool."
             )
 
         model_obj = self.env[model]

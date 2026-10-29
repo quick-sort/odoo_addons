@@ -40,6 +40,7 @@ class TestScan(common.TransactionCase):
         self.assertTrue(values["description"])
         self.assertIn("model", json.loads(values["input_schema"])["properties"])
         self.assertTrue(values["read_only_hint"])
+        self.assertEqual(values["code_group_xmlids"], '["base.group_user"]')
 
     def test_scan_does_no_db_write(self):
         """Phase one is pure in-memory; nothing reaches the database."""
@@ -71,6 +72,20 @@ class TestScan(common.TransactionCase):
                 "odoo_model_guide_retriever",
             },
         )
+
+    def test_builtins_are_declared_for_internal_users(self):
+        self.LLMTool._scan_tool_decorators()
+        builtins = {
+            method: values
+            for (model, method), values in self.LLMTool._tool_registry.items()
+            if model.startswith("llm.tool.builtin.")
+        }
+
+        self.assertEqual(len(builtins), 7)
+        for method, values in builtins.items():
+            self.assertEqual(
+                values["code_group_xmlids"], '["base.group_user"]', method
+            )
 
 
 @tagged("post_install", "-at_install")

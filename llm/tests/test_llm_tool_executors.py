@@ -74,6 +74,37 @@ class TestModelMethodExecutor(LLMToolCase):
 
 
 @tagged("post_install", "-at_install")
+class TestMethodExecutorSafety(LLMToolCase):
+    """``odoo_model_method_executor`` must never become a permission bypass."""
+
+    def _method_tool(self):
+        return self.LLMTool.search(
+            [("name", "=", "odoo_model_method_executor")], limit=1
+        )
+
+    def test_private_methods_are_always_rejected(self):
+        # _set_encrypted_password writes the hash with raw SQL and bypasses ACL;
+        # calling it through the executor used to allow account takeover.
+        with self.assertRaises(UserError) as ctx:
+            self._method_tool().execute(
+                {"model": "res.users", "method": "_set_encrypted_password"}
+            )
+
+        self.assertIn("private method", str(ctx.exception))
+
+    def test_allow_private_is_not_part_of_the_contract(self):
+        schema = self._method_tool().get_input_schema()
+
+        self.assertNotIn("allow_private", schema.get("properties", {}))
+
+    def test_tool_is_declared_for_internal_users(self):
+        self.assertEqual(
+            self._method_tool().allowed_group_ids,
+            self.env.ref("base.group_user"),
+        )
+
+
+@tagged("post_install", "-at_install")
 class TestServerActionExecutor(LLMToolCase):
     def _action(self, code):
         return self.env["ir.actions.server"].create(
