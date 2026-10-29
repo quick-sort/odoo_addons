@@ -103,6 +103,48 @@ class TestMethodExecutorSafety(LLMToolCase):
             self.env.ref("base.group_user"),
         )
 
+    def test_public_model_method_still_works(self):
+        """The jsonrpc-aligned gate must not reject ordinary model methods."""
+        result = self._method_tool().execute(
+            {
+                "model": "res.partner",
+                "method": "search",
+                "args": ["[]"],
+                "kwargs": {"limit": "1"},
+            }
+        )
+        self.assertEqual(result["result"]["recordset_model"], "res.partner")
+        self.assertIn("record_ids", result["result"])
+
+    def test_class_method_is_rejected(self):
+        # res.partner.is_transient is a real @classmethod; jsonrpc refuses it.
+        with self.assertRaises(UserError) as ctx:
+            self._method_tool().execute(
+                {"model": "res.partner", "method": "is_transient"}
+            )
+        self.assertIn("static or class method", str(ctx.exception))
+
+    def test_static_method_is_rejected(self):
+        tool = self._method_tool()
+        model_cls = type(self.env["res.partner"])
+        with patch.object(
+            model_cls, "probe_static", staticmethod(lambda: 1), create=True
+        ):
+            with self.assertRaises(UserError) as ctx:
+                tool.execute({"model": "res.partner", "method": "probe_static"})
+            self.assertIn("static or class method", str(ctx.exception))
+
+    def test_api_private_method_is_rejected(self):
+        # sudo() escalates privileges; @api.private means jsonrpc refuses it too.
+        with self.assertRaises(UserError) as ctx:
+            self._method_tool().execute({"model": "res.partner", "method": "sudo"})
+        self.assertIn("@api.private", str(ctx.exception))
+
+    def test_unsafe_attribute_is_rejected(self):
+        with self.assertRaises(UserError) as ctx:
+            self._method_tool().execute({"model": "res.partner", "method": "mro"})
+        self.assertIn("private method", str(ctx.exception))
+
 
 @tagged("post_install", "-at_install")
 class TestServerActionExecutor(LLMToolCase):
