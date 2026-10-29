@@ -143,6 +143,10 @@ MCP 序列化，两端落到同一个函数，不可能漂移。MCP 层不重写
 
 ## 6. 权限模型
 
+> **权限语义以 [`permission_model.md`](permission_model.md) 为准。**
+> 这里的 `allowed_group_ids` 是**策展**（决定 agent 被提供哪些工具），不是数据授权；
+> 数据授权只来自原生 ACL / ir.rule。tool 分组无法实现“限制”。
+
 两层，同一个 `res.groups` 机制，但**不要当同一个字段**：
 
 | 层 | 字段 | 粒度 | 类比 |
