@@ -6,6 +6,7 @@ from typing import Any, Union
 
 from odoo import models
 from odoo.exceptions import UserError
+from odoo.tools.safe_eval import _UNSAFE_ATTRIBUTES
 
 from ..decorators import llm_tool
 
@@ -52,13 +53,13 @@ class LLMToolBuiltinMethod(models.AbstractModel):
         args: Union[list[Union[str, int, bool, float, None]], None] = None,
         kwargs: Union[dict[str, Union[str, int, bool, float, None]], None] = None,
     ) -> dict[str, Any]:
-        """**VERY HIGH RISK TOOL:** Executes a specified method on an Odoo model or specific records. Provide the model's technical name, the method name, and optionally a list of record IDs, positional arguments ('args'), and keyword arguments ('kwargs'). If record_ids is null/empty, the method is called on the model itself (e.g., for `search`, `create`, `@api.model`, `@staticmethod`).
+        """**VERY HIGH RISK TOOL:** Executes a specified method on an Odoo model or specific records. Provide the model's technical name, the method name, and optionally a list of record IDs, positional arguments ('args'), and keyword arguments ('kwargs'). If record_ids is null/empty, the method is called on the model itself (e.g., for `search`, `create`, `@api.model`).
 
         **WARNING:** This tool can modify or delete data, trigger complex actions, or cause system errors if used improperly. It bypasses standard UI workflows.
 
         **IMPORTANT:** The LLM using this tool MUST explicitly ask the user for confirmation before EVERY execution, clearly stating the model, method, records (if any), and arguments being used.
 
-        Private methods (names starting with '_') are never allowed through this tool. They routinely bypass ORM access checks (raw SQL, internal sudo), so exposing them would let the caller escape its own permissions.
+        Private methods (names starting with '_') are never allowed through this tool. They routinely bypass ORM access checks (raw SQL, internal sudo), so exposing them would let the caller escape its own permissions. For the same reason, this tool mirrors the jsonrpc gate: static/class methods and methods decorated with `@api.private` are rejected too.
 
         Returns a JSON representation of the method's result or an error message.
 
@@ -83,7 +84,7 @@ class LLMToolBuiltinMethod(models.AbstractModel):
         if model not in self.env:
             raise UserError(f"Model '{model}' does not exist in the environment.")
 
-        if method.startswith("_"):
+        if method.startswith("_") or method in _UNSAFE_ATTRIBUTES:
             raise UserError(
                 f"Execution of private method '{method}' is not allowed. "
                 "Only public methods can be called through this tool."
@@ -101,11 +102,26 @@ class LLMToolBuiltinMethod(models.AbstractModel):
                         "error": f"None of the provided Record IDs {record_ids} exist for model {model}."
                     }
 
-        if not hasattr(target, method):
-            target_type = "records" if record_ids else "model"
-            raise AttributeError(
-                f"Method '{method}' not found on the target {target_type} ('{target}')."
+        # Mirror the jsonrpc gate (odoo.service.model.get_public_method):
+        # static/class methods and @api.private are not callable remotely,
+        # otherwise this executor would become a permissions bypass.
+        model_cls = type(model_obj)
+        method_on_cls = getattr(model_cls, method, None)
+        if not callable(method_on_cls):
+            raise AttributeError(f"Method '{method}' not found on model '{model}'.")
+        if method_on_cls == getattr(model_obj, method, None):
+            # staticmethod/classmethod resolve to the same callable from the
+            # class and the record, which jsonrpc refuses to call.
+            raise UserError(
+                f"Execution of static or class method '{model}.{method}' is not "
+                "allowed. Only record or model methods can be called remotely."
             )
+        for mro_cls in model_cls.mro():
+            mro_method = getattr(mro_cls, method, None)
+            if mro_method is not None and getattr(mro_method, "_api_private", False):
+                raise UserError(
+                    f"Execution of @api.private method '{model}.{method}' is not allowed."
+                )
 
         method_func = getattr(target, method)
 

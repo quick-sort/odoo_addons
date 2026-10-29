@@ -17,7 +17,7 @@
     "author": "quick-sort@outlook.com",
     "website": "quick-sort@outlook.com",
     "category": "Productivity, Discuss",
-    "version": "19.0.1.8.0",
+    "version": "19.0.1.8.1",
     "depends": ["mail", "web", "component", "web_json_editor"],
     "external_dependencies": {
         "python": [
