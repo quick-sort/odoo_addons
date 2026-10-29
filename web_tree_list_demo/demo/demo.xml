@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Level 1: roots -->
+    <record id="demo_root_a" model="web_tree_list_demo.category">
+        <field name="name">Root A</field>
+        <field name="sequence">10</field>
+        <field name="description">Top-level root A</field>
+    </record>
+    <record id="demo_root_b" model="web_tree_list_demo.category">
+        <field name="name">Root B</field>
+        <field name="sequence">20</field>
+        <field name="description">Top-level root B</field>
+    </record>
+
+    <!-- Level 2 -->
+    <record id="demo_a_1" model="web_tree_list_demo.category">
+        <field name="name">A - Child 1</field>
+        <field name="parent_id" ref="demo_root_a"/>
+        <field name="sequence">10</field>
+    </record>
+    <record id="demo_a_2" model="web_tree_list_demo.category">
+        <field name="name">A - Child 2</field>
+        <field name="parent_id" ref="demo_root_a"/>
+        <field name="sequence">20</field>
+    </record>
+    <record id="demo_b_1" model="web_tree_list_demo.category">
+        <field name="name">B - Child 1</field>
+        <field name="parent_id" ref="demo_root_b"/>
+        <field name="sequence">10</field>
+    </record>
+
+    <!-- Level 3 -->
+    <record id="demo_a_1_1" model="web_tree_list_demo.category">
+        <field name="name">A - Child 1 - Grandchild 1</field>
+        <field name="parent_id" ref="demo_a_1"/>
+        <field name="sequence">10</field>
+    </record>
+    <record id="demo_a_1_2" model="web_tree_list_demo.category">
+        <field name="name">A - Child 1 - Grandchild 2</field>
+        <field name="parent_id" ref="demo_a_1"/>
+        <field name="sequence">20</field>
+    </record>
+    <record id="demo_a_2_1" model="web_tree_list_demo.category">
+        <field name="name">A - Child 2 - Grandchild 1</field>
+        <field name="parent_id" ref="demo_a_2"/>
+        <field name="sequence">10</field>
+    </record>
+
+</odoo>
