@@ -42,6 +42,7 @@ export class GanttRenderer extends Component {
         this._scrollbarDragOffset = 0;
         this._rowsCache = null;
         this._markerHitAreas = [];
+        this._lastScale = this.props.scale;
 
         this.animationFrame = null;
         this.lastDrawTime = 0;
@@ -80,21 +81,30 @@ export class GanttRenderer extends Component {
             }
         });
 
-        onWillUpdateProps(() => {
+        onWillUpdateProps((nextProps) => {
             // onWillUpdateProps fires before the new props (scale/data) are
             // committed, so drawing here would use stale values. Defer one
             // frame and re-clamp the scroll so the redraw sees the new cell
             // width and content extent (otherwise a scale switch leaves the
             // canvas blank until the next wheel/pan event).
+            const scaleChanged = nextProps.scale !== this._lastScale;
             if (this.animationFrame) {
                 cancelAnimationFrame(this.animationFrame);
             }
             this.animationFrame = requestAnimationFrame(() => {
                 this.animationFrame = null;
-                this.clampScrollIntoView();
-                this.drawGantt();
+                if (scaleChanged) {
+                    // A scale switch changes the cell width and thus where
+                    // "today" lands, so recenter on it instead of preserving
+                    // the old scroll offset.
+                    this.centerOnToday();
+                } else {
+                    this.clampScrollIntoView();
+                    this.drawGantt();
+                }
                 this.lastDrawTime = Date.now();
             });
+            this._lastScale = nextProps.scale;
         });
     }
     formatDateLocal(date) {
