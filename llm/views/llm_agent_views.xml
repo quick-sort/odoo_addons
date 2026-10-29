@@ -14,7 +14,6 @@
                 <field name="model_id" />
                 <field name="template_format" />
                 <field name="tag_ids" widget="many2many_tags" />
-                <field name="is_public" />
                 <field name="is_default" widget="boolean_toggle" />
                 <field name="thread_count" />
                 <field name="active" />
@@ -78,12 +77,10 @@
               />
                         </group>
                         <group name="access_control">
-                            <field name="is_public" />
                             <field name="is_default" />
                             <field
                 name="allowed_group_ids"
                 widget="many2many_tags"
-                invisible="is_public"
                 options="{'no_create': True}"
               />
                         </group>
@@ -171,16 +168,6 @@
                 <field name="model_id" />
                 <field name="allowed_group_ids" />
                 <filter
-          string="Public"
-          name="public"
-          domain="[('is_public', '=', True)]"
-        />
-                <filter
-          string="Private"
-          name="private"
-          domain="[('is_public', '=', False)]"
-        />
-                <filter
           string="Default"
           name="default"
           domain="[('is_default', '=', True)]"
@@ -209,7 +196,6 @@
                 <filter string="Provider" name="provider" domain="[]" context="{'group_by': 'provider_id'}"/>
                 <filter string="Model" name="model" domain="[]" context="{'group_by': 'model_id'}"/>
                 <filter string="Template Format" name="template_format" domain="[]" context="{'group_by': 'template_format'}"/>
-                <filter string="Access Level" name="access_level" domain="[]" context="{'group_by': 'is_public'}"/>
             </search>
         </field>
     </record>

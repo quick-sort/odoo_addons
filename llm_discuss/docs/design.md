@@ -124,7 +124,7 @@ OdooBot 私聊会撞双路径（旧队列 + discuss.reply.job）。约定：Odoo
 ## agent 可用性与单例
 
 `discuss_channel._discuss_user_can_use_agent` 对 `agent_type=llm` 委托回
-`_get_allowed_agents_for_user`，尊重 `is_public` 与 `allowed_group_ids`。OdooBot 接管
+`_get_allowed_agents_for_user`，尊重 `allowed_group_ids`。OdooBot 接管
 对每个发送者走同样规则。`odoobot_enabled` 由隐藏可空 key + DB 唯一约束支撑，并发写
 也无法配置两个接管 agent。`discuss.reply.job` 对 `base.group_user` 可读写（供外部
 JSON-RPC 运行时轮询），`discuss.agent` 对 `base.group_user` 可管理。

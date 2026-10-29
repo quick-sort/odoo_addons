@@ -34,8 +34,6 @@ class DiscussChannel(models.Model):
         """
         if agent.agent_type == "llm":
             llm_agent = agent._discuss_resolve()
-            if not user.has_group("base.group_user"):
-                return bool(llm_agent.is_public)
             return llm_agent in llm_agent.sudo()._get_allowed_agents_for_user(user)
         return super()._discuss_user_can_use_agent(agent, user)
 
@@ -46,8 +44,6 @@ class DiscussChannel(models.Model):
         selected as that session's operator.
         """
         self.ensure_one()
-        if not user.has_group("base.group_user"):
-            return bool(agent.is_public)
         allowed = agent.sudo()._get_allowed_agents_for_user(user)
         return agent in allowed
 

@@ -40,19 +40,13 @@ class LLMAssistant(models.Model):
         tracking=True,
         required=False,
     )
-    is_public = fields.Boolean(
-        string="Public",
-        default=False,
-        help="If checked, this agent will be available to all users",
-    )
-
     allowed_group_ids = fields.Many2many(
         "res.groups",
         "llm_agent_group_rel",
         "agent_id",
         "group_id",
         string="Allowed Groups",
-        help="Groups that can access this agent. If empty and not public, only internal users can access it.",
+        help="Groups that can access this agent. Empty means administrators only.",
     )
 
     code = fields.Char(
@@ -399,18 +393,9 @@ class LLMAssistant(models.Model):
         if user.has_group("base.group_system"):
             return self.search([])
 
-        # Agents allowed for user's groups
-        if user.group_ids:
-            domain = [
-                "|",
-                ("is_public", "=", True),
-                ("allowed_group_ids", "in", user.group_ids.ids),
-            ]
-        else:
-            # If user has no groups, only public agents
-            domain = [("is_public", "=", True)]
-
-        return self.search(domain)
+        return self.search([
+            ("allowed_group_ids", "in", user.group_ids.ids),
+        ])
 
     @api.model
     def get_agent_by_code(self, code):
