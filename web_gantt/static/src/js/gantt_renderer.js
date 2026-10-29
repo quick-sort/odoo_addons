@@ -922,7 +922,7 @@ export class GanttRenderer extends Component {
                 }
 
                 // task color dot
-                ctx.fillStyle = this.getTaskColor(task);
+                ctx.fillStyle = this.getTaskColor();
                 ctx.beginPath();
                 ctx.arc(dotX, centerY, dotRadius, 0, Math.PI * 2);
                 ctx.fill();
@@ -992,6 +992,9 @@ export class GanttRenderer extends Component {
             if (y + this.cellHeight > this.headerHeight && y < rect.height) {
                 const isHovered = this.state.hoveredTask?.id === task.id;
                 const isDragged = this.state.draggedTask?.id === task.id;
+                const themeRgb = this.getThemeColor();
+                const taskColor = this.colorToHex(themeRgb);
+                const trackColor = this.colorToHex(this.lighten(themeRgb, 0.78));
 
                 // Task bar shadow
                 if (isHovered || isDragged) {
@@ -1000,30 +1003,36 @@ export class GanttRenderer extends Component {
                     ctx.shadowOffsetY = 3;
                 }
 
-                // Task bar background
-                ctx.fillStyle = this.getTaskColor(task);
                 if (isDragged) {
                     ctx.globalAlpha = 0.7;
                 }
 
-                this.roundRect(ctx, startX, y, width, height, 6, true, false);
+                // Unfinished track: light tint fill with a theme-color border so
+                // the bar stays visible and the done/undone split is obvious.
+                ctx.fillStyle = trackColor;
+                ctx.strokeStyle = taskColor;
+                ctx.lineWidth = 1;
+                this.roundRect(ctx, startX, y, width, height, 6, true, true);
 
                 ctx.shadowColor = 'transparent';
                 ctx.shadowBlur = 0;
                 ctx.shadowOffsetY = 0;
 
-                // Progress bar
+                // Completed portion: solid theme color.
+                let progressWidth = 0;
                 if (task.progress > 0) {
-                    ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
                     // progress may exceed 100 (hr_timesheet overtime); clamp the
                     // bar to the task width but keep the real value in tooltip/CSV.
-                    const progressWidth = (width - 4) * (Math.min(task.progress, 100) / 100);
+                    progressWidth = (width - 4) * (Math.min(task.progress, 100) / 100);
+                    ctx.fillStyle = taskColor;
                     this.roundRect(ctx, startX + 2, y + 2, progressWidth, height - 4, 4, true, false);
                 }
 
                 // Task name
                 if (width > 40) {
-                    ctx.fillStyle = '#ffffff';
+                    ctx.fillStyle = progressWidth > 4 && this.colorLuminance(themeRgb) <= 0.6
+                        ? '#ffffff'
+                        : '#343a40';
                     ctx.font = isHovered ? 'bold 11px Arial' : '11px Arial';
                     ctx.textBaseline = 'middle';
                     ctx.textAlign = 'left';
@@ -1121,12 +1130,82 @@ export class GanttRenderer extends Component {
         return truncated + ellipsis;
     }
 
-    getTaskColor(task) {
-        const colors = [
-            '#875a7b', '#f06050', '#f4a460', '#6cc1ed', 
-            '#d6145f', '#30c381', '#9c27b0', '#ff9800'
-        ];
-        return colors[task.color % colors.length] || '#875a7b';
+    getTaskColor() {
+        return this.colorToHex(this.getThemeColor());
+    }
+
+    // Resolve the current theme primary (the "menu color") from CSS variables so
+    // bars and dots follow web_company_color instead of a hardcoded palette.
+    getThemeColor() {
+        if (this._themeColor) {
+            return this._themeColor;
+        }
+        const rootStyle = getComputedStyle(document.documentElement);
+        for (const raw of [
+            rootStyle.getPropertyValue('--bs-primary'),
+            rootStyle.getPropertyValue('--o-cc1-btn-primary'),
+        ]) {
+            const rgb = this.parseCssColor(raw);
+            if (rgb) {
+                this._themeColor = rgb;
+                return rgb;
+            }
+        }
+        this._themeColor = { r: 0x71, g: 0x4b, b: 0x67 };
+        return this._themeColor;
+    }
+
+    parseCssColor(value) {
+        if (typeof value !== 'string') {
+            return null;
+        }
+        const v = value.trim();
+        if (!v) {
+            return null;
+        }
+        const hex = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.exec(v);
+        if (hex) {
+            let h = hex[1];
+            if (h.length === 3) {
+                h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+            }
+            return {
+                r: parseInt(h.slice(0, 2), 16),
+                g: parseInt(h.slice(2, 4), 16),
+                b: parseInt(h.slice(4, 6), 16),
+            };
+        }
+        const rgb = /^rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)/i.exec(v);
+        if (rgb) {
+            const clamp = (n) => Math.min(255, Math.max(0, Math.round(parseFloat(n))));
+            return {
+                r: clamp(rgb[1]),
+                g: clamp(rgb[2]),
+                b: clamp(rgb[3]),
+            };
+        }
+        return null;
+    }
+
+    colorToHex(rgb) {
+        const to2 = (n) => Math.round(n).toString(16).padStart(2, '0');
+        return `#${to2(rgb.r)}${to2(rgb.g)}${to2(rgb.b)}`;
+    }
+
+    lighten(rgb, amount) {
+        return {
+            r: Math.round(rgb.r + (255 - rgb.r) * amount),
+            g: Math.round(rgb.g + (255 - rgb.g) * amount),
+            b: Math.round(rgb.b + (255 - rgb.b) * amount),
+        };
+    }
+
+    colorLuminance(rgb) {
+        const [r, g, b] = [rgb.r, rgb.g, rgb.b].map((c) => {
+            const s = c / 255;
+            return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+        });
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
     }
 
     getTaskAt(x, y) {
