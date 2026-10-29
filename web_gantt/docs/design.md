@@ -63,7 +63,8 @@ mixin 只负责日期映射，**不提供** `get_gantt_data`；数据载荷仍�
 | year | 1 个月 | 年 | 月 |
 
 `dateToX()` / `xToDate()` 与各尺度的 `cellWidth` 系数一一对应；拖拽改期按尺度
-吸附（周按天、月按天、季度按 3 个月、年按 1 个月）。新增尺度必须同时修改：
+吸附（周按天、月按天、季度按 3 个月、年按 1 个月）。切换尺度后视图重新居中到
+today（cellWidth 变化会让旧的横向滚动偏移失效）。新增尺度必须同时修改：
 `cellWidth`、`getTotalUnits`、`drawGrid`、`drawHeader`、`dateToX`、`xToDate`、
 拖拽分支、`handleVerticalTimeScaleNavigation`、`handleNavigate`。
 
