@@ -48,6 +48,7 @@
 - `odoo_model_method_executor` 对内部用户可见，但**永久禁止调用 `_` 开头的私有方法**。
   私有方法常用裸 SQL / 内部 `sudo()` 绕过 ORM 权限（例如
   `res.users._set_encrypted_password`），开放私有方法等于账号接管；公开方法仍走 ORM 权限。
+- `invoke_agent` 声明为 `("llm.group_llm_user",)`：agent 委派仅限 LLM 用户。
 - `tools/list` 按 `_mcp_visibility_domain()` 过滤：无 group 的 tool 仅管理员可见；有 group 的
   只对组内用户可见；superuser 全见。
 - `tools/call` 用同一 domain 二次校验，杜绝越权调用。
