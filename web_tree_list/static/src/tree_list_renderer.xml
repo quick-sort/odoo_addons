@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="web_tree_list.Rows">
+        <t t-if="isTreeMode">
+            <t t-foreach="treeRoots" t-as="record" t-key="record.resId">
+                <t t-call="web_tree_list.Node">
+                    <t t-set="record" t-value="record"/>
+                    <t t-set="depth" t-value="0"/>
+                </t>
+            </t>
+        </t>
+        <t t-else="">
+            <t t-call="web.ListRenderer.Rows"/>
+        </t>
+    </t>
+
+    <t t-name="web_tree_list.Node">
+        <t t-if="isTreeParent(record)">
+            <t t-set="group" t-value="getTreeGroup(record)"/>
+            <t t-call="web_tree_list.GroupRow"/>
+            <t t-if="!group.isFolded">
+                <t t-foreach="group.list.records" t-as="childRecord" t-key="childRecord.resId">
+                    <t t-call="web_tree_list.Node">
+                        <t t-set="record" t-value="childRecord"/>
+                        <t t-set="depth" t-value="depth + 1"/>
+                        <t t-set="groupId" t-value="group.id"/>
+                    </t>
+                </t>
+            </t>
+        </t>
+        <t t-else="">
+            <t t-call="web_tree_list.LeafRow"/>
+        </t>
+    </t>
+
+    <t t-name="web_tree_list.GroupRow">
+        <tr t-attf-class="{{group.count > 0 ? 'o_group_has_content' : ''}} o_group_header {{!group.isFolded ? 'o_group_open' : ''}} cursor-pointer"
+            t-att-data-group-id="group.id"
+            t-on-click="(ev) => this.onTreeGroupHeaderClicked(ev, group)">
+            <th tabindex="-1"
+                t-attf-class="o_group_name fs-6 fw-bold {{!group.isFolded ? 'text-black' : 'text-body'}}"
+                t-att-colspan="getGroupNameCellColSpan(group)">
+                <div class="d-flex align-items-center">
+                    <span t-attf-class="o_group_caret fa fa-fw {{group.isFolded ? 'fa-caret-right' : 'fa-caret-down'}} me-1"
+                        t-attf-style="--o-list-group-level: {{depth}}"/>
+                    <t t-esc="group.displayName"/> (<t t-esc="group.count"/>)
+                </div>
+            </th>
+            <th t-if="hasOpenFormViewColumn" class="p-0"/>
+            <th t-if="hasActionsColumn" class="p-0"/>
+        </tr>
+    </t>
+
+    <t t-name="web_tree_list.LeafRow">
+        <tr class="o_data_row" t-att-data-id="record.resId" t-att-data-group-id="groupId">
+            <t t-foreach="columns" t-as="column" t-key="column.id">
+                <td t-if="column.type === 'field'"
+                    class="o_data_cell"
+                    t-att-class="this.getCellClass(column, record)">
+                    <t t-if="canUseFormatter(column, record)" t-out="getFormattedValue(column, record)"/>
+                    <Field t-else=""
+                        name="column.name"
+                        record="record"
+                        type="column.widget"
+                        class="getFieldClass(column)"
+                        fieldInfo="column"
+                        t-props="getFieldProps(record, column)"/>
+                </td>
+            </t>
+        </tr>
+    </t>
+
+</templates>

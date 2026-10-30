@@ -1,0 +1,2 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_web_tree_list_demo_category,web_tree_list_demo.category,model_web_tree_list_demo_category,base.group_user,1,1,1,1
