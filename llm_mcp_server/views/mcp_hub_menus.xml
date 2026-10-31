@@ -23,6 +23,7 @@
                 <field name="executor" readonly="1" optional="hide" />
                 <field name="source" readonly="1" optional="hide" />
                 <field name="active" widget="boolean_toggle" />
+                <field name="expose_to_mcp" widget="boolean_toggle" />
                 <field
                     name="allowed_group_ids"
                     widget="many2many_tags"
