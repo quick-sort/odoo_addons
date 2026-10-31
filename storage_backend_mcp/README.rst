@@ -2,6 +2,12 @@
  Storage Backend MCP
 ===================================
 
+.. warning::
+
+   新集成请优先使用 ``llm_mcp_server`` 内置的 ``attachment_*`` 工具（基于
+   ``ir.attachment``，``file_id`` 即 attachment id，不暴露 backend/path）。
+   本模块的上传/下载工具保留给既有调用方，已标记 deprecated。
+
 让 agent（MCP 客户端 / Odoo 内部 agent）向 ``storage.backend`` 上传、下载、
 浏览文件，并以 ``file_id`` 为货币把上传物交给下游工具（如 skillhub）消费。
 

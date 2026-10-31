@@ -1,6 +1,6 @@
 {
     "name": "Storage Backend MCP",
-    "version": "19.0.1.0.0",
+    "version": "19.0.1.0.2",
     "category": "Storage",
     "summary": "MCP/LLM tools for storage backends: temporary upload/download URLs and staged uploads",
     "author": "quick-sort@outlook.com",

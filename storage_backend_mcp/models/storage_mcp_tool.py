@@ -74,7 +74,11 @@ class StorageMcpTool(models.AbstractModel):
     # Read tools
     # ------------------------------------------------------------------
 
-    @llm_tool(read_only_hint=True, destructive_hint=False)
+    @llm_tool(
+        read_only_hint=True,
+        destructive_hint=False,
+        groups=("base.group_system",),
+    )
     def storage_list_backends(self) -> list[dict[str, Any]]:
         """List storage backends available to agents, with their MCP read/write flags."""
         backends = self.env["storage.backend"].search([])
@@ -85,7 +89,11 @@ class StorageMcpTool(models.AbstractModel):
             "mcp_write_enabled": b.mcp_write_enabled,
         } for b in backends]
 
-    @llm_tool(read_only_hint=True, destructive_hint=False)
+    @llm_tool(
+        read_only_hint=True,
+        destructive_hint=False,
+        groups=("base.group_system",),
+    )
     def storage_list_files(self, backend: str, path: str = "") -> dict[str, Any]:
         """List files under a path on a storage backend. Returns names, sizes and
         directory flags. ``path`` is a backend-relative POSIX path ('' for root)."""
@@ -94,14 +102,22 @@ class StorageMcpTool(models.AbstractModel):
         items = b.list_files(path, detail=True)
         return {"entries": items}
 
-    @llm_tool(read_only_hint=True, destructive_hint=False)
+    @llm_tool(
+        read_only_hint=True,
+        destructive_hint=False,
+        groups=("base.group_system",),
+    )
     def storage_stat_file(self, backend: str, path: str) -> dict[str, Any]:
         """Return metadata (size, is_dir, mtime) for a file on a storage backend."""
         b = self._resolve_backend(backend)
         self._require_read(b)
         return b.stat(path)
 
-    @llm_tool(read_only_hint=True, destructive_hint=False)
+    @llm_tool(
+        read_only_hint=True,
+        destructive_hint=False,
+        groups=("base.group_system",),
+    )
     def storage_read_file(self, backend: str, path: str) -> dict[str, Any]:
         """Read a small text file from a storage backend and return its content
         inline. Larger files are not returned inline; use storage_get_download_url
@@ -119,7 +135,11 @@ class StorageMcpTool(models.AbstractModel):
             data = stream.read()
         return {"size": size, "content": data.decode("utf-8", errors="replace")}
 
-    @llm_tool(read_only_hint=True, destructive_hint=False)
+    @llm_tool(
+        read_only_hint=True,
+        destructive_hint=False,
+        groups=("base.group_system",),
+    )
     def storage_get_download_url(self, backend: str, path: str) -> dict[str, Any]:
         """Return a temporary URL to download a file from a storage backend. Fetch
         it with curl; the bytes do not travel through the MCP channel."""
@@ -131,7 +151,7 @@ class StorageMcpTool(models.AbstractModel):
     # Write tools
     # ------------------------------------------------------------------
 
-    @llm_tool(destructive_hint=False)
+    @llm_tool(destructive_hint=False, groups=("base.group_system",))
     def storage_get_upload_url(
         self, backend: str, path: str, overwrite: bool = False
     ) -> dict[str, Any]:
@@ -142,7 +162,7 @@ class StorageMcpTool(models.AbstractModel):
         spec = self._upload_spec(b, path, overwrite=overwrite)
         return {"upload": spec, "curl": self._curl(spec["method"], spec["url"])}
 
-    @llm_tool(destructive_hint=False)
+    @llm_tool(destructive_hint=False, groups=("base.group_system",))
     def storage_stage_upload(self, backend: str, filename: str) -> dict[str, Any]:
         """Stage an upload so a downstream tool can consume it by ``file_id``.
         Returns a file_id plus a temporary upload URL; after uploading with curl,
@@ -162,7 +182,7 @@ class StorageMcpTool(models.AbstractModel):
             "curl": self._curl(spec["method"], spec["url"]),
         }
 
-    @llm_tool(destructive_hint=False)
+    @llm_tool(destructive_hint=False, groups=("base.group_system",))
     def storage_commit_upload(self, file_id: int) -> dict[str, Any]:
         """Confirm a staged upload by ``file_id`` after uploading its bytes.
         Returns the computed sha256 and size once the object is verified."""
@@ -177,7 +197,7 @@ class StorageMcpTool(models.AbstractModel):
             "size": upload.size_bytes,
         }
 
-    @llm_tool(destructive_hint=True)
+    @llm_tool(destructive_hint=True, groups=("base.group_system",))
     def storage_delete_file(self, backend: str, path: str) -> dict[str, Any]:
         """Delete a file from a storage backend. Destructive and irreversible."""
         b = self._resolve_backend(backend)

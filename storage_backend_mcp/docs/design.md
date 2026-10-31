@@ -1,5 +1,10 @@
 # Storage Backend MCP — 系统设计
 
+> **Deprecated（新集成）**：`llm_mcp_server` 已内置 `attachment_*` 文件工具，
+> 以 `ir.attachment` 为文件身份（`file_id` = attachment id），上传/下载不再
+> 暴露 `storage.backend`/`path`，也不再需要独立的暂存/token 模型。本模块的
+> `storage_*` 上传下载工具保留给既有调用方，不再推荐新集成使用。
+
 ## 总体形态
 
 MCP 协议没有带外文件通道（resources 是 server→client 只读），文件内容有两种
@@ -173,14 +178,28 @@ API key；capability URL 是唯一现实选择，与 S3 presigned、GitHub uploa
 `backend` 参数用名字而非 id（id 每 db 不同，agent 拿名字才可复用）。
 `overwrite` 必须显式 True，否则已存在时报错。
 
+## 访问控制
+
+storage 是**管理员专属**（`base.group_system`），普通用户不能访问：
+
+- `storage.backend` / `storage.upload` / `storage.mcp.token` 的 ACL 只有
+  `base.group_system`；用户没有这些模型的 ACL，`search` / `read` 会直接 AccessError。
+- `storage_*` 工具以**对话者身份**执行，`_resolve_backend` / `storage_list_backends`
+  第一步就是 `storage.backend.search`，非管理员在 ACL 处失败，不会触达文件或凭证。
+  工具内部**不要加 `sudo()`**，否则会绕过这条边界。
+- 工具与 guide 的 `allowed_group_ids` 都显式声明为 `base.group_system`。按
+  `llm/docs/permission_model.md`，group 只是策展；真正的边界是 ACL。空组在 MCP 中
+  也等价于仅管理员，但显式声明避免未来默认值或 UI 配置漂移。
+- 安装 `one_storage` 会给 `group_one_storage_user` 授予 `storage.backend` 读权限，
+  与本策略冲突；若目标环境使用 one_storage，需要单独收紧它的 ACL。
+
 ## 编排指南
 
 本 addon 贡献一条 `llm.tool.guide`（`code="storage"`，见
 `data/llm_tool_guide_data.xml`），让 agent 经 `odoo_model_guide_retriever`
 零调用发现 storage、按需拉取 stage→curl→commit→consume 的完整协议。guide
-不设 `allowed_group_ids`，与 storage 工具保持一致：空组在 MCP 里表示**仅管理员
-可见**（不是"所有人可用"）。工具执行仍由 ORM ACL + 每后端读写开关把关。若要
-让非管理员通过 MCP 使用，需在 `@llm_tool(groups=...)` 和 guide 上声明同一组。
+的 `allowed_group_ids` 为 `base.group_system`，不会向非管理员广告 storage 工具；
+存量实例由迁移脚本 `migrations/19.0.1.0.1/post-migrate.py` 收紧。
 
 ## 边角
 

@@ -1,17 +1,25 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <odoo noupdate="1">
     <!-- Orchestration guide for the storage_* tools, served to agents through
-         odoo_model_guide_retriever. No allowed_group_ids, mirroring the storage
-         tools: an empty group list means administrators only, so the guide
-         never advertises tools the caller cannot see. Execution is still gated
-         by ORM ACL + per-backend mcp_read/write_enabled. To open the tools to
-         a wider group, declare @llm_tool(groups=...) and the same group here. -->
+         odoo_model_guide_retriever. Storage is admin-only: the models carry
+         ACLs on base.group_system, the tools run as the caller, and both the
+         tools and this guide are curated to base.group_system. The ACL, not the
+         group, is the security boundary. Execution is also gated by the
+         per-backend mcp_read/write_enabled switches. -->
     <record id="guide_storage" model="llm.tool.guide">
         <field name="code">storage</field>
         <field name="title">Storage</field>
         <field name="summary">Upload, download and browse files on storage backends; stage uploads for downstream tools to consume by file_id.</field>
         <field name="keyword">storage</field>
+        <field
+            name="allowed_group_ids"
+            eval="[(6, 0, [ref('base.group_system')])]"
+        />
         <field name="body"><![CDATA[
+Deprecated for new integrations: prefer the `attachment_*` tools from
+llm_mcp_server (ir.attachment ids, no backend/path, no list tools).
+The `storage_*` tools below remain for existing callers.
+
 These `storage_*` tools move files to and from `storage.backend` records. Two
 gates apply before you touch anything: each backend has `mcp_read_enabled` /
 `mcp_write_enabled` switches (both default off), and the ORM ACL (group_system)

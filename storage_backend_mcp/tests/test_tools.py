@@ -80,3 +80,56 @@ class TestStorageMcpTools(TransactionCase):
         self.assertIn("storage_stage_upload", result["body"])
         self.assertIn("storage_commit_upload", result["body"])
         self.assertIn("file_id", result["body"])
+
+
+@tagged("post_install", "-at_install")
+class TestStorageAccess(TransactionCase):
+    """Storage is administrators-only: the ACL is the boundary, and the tools
+    and guide are curated to the same group."""
+
+    def _base_user(self, login):
+        return self.env["res.users"].create({"name": login, "login": login})
+
+    def test_storage_tools_are_curated_to_admins(self):
+        self.env["llm.tool"]._scan_tool_decorators()
+        storage_tools = {
+            method: values
+            for (model, method), values in self.env["llm.tool"]._tool_registry.items()
+            if method in EXPECTED_TOOLS
+        }
+
+        self.assertEqual(set(storage_tools), EXPECTED_TOOLS)
+        for method, values in storage_tools.items():
+            self.assertEqual(
+                values["code_group_xmlids"], '["base.group_system"]', method
+            )
+
+    def test_storage_models_are_admin_only(self):
+        user = self._base_user("base_storage_models")
+        for model in ("storage.backend", "storage.upload", "storage.mcp.token"):
+            self.assertFalse(
+                self.env[model].with_user(user).has_access("read"), model
+            )
+
+    def test_storage_tool_rows_hidden_from_base_users(self):
+        tool = self.env["llm.tool"].search(
+            [("name", "=", "storage_list_files")], limit=1
+        )
+        self.assertTrue(tool, "the storage tool row must exist")
+
+        user = self._base_user("base_storage_tool_rows")
+        self.assertFalse(
+            self.env["llm.tool"].with_user(user).search([("id", "=", tool.id)])
+        )
+        self.assertEqual(self.env["llm.tool"].search([("id", "=", tool.id)]), tool)
+
+    def test_storage_guide_is_admin_only(self):
+        guide = self.env.ref("storage_backend_mcp.guide_storage")
+        self.assertEqual(
+            guide.allowed_group_ids, self.env.ref("base.group_system")
+        )
+
+        user = self._base_user("base_storage_guide")
+        readable = self.env["llm.tool.guide"].with_user(user)._readable_guides()
+        self.assertNotIn(guide, readable)
+        self.assertIn(guide, self.env["llm.tool.guide"]._readable_guides())
