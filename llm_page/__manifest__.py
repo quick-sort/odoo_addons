@@ -1,6 +1,6 @@
 {
     "name": "LLM Page",
-    "version": "19.0.1.0.0",
+    "version": "19.0.1.1.0",
     "category": "Website",
     "summary": "Host agent-generated static HTML pages on the website with a review workflow and group-based access",
     "author": "quick-sort@outlook.com",
@@ -8,7 +8,7 @@
     "license": "LGPL-3",
     "depends": [
         "website",
-        "storage_backend_mcp",
+        "llm",
     ],
     "external_dependencies": {},
     "data": [

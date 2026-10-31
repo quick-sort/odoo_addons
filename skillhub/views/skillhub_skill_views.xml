@@ -40,8 +40,7 @@
                         </group>
                         <group string="Technical" name="technical">
                             <field name="code" readonly="1" />
-                            <field name="backend_id" readonly="1" />
-                            <field name="storage_path" readonly="1" />
+                            <field name="attachment_id" readonly="1" />
                             <field name="size" readonly="1" />
                             <field name="sha256" readonly="1" />
                             <field name="create_uid" readonly="1" string="Owner" />
@@ -73,7 +72,6 @@
                 <separator />
                 <group>
                     <filter name="group_state" string="State" context="{'group_by': 'state'}" />
-                    <filter name="group_backend" string="Storage Backend" context="{'group_by': 'backend_id'}" />
                     <filter name="group_owner" string="Owner" context="{'group_by': 'create_uid'}" />
                 </group>
             </search>

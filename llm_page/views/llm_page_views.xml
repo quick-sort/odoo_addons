@@ -37,7 +37,7 @@
                             <field name="date_submit"/>
                             <field name="date_publish"/>
                             <field name="date_reject"/>
-                            <field name="source_backend_id"/>
+                            <field name="source_attachment_id"/>
                             <field name="source_sha256"/>
                             <field name="source_size_bytes"/>
                         </group>

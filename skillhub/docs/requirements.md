@@ -12,11 +12,11 @@
 
 **做**：
 
-- 发布：上传 skill 压缩包（经 storage_backend_mcp 的 `file_id` 消费），落到
-  `storage.backend` 的稳定路径
-- 更新：同 `code` 再发布即覆盖
+- 发布：上传 skill 压缩包（经 `llm_mcp_server` 的 attachment 文件机制），
+  `skill_publish` 消费 `attachment_id` 并绑定到 skill
+- 更新：同 `code` 再发布即覆盖包与元数据
 - 搜索：按 `code` / `title` / `description` 模糊匹配
-- 下载：返回临时 URL（presign，bypass Odoo）
+- 下载：返回临时 `/web/content` 签名 URL（bytes 不经过 MCP 通道）
 - 授权：owner（create_uid）/ `shared_user_ids`（分享给指定人）/ `is_public`（全局公开）
 - 元数据：code / title / description / version / size / sha256
 - 分类：skill 挂一个 `category_id`（动态分类 `skillhub.category`，管理员在 UI 维护）
@@ -32,12 +32,12 @@
 - 不做自由标签（tags）：分类用单一 `category_id`，搜索仍只按名字/描述
 - 不做依赖环（多跳闭环）检测与传递闭包：仅禁止自依赖，闭环是另一套图算法问题
 - 不集成进本仓库 `llm` 模块的 agent 运行时（本模块面向第三方 MCP 客户端）
-- UI 不提供新建：记录必须由 `skill_publish` 产生（否则没有对应 blob）
-- UI 不提供删除：删除记录会留下 storage 里的孤儿 blob；归档（`state`）才是生命周期
+- UI 不提供新建：记录必须由 `skill_publish` 产生（否则没有对应 attachment）
+- UI 不提供删除：归档（`state`）才是生命周期出口
 
 ## 非功能要求
 
-1. **字节流不过 MCP 通道**：上传/下载复用 storage_backend_mcp 的 URL broker。
+1. **字节流不过 MCP 通道**：上传/下载复用 `llm_mcp_server` 的 attachment 签名 URL。
 2. **按用户隔离**：owner 用 `create_uid`，record rules 管读；写/删/分享仅 owner。
 3. **可审计**：发布/下载留 owner 与时间。
-4. **离线可测**：mock storage backend，无网络、无 API key。
+4. **离线可测**：不依赖 storage backend 或外部网络。

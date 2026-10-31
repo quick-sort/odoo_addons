@@ -29,7 +29,9 @@ class LlmPage(models.Model):
     date_publish = fields.Datetime()
     date_reject = fields.Datetime()
     reject_reason = fields.Text()
-    source_backend_id = fields.Many2one("storage.backend")
+    source_attachment_id = fields.Many2one(
+        "ir.attachment", string="Source File", ondelete="set null"
+    )
     source_sha256 = fields.Char()
     source_size_bytes = fields.Integer()
 

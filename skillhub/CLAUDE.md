@@ -8,7 +8,7 @@
 
 红线：
 
-1. **压缩包当 blob**：不解析/校验 zip 内容（SKILL.md 结构），只存 blob + 元数据。
-2. **字节流不过 MCP 通道**：上传/下载复用 storage_backend_mcp 的 URL broker（presign / relay）。
-3. **授权双层**：技能级 record rules（owner/shared/public）+ 后端级 mcp_read_enabled。
+1. **压缩包当 blob**：不解析/校验 zip 内容（SKILL.md 结构），只存 attachment + 元数据。
+2. **字节流不过 MCP 通道**：上传/下载复用 llm_mcp_server 的 attachment 签名 URL。
+3. **单层授权**：技能级 record rules（owner/shared/public）；不得再叠加存储后端开关。
 4. **只按名字/描述搜索**：不加自由 tags；分类用单一 `category_id`（动态分类），不做多标签。

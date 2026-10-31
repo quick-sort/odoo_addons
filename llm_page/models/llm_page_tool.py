@@ -1,3 +1,4 @@
+import hashlib
 import re
 from typing import Any
 
@@ -30,36 +31,47 @@ class LlmPageTool(models.AbstractModel):
 
     @llm_tool(destructive_hint=False)
     def llm_page_create(
-        self, file_id: int, name: str, slug: str, submit: bool = False
+        self, attachment_id: int, name: str, slug: str, submit: bool = False
     ) -> dict[str, Any]:
-        """Create an LLM Page from a staged upload (``file_id``), optionally
-        submitting it for review. The upload is consumed and its body HTML is
-        stored as the page content."""
-        upload = self.env["storage.upload"].browse(file_id)
-        if not upload.exists():
-            raise UserError(f"Upload {file_id} not found.")
+        """Create an LLM Page from an unbound ``ir.attachment`` (the
+        ``attachment_id`` returned by ``attachment_commit_upload``), optionally
+        submitting it for review. The attachment must be readable and not yet
+        bound; creating the page consumes it and stores its body HTML as the
+        page content."""
+        attachment = self.env["ir.attachment"].browse(attachment_id).exists()
+        if not attachment:
+            raise UserError(f"Attachment {attachment_id} not found.")
+        attachment.check_access("read")
+        if attachment.res_model or attachment.res_id:
+            raise UserError(
+                "This file has already been used. Upload a new file with "
+                "attachment_stage_upload()."
+            )
 
-        with upload.consume(res_model="llm.page") as stream:
-            raw = stream.read()
-            if not raw:
-                raise UserError("Uploaded content is empty.")
-            try:
-                text = raw.decode("utf-8")
-            except UnicodeDecodeError:
-                raise UserError("Uploaded content is not valid UTF-8.")
-            html = self._extract_body(text)
+        raw = attachment.raw or b""
+        if not raw:
+            raise UserError("Uploaded content is empty.")
+        try:
+            text = raw.decode("utf-8")
+        except UnicodeDecodeError:
+            raise UserError("Uploaded content is not valid UTF-8.")
+        html = self._extract_body(text)
 
-        page = self.env["llm.page"].sudo().create({
-            "name": name,
-            "slug": self._normalize_slug(slug),
-            "html": html,
-            "state": "pending" if submit else "draft",
-            "date_submit": fields.Datetime.now() if submit else False,
-            "source_backend_id": upload.backend_id.id,
-            "source_sha256": upload.sha256,
-            "source_size_bytes": upload.size_bytes,
-        })
-        upload.write({"consumed_res_id": page.id})
+        with self.env.cr.savepoint():
+            page = self.env["llm.page"].sudo().create({
+                "name": name,
+                "slug": self._normalize_slug(slug),
+                "html": html,
+                "state": "pending" if submit else "draft",
+                "date_submit": fields.Datetime.now() if submit else False,
+                "source_attachment_id": attachment.id,
+                "source_sha256": hashlib.sha256(raw).hexdigest(),
+                "source_size_bytes": len(raw),
+            })
+            attachment.sudo().write({
+                "res_model": "llm.page",
+                "res_id": page.id,
+            })
         return {
             "page_id": page.id,
             "slug": page.slug,
