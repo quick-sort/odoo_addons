@@ -4,7 +4,7 @@
 
 `microsoft_graph` 的第一个消费者：auth（应用注册、委托凭证、Graph HTTP
 客户端）全部来自核心模块，本模块只做 SharePoint 文档库的 storage 适配，
-与 `storage_backend_s3_mcp` 之于 `storage_backend_mcp` 的 bridge 关系同构。
+与 `storage_backend_s3` 之于 `storage_backend` 的 adapter 关系同构。
 
 ## 组件与模型
 

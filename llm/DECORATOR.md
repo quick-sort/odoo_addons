@@ -92,8 +92,8 @@ Restrict who may use the tool by declaring the xmlids of the allowed
 
 ```python
 @llm_tool(groups=("one_storage.group_one_storage_user",))
-def storage_list_files(self, backend: str, path: str = "") -> dict:
-    """List files on a storage backend."""
+def skill_download(self, skill_id: int) -> dict:
+    """Return a download URL for a skill."""
     pass
 ```
 

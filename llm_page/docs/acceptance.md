@@ -3,9 +3,11 @@
 ## AC-1 工具注册与创建
 
 全部 `llm_page_*` 工具被 `@llm_tool` 扫描注册为 `llm.tool` 行（executor
-`model_method`，source `code`）。`llm_page_create` 消费 staged upload，创建
-draft 页、写 source 审计字段；`submit=True` 直接 pending；返回
-page_id / slug / url / state。 — `test_tools_registered`、`test_create_from_upload`
+`model_method`，source `code`）。`llm_page_create` 消费一个可读且未绑定的
+attachment，创建 draft 页、写 source 审计字段并把 attachment 绑定到页面；
+`submit=True` 直接 pending；返回 page_id / slug / url / state。 —
+`test_all_tools_registered`、`test_create_from_upload`、
+`test_rejects_already_used_attachment`
 
 ## AC-2 内容形态规范化
 
@@ -36,8 +38,8 @@ page_id / slug / url / state。 — `test_tools_registered`、`test_create_from_
 
 ## AC-6 上传来源审计
 
-页面记录 `source_backend_id` / `source_sha256` / `source_size_bytes` 与 upload
-一致；consume 后 upload `state = consumed`，`consumed_model/res_id` 落档。 —
+页面记录 `source_attachment_id` / `source_sha256` / `source_size_bytes` 与上传物
+一致；来源 attachment 绑定到页面（`res_model="llm.page"`，`res_id=page.id`）。 —
 `test_source_audit`
 
 ## 运行方式
@@ -48,5 +50,4 @@ docker exec odoo odoo -c /etc/odoo/odoo.conf -d <db> \
   --stop-after-init --workers=0 --no-http
 ```
 
-filesystem backend + tmpdir（抄 `storage_backend/tests/common.py`）；上传物与
-presign/adapter 全 mock，无网络、无 API key、无 boto3。
+直接创建 `ir.attachment` 作为上传物；无网络、无 API key、无 storage backend。

@@ -5,19 +5,22 @@
 ## AC-1 数据模型
 
 `skillhub.skill` 含 `code`(unique)/`title`/`description`/`version`/`is_public`/
-`shared_user_ids`/`category_id`/`backend_id`/`storage_path`/`size`/`sha256`。 — `test_model_fields`
+`shared_user_ids`/`category_id`/`attachment_id`/`size`/`sha256`。 — `test_model_fields`
 
 ## AC-2 发布新建
 
-`skill_publish(file_id, code, ...)` 消费上传物、落到 storage、建记录（记录 size/sha256）。 — `test_publish_creates_skill`
+`skill_publish(attachment_id, code, ...)` 消费一个可读且未绑定的 attachment，把它绑定到
+新建 skill，并记录 size/sha256。 — `test_publish_creates_skill`
 
 ## AC-3 发布更新
 
-同 `code` 再发布 → 覆盖 blob、更新元数据、仍是同一条记录。 — `test_publish_updates_existing`
+同 `code` 再发布 → 新 attachment 绑定到同一记录、元数据更新、旧 attachment 删除。 —
+`test_publish_updates_existing`
 
 ## AC-4 下载
 
-`skill_download(skill_id)` 返回 presign URL（无原生签名后端返回 relay token）。 — `test_download_returns_url`
+`skill_download(skill_id)` 返回 `/web/content/ir.attachment/...` 的短期签名 URL。 —
+`test_download_returns_url`
 
 ## AC-5 搜索
 
@@ -34,15 +37,16 @@ owner / shared / public 可见；其他用户不可见（record rule）。 — `
 
 ## AC-8 下载鉴权
 
-非 owner/shared/public 调 `skill_download` 被拒；反过来，owner / shared / public 都要能拿到
-下载地址 —— **包括不带管理员组的普通用户**。分享给谁，谁就得拿得到包，不能只让他看见列表。 —
+非 owner/shared/public 调 `skill_download` 被拒；owner / shared / public 都要能拿到
+下载地址 —— **包括不带管理员组的普通用户**。附件权限由绑定记录继承，不再有存储后端
+开关。 —
 `test_download_requires_access` / `test_plain_user_can_download_shared_skill` /
 `test_plain_user_can_download_public_skill` / `test_plain_user_cannot_download_unshared_skill`
 
 ## AC-9 后端 UI
 
 应用入口/菜单/action/视图（list/form/search）可解析；列表禁止新建与删除；表单中
-技术字段（code/backend_id/storage_path/size/sha256/owner）只读，元数据字段
+技术字段（code/attachment_id/size/sha256/owner）只读，元数据字段
 （title/description/version/is_public/shared_user_ids/category_id/state）可编辑。 —
 `test_ui_views_resolve` / `test_list_blocks_create_delete` /
 `test_form_readonly_matrix` / `test_menu_structure_and_icon`
@@ -64,14 +68,20 @@ owner / shared / public 可见；其他用户不可见（record rule）。 — `
 
 ## AC-12 失败的发布不破坏已发布的包
 
-`skill_publish` **先写库、后落位**：压缩包先流到暂存路径，记录写成功后才改名到稳定
-路径。因此在写库阶段失败的发布（例如触发自依赖约束）**不得覆盖**已发布的压缩包 ——
-记录及其 `sha256` 仍描述磁盘上实际存在的那个文件。 —
-`test_failed_publish_keeps_the_previous_blob`
+发布在 `savepoint` 内完成：写 skill、绑定新 attachment、删除旧 attachment。任何一步
+失败都会回滚，skill 仍指向旧 attachment；新 attachment 保持未绑定。 —
+`test_failed_publish_keeps_previous_package`
+
+## AC-13 attachment 消费契约
+
+`skill_publish` 只接受调用者可读、未绑定、非空的 attachment；已绑定文件、他人未共享的
+未绑定文件、空文件均被拒绝。走 `attachment_stage_upload` / `attachment_commit_upload`
+的端到端流程可用。 —
+`test_publish_rejects_already_bound_attachment` / `test_publish_rejects_foreign_attachment` /
+`test_publish_rejects_empty_attachment` / `test_publish_via_staged_upload`
 
 ## AC-15 管理员可见全部
 
 管理员（`base.group_system`）不受 owner / shared / public 限制，能看到、编辑并下载
 其他人的 skill；普通用户（不带管理员组）仍只看到 owner / shared / public 的记录。 —
 `test_admin_sees_and_can_edit_any_skill` / `test_read_isolation`
-

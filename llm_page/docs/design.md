@@ -2,13 +2,13 @@
 
 ## 总体形态
 
-agent 生成 HTML → storage MCP 暂存上传（stage/commit 得 `file_id`）→ 本模块工具
-`llm_page_create(file_id)` 消费上传、登记为草稿 → 审核员后台预览/通过 → 发布页
-以 website 主题渲染，仅授权组可访问。
+agent 生成 HTML → `llm_mcp_server` 的 attachment 上传（stage/commit 得
+`attachment_id`）→ 本模块工具 `llm_page_create(attachment_id)` 消费上传、登记为
+草稿 → 审核员后台预览/通过 → 发布页以 website 主题渲染，仅授权组可访问。
 
 ```
-agent ──storage_stage_upload/commit──▶ storage.upload (staged)
-        ──llm_page_create(file_id)─▶ llm.page (draft)
+agent ──attachment_stage_upload/commit──▶ ir.attachment (unbound)
+        ──llm_page_create(attachment_id)─▶ llm.page (draft)
                                             │  审核（后台）
                                             ▼
                                     llm.page (published)
@@ -17,8 +17,8 @@ agent ──storage_stage_upload/commit──▶ storage.upload (staged)
                               website.layout 包裹 + group_id 鉴权渲染
 ```
 
-与 `storage_backend_mcp` 分层同构：本模块是 storage MCP 的**下游消费方**，通过
-`storage.upload.consume()` 单次读取上传物；不为存储再造一套引用货币。
+本模块只持有 `ir.attachment` 指针：创建页面时读取其字节并把 attachment 绑定到
+页面，之后不再依赖任何存储后端或 storage MCP。
 
 ## 数据模型 `llm.page`
 
@@ -32,7 +32,7 @@ agent ──storage_stage_upload/commit──▶ storage.upload (staged)
 | `website_id` | 归属网站（多站点），默认当前网站 |
 | `date_submit` / `date_publish` / `date_reject` | 流程时间戳 |
 | `reject_reason` | 驳回原因 |
-| `source_backend_id` / `source_sha256` / `source_size_bytes` | 上传来源审计 |
+| `source_attachment_id` / `source_sha256` / `source_size_bytes` | 上传来源审计；来源 attachment 绑定到本页面 |
 
 ### 内容形态约定
 
@@ -87,7 +87,7 @@ draft ──提交──▶ pending ──通过──▶ published
 
 | 工具 | 说明 |
 |---|---|
-| `llm_page_create(file_id, name, slug, submit=False)` | consume 上传物 → 提取正文 → 建草稿（可选直接提交） |
+| `llm_page_create(attachment_id, name, slug, submit=False)` | 校验可读且未绑定的 attachment → 提取正文 → 建草稿（可选直接提交）→ 绑定来源 attachment |
 | `llm_page_list()` | 列出页面（id / name / slug / state / url） |
 | `llm_page_status(page_id)` | 单页状态 |
 | `llm_page_submit(page_id)` | 提交审核（draft/rejected → pending） |
@@ -126,10 +126,10 @@ QWeb 模板继承 `website.layout`，正文注入处：
 | `fields.Html(sanitize=True)` 存内容 | 剥离 script/style，违背「默认支持 JS」。 |
 | 公开访问 + 仅靠审核把关 | 需求明确「指定用户组」授权，公开页脚本面过大。 |
 | agent 直接指定 `group_id` | 越权放大：agent 可把页面指向任意宽权限组。 |
-| 内容留在 storage backend、controller 实时读后端 | 审核需稳定可预览的快照；consume 单次读取后对象即删，实时读后端会失去审计闭环。 |
+| 内容留在 attachment、controller 实时读字节 | 审核需稳定可预览的快照；页面正文必须固化在 `llm.page.html`，attachment 仅作来源审计。 |
 
 ## 明确的扩展点
 
 1. 正文片段内 head 资源（title/meta）→ 将来映射到 `website.seo.metadata` mixin。
-2. 多文件 / 资源包 host → 将来扩展 consume 为归档解包。
+2. 多文件 / 资源包 host → 将来扩展 attachment 为归档解包。
 3. 版本历史 / 回滚 → 将来加 `active` / 归档表。

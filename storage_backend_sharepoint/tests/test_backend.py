@@ -17,7 +17,7 @@ class TestSharepointBackend(TransactionCase):
         # but never reach the sparse storage, so recomputes after cache
         # invalidation (or from a sudo env) would fall back to the field
         # defaults. Create bare, then write. Backend: the demo record, like
-        # storage_backend_s3_mcp does.
+        # storage_backend_s3 does.
         cls.application = cls.env["microsoft.graph.application"].create(
             {"name": "Contoso Graph App"}
         )

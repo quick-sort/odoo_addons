@@ -38,8 +38,7 @@ class TestSkillHubUI(TransactionCase):
         arch = etree.fromstring(self.env.ref("skillhub.view_skillhub_skill_form").arch)
         for name in (
             "code",
-            "backend_id",
-            "storage_path",
+            "attachment_id",
             "size",
             "sha256",
             "required_by_ids",

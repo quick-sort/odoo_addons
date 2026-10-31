@@ -60,6 +60,22 @@ odoo-bin -d your_db -i llm_mcp_server
 | Claude Desktop + Odoo | `llm_mcp_server`                                         |
 | External + knowledge  | `llm_mcp_server` + `llm_knowledge` + `llm_knowledge_pgvector` |
 
+## File Upload / Download
+
+The server exposes a storage-agnostic file capability backed by
+`ir.attachment`:
+
+| Tool | Purpose |
+| --- | --- |
+| `attachment_stage_upload(filename)` | Start an upload; returns `attachment_id` + a temporary upload URL |
+| `attachment_commit_upload(attachment_id, res_model="", res_id=0)` | Verify the bytes and optionally bind the file to a record |
+| `attachment_get_download_url(attachment_id)` | Return a short-lived download URL |
+
+`attachment_id` is an attachment id. Access follows the attachment's `res_model` /
+`res_id` record ACL; an unbound file is visible only to its creator and
+administrators. Bytes never travel through the MCP channel, and no backend or
+path is exposed. See `docs/FILE_SERVICE.md`.
+
 ## What is MCP?
 
 [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) is an open standard by Anthropic that lets AI agents securely access external tools and data sources. This module implements an MCP server directly in Odoo.

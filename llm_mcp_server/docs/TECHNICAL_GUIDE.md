@@ -112,3 +112,28 @@ stateDiagram-v2
   so Odoo ACLs do not bound the remote response; the access-group check is the
   gate
 - Session isolation: Each session tracks its own user context
+
+## File Service (`attachment_*`)
+
+`ir.attachment` is the file identity; `attachment_id` is its id. The server adds no
+token table: both directions use
+`odoo.tools.misc.limited_field_access_token`, which binds an HMAC signature to
+the attachment id, field and expiry.
+
+- **Upload**: `attachment_stage_upload` creates an unbound empty attachment and a
+  `llm.mcp.file.upload` staging row, then returns
+  `/mcp/files/<attachment_id>?access_token=...` (scope
+  `llm_attachment_upload`, 1 h). The relay controller verifies the signature,
+  claims `pending` → `uploaded` atomically, and writes `raw` bytes.
+- **Commit**: `attachment_commit_upload` optionally binds `res_model`/`res_id` as
+  the caller (core enforces write access to that record). Unbound files stay
+  creator/admin-only.
+- **Download**: `attachment_get_download_url` checks `attachment.check_access`
+  and returns a `/web/content/.../raw?access_token=...` URL signed with scope
+  `binary` (10 min). Serving and token validation are Odoo core behaviour.
+- **Cleanup**: hourly cron removes expired `pending`/`uploaded` staging rows and
+  their attachments; committed attachments are never removed.
+- **Limits**: `llm_mcp_server.max_file_upload_mb` (default 64); multipart and
+  replayed uploads are rejected.
+
+Detailed design: `docs/FILE_SERVICE.md`.

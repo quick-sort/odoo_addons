@@ -16,21 +16,12 @@ class TestLlmPageTools(TransactionCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.backend = cls.env.ref("storage_backend.default_storage_backend")
-        cls.Upload = cls.env["storage.upload"]
         cls.Tool = cls.env["llm.page.tool"]
 
-    def _stage(self, filename, data):
-        path = self.Upload._stage_path(filename)
-        upload = self.Upload.create({
-            "name": filename,
-            "backend_id": self.backend.id,
-            "relative_path": path,
-        })
-        with self.backend.open(path, "wb") as stream:
-            stream.write(data)
-        upload.commit()
-        return upload
+    def _attachment(self, filename, data):
+        attachment = self.env["ir.attachment"].create({"name": filename})
+        attachment.write({"raw": data})
+        return attachment
 
     def test_all_tools_registered(self):
         self.env["llm.tool"]._scan_tool_decorators()
@@ -43,18 +34,22 @@ class TestLlmPageTools(TransactionCase):
 
     def test_create_from_upload(self):
         data = b"<h1>Hello</h1>"
-        upload = self._stage("page.html", data)
-        result = self.Tool.llm_page_create(upload.id, "Hello", "hello-page")
+        attachment = self._attachment("page.html", data)
+        result = self.Tool.llm_page_create(attachment.id, "Hello", "hello-page")
         page = self.env["llm.page"].browse(result["page_id"])
         self.assertEqual(page.state, "draft")
         self.assertEqual(page.html, "<h1>Hello</h1>")
         self.assertEqual(page.slug, "hello-page")
-        self.assertEqual(page.source_backend_id, self.backend)
+        self.assertEqual(page.source_attachment_id, attachment)
         self.assertEqual(page.source_size_bytes, len(data))
+        self.assertEqual(attachment.res_model, "llm.page")
+        self.assertEqual(attachment.res_id, page.id)
 
     def test_create_submit_directly(self):
-        upload = self._stage("page.html", b"<p>x</p>")
-        result = self.Tool.llm_page_create(upload.id, "X", "x-page", submit=True)
+        attachment = self._attachment("page.html", b"<p>x</p>")
+        result = self.Tool.llm_page_create(
+            attachment.id, "X", "x-page", submit=True
+        )
         self.assertEqual(result["state"], "pending")
 
     def test_body_extraction_full_document(self):
@@ -74,23 +69,32 @@ class TestLlmPageTools(TransactionCase):
         )
 
     def test_invalid_content_rejected(self):
-        empty = self._stage("empty.html", b"")
+        empty = self._attachment("empty.html", b"")
         with self.assertRaises(UserError):
             self.Tool.llm_page_create(empty.id, "E", "empty-page")
-        # Invalid upload is left staged, so it can be fixed and retried.
-        self.assertEqual(empty.state, "staged")
+        # The attachment is untouched, so it can be fixed and retried.
+        self.assertTrue(empty.exists())
+        self.assertFalse(empty.res_model)
 
-        bad = self._stage("bad.html", b"\xff\xfe\x00")
+        bad = self._attachment("bad.html", b"\xff\xfe\x00")
         with self.assertRaises(UserError):
             self.Tool.llm_page_create(bad.id, "B", "bad-page")
-        self.assertEqual(bad.state, "staged")
+        self.assertTrue(bad.exists())
+        self.assertFalse(bad.res_model)
+
+    def test_rejects_already_used_attachment(self):
+        attachment = self._attachment("page.html", b"<p>first</p>")
+        self.Tool.llm_page_create(attachment.id, "First", "first-page")
+        with self.assertRaises(UserError):
+            self.Tool.llm_page_create(attachment.id, "Second", "second-page")
 
     def test_source_audit(self):
         data = b"<p>audit</p>"
-        upload = self._stage("audit.html", data)
-        result = self.Tool.llm_page_create(upload.id, "Audit", "audit-page")
+        attachment = self._attachment("audit.html", data)
+        result = self.Tool.llm_page_create(attachment.id, "Audit", "audit-page")
         page = self.env["llm.page"].browse(result["page_id"])
         self.assertEqual(page.source_sha256, hashlib.sha256(data).hexdigest())
-        self.assertEqual(upload.state, "consumed")
-        self.assertEqual(upload.consumed_model, "llm.page")
-        self.assertEqual(upload.consumed_res_id, page.id)
+        self.assertEqual(page.source_size_bytes, len(data))
+        self.assertEqual(page.source_attachment_id, attachment)
+        self.assertEqual(attachment.res_model, "llm.page")
+        self.assertEqual(attachment.res_id, page.id)

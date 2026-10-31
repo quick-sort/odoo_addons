@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <odoo noupdate="1">
-    <record id="ir_cron_storage_mcp_gc" model="ir.cron">
-        <field name="name">Storage MCP: GC expired tokens and uploads</field>
-        <field name="model_id" ref="model_storage_upload" />
+    <record id="ir_cron_llm_mcp_file_gc" model="ir.cron">
+        <field name="name">MCP file uploads: GC expired staging rows</field>
+        <field name="model_id" ref="model_llm_mcp_file_upload" />
         <field name="state">code</field>
         <field name="code">model._cron_gc()</field>
         <field name="interval_number">1</field>

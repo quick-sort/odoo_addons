@@ -2,7 +2,7 @@
 
 ## 定位
 
-仓库分层模式（`llm` core+provider、`storage_backend_mcp` core+bridge）在
+仓库分层模式（`llm` core+provider、`storage_backend` core+adapter）在
 Microsoft 生态的对应物：本模块是 **auth 核心**，消费者（如
 `storage_backend_sharepoint`）通过 m2o 引用应用注册并调用 service。
 

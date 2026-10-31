@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo noupdate="1">
+    <record id="guide_file" model="llm.tool.guide">
+        <field name="code">file</field>
+        <field name="title">Files</field>
+        <field name="summary">Upload files into Odoo attachments and download them by attachment_id; bytes never travel through the MCP channel.</field>
+        <field name="keyword">file upload download attachment</field>
+        <field
+            name="allowed_group_ids"
+            eval="[(6, 0, [ref('base.group_user')])]"
+        />
+        <field name="body"><![CDATA[
+The `attachment_*` tools move files in and out of `ir.attachment`. The
+`attachment_id` returned by these tools is an attachment id and the only safe
+cross-tool reference for a file.
+
+Upload
+1. `attachment_stage_upload(filename)` -> `attachment_id` plus a temporary upload URL.
+2. `curl -T <file> '<url>'` — the bytes go straight to the URL, not through
+   the tool channel.
+3. `attachment_commit_upload(attachment_id, res_model="", res_id=0)` -> verified
+   `sha256` and `size`.
+
+Binding and access
+- Pass both `res_model` and `res_id` at commit time to bind the file to a
+  business record. Access to the file then follows that record's ACL, so other
+  users who can read the record can read the file.
+- Without a binding the file stays visible only to its creator and
+  administrators. Never assume an unbound file is shared.
+
+Download
+- `attachment_get_download_url(attachment_id)` -> a temporary `/web/content` URL.
+  Fetch it with curl; the bytes do not travel through the tool channel. The
+  URL is checked against the calling user's access at issuance time.
+
+Limits
+- Upload URLs are single-use and expire after 1 hour.
+- An uncommitted staged attachment expires after 24 hours and is cleaned up.
+- Do not put file bytes or base64 in tool arguments.
+]]></field>
+    </record>
+</odoo>

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <!-- Staging rows are private to their creator. Administrators see all. -->
+    <record id="llm_mcp_file_upload_rule_user" model="ir.rule">
+        <field name="name">MCP file uploads: owner only</field>
+        <field name="model_id" ref="model_llm_mcp_file_upload" />
+        <field name="domain_force">[('create_uid', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('base.group_user'))]" />
+    </record>
+
+    <record id="llm_mcp_file_upload_rule_admin" model="ir.rule">
+        <field name="name">MCP file uploads: all for administrators</field>
+        <field name="model_id" ref="model_llm_mcp_file_upload" />
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('base.group_system'))]" />
+    </record>
+</odoo>

@@ -2,7 +2,7 @@
 
 ## 数据模型
 
-`skillhub.skill`：一条 skill 包记录 = 元数据 + 指向 storage 里压缩包的指针。
+`skillhub.skill`：一条 skill 包记录 = 元数据 + 指向压缩包 `ir.attachment` 的指针。
 
 - `code`（唯一 slug，稳定身份）、`title`、`description`（搜索）、`version`（展示标签）
 - `state`（active/archived）
@@ -12,27 +12,43 @@
 - `depends_on_ids`（依赖哪些 skill，单向）+ `required_by_ids`（反向：谁依赖我）。两张
   字段共享关系表 `skillhub_skill_dependency`（`skill_id` → `dependency_id`），反向字段
   用交换列名实现（`res.groups` 的 `implied_ids`/`trans_implied_ids` 同款），无需 computed。
-- `backend_id` + `storage_path`（压缩包在 storage 里的位置，如 `skillhub/<code>.zip`）
+- `attachment_id`（压缩包，`ir.attachment`，`ondelete="restrict"`）
 - `size`、`sha256`（完整性）
 
-`skillhub.category`：动态分类，仅 `name`（唯一），管理员维护。skill 挂单一
-`category_id`（不是自由标签）。
+压缩包本身是 `ir.attachment`，记录只存指针。
 
-压缩包本身存 `storage.backend`，Odoo 只存指针，不存 blob。
+## 文件生命周期
 
-## 与 storage_backend_mcp 的关系
+### 上传 + 发布
 
-- **上传**：`skill_publish(file_id, code, title, description, version)` 调
-  `storage.upload.consume()` 读回上传的压缩包，先 `backend.open(staging_path, "wb")`
-  流到暂存路径并计算 sha256/size，upsert `skillhub.skill`（按 code：不存在则建、
-  存在则覆盖），**记录写成功之后**才 `backend.rename(staging_path, storage_path)`
-  落到稳定路径。**先写库、后落位是有意的**：写库那一步会因为约束、并发等原因失败，
-  此时若包已经落位，记录里的 `sha256` 就会和磁盘上的文件对不上，而被覆盖掉的那份
-  旧包也回不来了。
-- **下载**：`skill_download(skill_id)` 先做技能级鉴权，再 `backend.presign_download(storage_path)`
-  拿临时 URL（presign 直连 / relay token 兜底），返回 `{download, curl}`。
+1. 客户端调用 `attachment_stage_upload(filename)`，拿到 `attachment_id` 和上传 URL。
+2. `curl -T` 上传 zip 字节。
+3. 调用 `attachment_commit_upload(attachment_id)` 完成校验。
+4. `skill_publish(attachment_id, code, title, description, version, ...)`：
+   - attachment 必须对调用者可读（`check_access("read")`）；
+   - attachment 必须尚未绑定任何业务记录（`res_model`/`res_id` 为空）；
+   - 文件不能为空；
+   - 在 `savepoint` 内 upsert `skillhub.skill`（写 `attachment_id/size/sha256`），
+     再把 attachment 绑定到该 skill（`res_model="skillhub.skill", res_id=skill.id`），
+     最后删除被替换的旧 attachment。
+   - 任一步失败时 savepoint 回滚：旧 skill 与旧 attachment 保持原样；新 attachment
+     仍未绑定，可重试。
 
-复用而不重复 storage_backend_mcp 的「presign + relay」下载 spec 逻辑。
+绑定即消费：同一个 attachment 不能再次用于另一个 skill，否则第二条记录会改变第一条
+记录的权限来源。
+
+### 下载
+
+`skill_download(skill_id)` 先按技能级 record rules 判断调用者能否读该 skill，再委托
+`llm.mcp.file.tool.attachment_get_download_url(attachment_id)`。该工具会再次以调用者身份
+执行 `ir.attachment.check_access("read")`：attachment 已绑定到 skill，因此权限自然跟随
+skill 的 owner/shared/public 规则，不需要 sudo，也不依赖存储后端开关。
+
+### 替换与归档
+
+- 同 `code` 再发布：新 attachment 绑定到同一 skill，旧 attachment 删除。
+- 归档（`state="archived"`）保留 attachment；没有删除入口。
+- 旧版本（未迁移数据）可能没有 `attachment_id`，`skill_download` 会明确要求重新发布。
 
 ## 授权模型
 
@@ -42,74 +58,56 @@
 |---|---|
 | owner（create_uid） | 读 / 写 / 删 / 分享 / 下载 |
 | shared_user_ids | 读 + 下载 |
-| is_public | 所有人读 + 下载 |
+| is_public | 所有内部用户读 + 下载 |
 | 管理员（`base.group_system`） | 读 / 写全部（`create` / `unlink` 仍由模型 ACL 决定） |
 
 - 读 record rule：`owner OR shared OR public`。
 - 写 / 删 / 分享：仅 owner。
 - 管理员放行：一条 `base.group_system` 的组规则（`[(1, '=', 1)]`）。Odoo 对同一
-  操作的组规则取 **OR**，所以普通用户的可见范围不变，管理员能看/改全部 ——
-  不这样做，管理员连自己没拥有、没被分享的 skill 都看不到，无法做审计和处理。
+  操作的组规则取 **OR**，所以普通用户的可见范围不变，管理员能看/改全部。
 
-鉴权双层：**技能级**（skillhub 的 record rules + `skill_download`/`skill_share` 显式校验）
-管「谁能拿这个 skill」；**后端级**（storage backend 的 `mcp_read_enabled`）管「谁能读这个 backend」。
+文件权限不再单独设计：`ir.attachment` 的绑定记录规则与 skill 完全一致。工具向
+`base.group_user` 开放，实际能操作哪条记录仍由 record rules 决定。
 
-判别一旦由技能级作出，`skill_download` 里读后端与签发下载令牌这两步是**提权执行**的：这两个
-模型（`storage.backend` / `storage.mcp.token`）的 ACL 绑在管理员组上 —— 它们同时持有后端凭据
-（`aws_secret_access_key`、`sftp_password` 等）并能签发绕过 Odoo 鉴权的 URL，收窄是应该的 ——
-但那与「谁能拿这个 skill」无关。按调用者身份去问，结果就是分享出去只有列表能看、包下不来。
+## 工具面（`@llm_tool`，经 `llm_mcp_server` 暴露）
 
-提权的边界：**只包这两步，路径只取自记录，绝不取自入参** —— 否则 `skill_download` 就成了
-任意文件下载的口子。技能级校验本身始终在调用者身份下执行。
-
-## 工具面（`@llm_tool`，经现有 `llm_mcp_server` 暴露）
-
-只暴露有副作用 / 有业务不变量的操作；纯读/搜索不设独立 tool，走通用
-`odoo_record_retriever`（搜索约定记在 `llm.tool.guide`，code=`skillhub`）。
-
-- `skill_publish(file_id, code, title, description, version, category_id?, depends_on_ids?)` → `{skill_id}`
-  （`category_id` 可空；省略时保留已有分类。`depends_on_ids` 省略时保留已有依赖，
-  显式列表——含空列表——整体替换）
+- `skill_publish(attachment_id, code, title, description, version, category_id?, depends_on_ids?)`
+  → `{skill_id, attachment_id}`（`category_id` 省略时保留已有分类；`depends_on_ids`
+  省略时保留已有依赖，显式列表——含空列表——整体替换）
 - `skill_download(skill_id)` → `{download, curl}`
 - `skill_share(skill_id, user_ids)` / `skill_unshare(skill_id, user_ids)`（仅 owner）
 - `skill_archive(skill_id)`（仅 owner）
 
+纯读/搜索不设独立 tool，走通用 `odoo_record_retriever`（搜索约定记在
+`llm.tool.guide`，code=`skillhub`）。
+
 ## 后端 UI
 
-定位：**浏览 + 元数据编辑**。发布/下载生命周期仍归 MCP 工具，UI 不参与 blob 读写。
+定位：**浏览 + 元数据编辑**。发布/下载生命周期仍归 MCP 工具，UI 不参与文件读写。
 
-- 菜单：根菜单 `menu_skillhub_root`（SkillHub，挂 `web_icon`，无 action）+ 子菜单
-  `menu_skillhub_skill`（Skills，挂 action）+ `menu_skillhub_category`（Categories，
-  挂 action，管理员维护分类）。Odoo 19 中根菜单同时挂 action 和子菜单会渲染成
-  文件夹、action 不可达（见 infohub commit 41a265a 的教训），故 action 只在叶子菜单上。
-- 列表（`view_skillhub_skill_list`）：`create="false" delete="false"`。理由：UI 新建
-  的记录没有对应 blob（`skillhub.skill` 的 `backend_id`/`storage_path` 只有
-  `skill_publish` 能合法产生）；UI 删除会留下 storage 孤儿 blob。归档（`state`）是
-  生命周期出口。
-- 表单（`view_skillhub_skill_form`）可编辑矩阵：
-
-  | 字段 | 表单 |
-  |---|---|
-  | title / description / version / is_public / shared_user_ids / category_id / depends_on_ids / state | 可编辑（仅 owner，record rule 兜底） |
-  | code / backend_id / storage_path / size / sha256 / create_uid / required_by_ids | 只读 |
-
-  `state` 用 statusbar 呈现（owner 可归档/恢复）。
-- 搜索（`view_skillhub_skill_search`）：按 code/title/description 搜；过滤 Archived /
-  My Skills / Shared With Me / Public；按 state/backend/owner 分组；左侧 search panel
-  按 `category_id` 多选筛选（`select="multi"` + 计数器）。
-- 可见性：菜单不挂 groups——读隔离已由 record rules（owner/shared/public）落地，
-  非 owner 打开表单自然只读。
+- 菜单：根菜单 `menu_skillhub_root` + 子菜单 `menu_skillhub_skill`（Skills）+
+  `menu_skillhub_category`（Categories，管理员维护分类）。
+- 列表：`create="false" delete="false"`。记录由 `skill_publish` 产生。
+- 表单可编辑：title / description / version / is_public / shared_user_ids /
+  category_id / depends_on_ids / state（仅 owner，record rule 兜底）。
+- 表单只读：code / attachment_id / size / sha256 / create_uid / required_by_ids。
+- 搜索：按 code/title/description 搜；过滤 Archived / My Skills / Shared With Me /
+  Public；按 state/owner 分组；search panel 按 `category_id` 多选筛选。
 
 ## 关键取舍
 
-### 为什么存 `storage_path` 指针而不是 zip 进 DB
-blob 进 DB 会膨胀、且失去 storage 的 presign 下载（bypass Odoo）与上传治理。指针 + storage 才是正解。
+### 为什么用 `ir.attachment` 而不是自存 `(backend, path)`
+`ir.attachment` 是 Odoo 原生文件身份：权限随绑定记录走，下载走 `/web/content`，
+字节存储位置（DB/filestore/外部 storage）对业务透明。消费方只持有 attachment id，
+不再需要知道 backend/path。
 
-### 为什么消费方收 `file_id` 而非 `(backend, path)`
-见 storage_backend_mcp design：引用范围限定在「该用户经 audited 上传、且未消费」的集合。
+### 为什么绑定即消费
+绑定把文件挂到唯一业务记录上，既让权限有明确宿主，也阻止同一个文件被重复挂到多条
+记录。若允许复用，第二条记录的 ACL 会改变第一条记录的可见范围。
 
 ### 为什么单版本覆盖
-目标是用最新的 skill 包；历史版本是另一套问题（registry 语义），先单版本 + `version` 字段。
+目标是用最新的 skill 包；历史版本是另一套问题（registry 语义），先单版本 + `version`
+字段。
 
 ## 被否决的方案
 
@@ -118,5 +116,7 @@ blob 进 DB 会膨胀、且失去 storage 的 presign 下载（bypass Odoo）与
 | zip 内容解析进 Odoo（SKILL.md → 字段） | 格式是客户端的事，解析会跟客户端耦合、随格式漂移。 |
 | tags（自由多标签）分类搜索 | 用户定：单一 `category_id` 分类够用，不做自由标签；搜索仍只按名字/描述。 |
 | 版本历史 | 先单版本覆盖够用，历史留作将来。 |
-| base64 进 tool arguments | 字节流不过 MCP 通道，见 storage_backend_mcp。 |
+| 自存 `(backend, path)` / presign 下载 | storage MCP 已移除；attachment 原生权限与 URL 足够，且不暴露存储拓扑。 |
+| 复用同一个 attachment 发布多个 skill | 一条 attachment 只能绑定一条业务记录，复用会破坏先前记录的权限来源。 |
+| base64 进 tool arguments | 字节流不过 MCP 通道。 |
 | 依赖环（多跳闭环）检测 | 单跳自依赖约束已够；闭环/传递闭包是另一套图算法问题，先不做。 |

@@ -58,8 +58,8 @@ def llm_tool(
     Restrict who may use the tool with the xmlids of the groups allowed to::
 
         @llm_tool(groups=("one_storage.group_one_storage_user",))
-        def storage_list_files(...) -> dict:
-            \"\"\"List files on a backend.\"\"\"
+        def skill_download(...) -> dict:
+            \"\"\"Return a download URL for a skill.\"\"\"
 
     A single string is accepted for one group. The startup scan applies the
     declared set to ``allowed_group_ids`` only when the declaration changes, so

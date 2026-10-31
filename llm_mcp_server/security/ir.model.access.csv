@@ -9,3 +9,5 @@ access_llm_mcp_key_show_user,llm.mcp.key.show user,model_llm_mcp_key_show,base.g
 access_llm_mcp_test_result_user,llm.mcp.test.result user,model_llm_mcp_test_result,base.group_user,1,1,1,1
 access_llm_mcp_tool_call_manager,llm.mcp.tool.call manager,model_llm_mcp_tool_call,llm.group_llm_manager,1,0,0,1
 access_llm_mcp_tool_call_user,llm.mcp.tool.call user,model_llm_mcp_tool_call,base.group_user,0,0,1,0
+access_llm_mcp_file_upload_user,llm.mcp.file.upload user,model_llm_mcp_file_upload,base.group_user,1,1,1,0
+access_llm_mcp_file_upload_manager,llm.mcp.file.upload manager,model_llm_mcp_file_upload,base.group_system,1,1,1,1

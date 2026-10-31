@@ -8,9 +8,9 @@
 工作方式
 ========
 
-- agent 经 ``storage_backend_mcp`` 暂存上传 HTML（``storage_stage_upload`` →
-  curl 上传 → ``storage_commit_upload`` 得 ``file_id``），再调用
-  ``llm_page_create(file_id)`` 登记为一个待审核页面。
+- agent 经 ``llm_mcp_server`` 的 attachment 文件机制上传 HTML
+  （``attachment_stage_upload`` → curl 上传 → ``attachment_commit_upload``），
+  再调用 ``llm_page_create(attachment_id)`` 登记为一个待审核页面。
 - 页面正文以**原始 HTML** 存储（``fields.Text``，不 sanitize，``<script>`` /
   ``<style>`` 可运行），经 ``website.layout`` 主题包裹后渲染。
 - 三级审核：``draft → pending → published``，另含 ``rejected`` 驳回与
@@ -21,8 +21,7 @@
 安装
 ====
 
-- 依赖：``website`` + ``storage_backend_mcp``（后者带来 ``storage_backend``、
-  ``llm``）。
+- 依赖：``website`` + ``llm``。
 - 无新增 Python 依赖。
 
 配置

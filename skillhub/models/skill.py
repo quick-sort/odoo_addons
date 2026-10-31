@@ -41,8 +41,12 @@ class Skill(models.Model):
         string="Category",
         ondelete="set null",
     )
-    backend_id = fields.Many2one("storage.backend", required=True)
-    storage_path = fields.Char(required=True)
+    attachment_id = fields.Many2one(
+        "ir.attachment",
+        string="Package",
+        ondelete="restrict",
+        index=True,
+    )
     size = fields.Integer()
     sha256 = fields.Char()
 
