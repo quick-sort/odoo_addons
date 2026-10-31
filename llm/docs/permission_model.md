@@ -77,9 +77,9 @@
 
 ### 参考实现
 
-`skillhub/models/tool.py`：先以对话者身份做 gate（`_get_skill_or_raise`、`_require_owner`），
-再 `sudo()` 完成 plumbing，并在注释中说明理由（`storage.backend` 携带凭证、
-`storage.mcp.token` 会签发绕过鉴权的 URL）。新工具应照此形态编写。
+`skillhub/models/tool.py`：先以对话者身份做 gate（`_get_skill_or_raise`、attachment 的
+`check_access("read")`），再把签名/绑定交给 `llm_mcp_server` 的 attachment 工具；
+业务模块不再接触 storage 凭据或 URL 签名细节。新工具应照此形态编写。
 
 ## 7. 反直觉推论
 
@@ -118,9 +118,10 @@
 2. `llm.agent` 的空值语义：help 与实现不一致（实现 fail closed）。
 3. 是否需要“按 agent 实例”的轴。三处都是按用户组；MCP 侧没有 agent 实例身份，
    per-agent 策展只在 `llm.agent.tool_ids`。
-4. ~~`storage_backend_mcp` 的 guide 未显式设置该字段~~ **已处理**：storage 工具与
-   guide 均显式声明 `base.group_system`，与 storage 模型 admin-only 的 ACL 对齐；
-   存量实例由 `migrations/19.0.1.0.1/post-migrate.py` 收紧。
+4. `storage_backend_mcp` 已删除：其工具与 guide 曾收紧到 `base.group_system`，
+   现由 `llm_mcp_server` 的 `attachment_*` 文件工具取代（开放给
+   `base.group_user`，真正的边界是 `ir.attachment` 原生 ACL）。`storage_backend`
+   本身保留，供 `llm_knowledge`、`dataset_storage`、`one_storage` 等直接使用。
 
 ## 10. 存量差距（跟踪用）
 
