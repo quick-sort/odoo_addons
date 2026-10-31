@@ -27,6 +27,40 @@ class LLMTool(models.Model):
         "administrators can call it; administrators are never restricted.",
     )
 
+    expose_to_mcp = fields.Boolean(
+        string="Expose via MCP Server",
+        default=True,
+        help="Whether this tool is listed and callable through the MCP server. "
+        "Remote tools (imported from an llm.mcp.client) default to off: "
+        "calling one forwards the request to the external MCP server it came "
+        "from, so re-exposing them is a deliberate opt-in.",
+    )
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        """A remote tool is off the MCP server unless explicitly opted in.
+
+        ``llm`` (which creates remote rows from ``llm.mcp.client``) cannot see
+        this field, so the default lives here rather than in the client.
+        """
+        for vals in vals_list:
+            if vals.get("source") == "remote" and "expose_to_mcp" not in vals:
+                vals["expose_to_mcp"] = False
+        return super().create(vals_list)
+
+    def init(self):
+        """Default ``expose_to_mcp`` to true at the SQL level.
+
+        Code tools are inserted by ``llm.tool._sync_tools_to_db`` with raw SQL,
+        which bypasses the ORM ``default=True``; a column default keeps those
+        rows exposed too (they are Odoo's own tools). Remote tools opt out
+        through :meth:`create`.
+        """
+        super().init()
+        self.env.cr.execute(
+            "ALTER TABLE llm_tool ALTER COLUMN expose_to_mcp SET DEFAULT true"
+        )
+
     @api.depends("allowed_group_ids")
     def _compute_authorized_user_ids(self):
         for tool in self:
@@ -71,6 +105,7 @@ class LLMTool(models.Model):
         config = self.env["llm.mcp.server.config"].get_active_config()
         domain = ast.literal_eval(config.tool_domain or "[('active', '=', True)]")
         domain += self._mcp_visibility_domain()
+        domain += [("expose_to_mcp", "=", True)]
         active_tools = self.sudo().search(domain)
         mcp_tools = []
 
@@ -104,7 +139,7 @@ class LLMTool(models.Model):
 
         # Find the tool by name, restricted to what the user is allowed to see.
         tool = self.search(
-            [("name", "=", tool_name), ("active", "=", True)]
+            [("name", "=", tool_name), ("active", "=", True), ("expose_to_mcp", "=", True)]
             + self._mcp_visibility_domain(),
             limit=1,
         )
