@@ -389,6 +389,18 @@ class TestMcpClientSync(LLMToolCase):
         self.assertEqual(tool.mcp_client_id, client)
         self.assertEqual(tool.res_method, "web_search")
 
+    def test_sync_restricts_remote_tools_to_llm_users(self):
+        client = self._client()
+        with patch.object(
+            type(client), "list_tools",
+            lambda self: [{"name": "gated_remote", "description": "d", "inputSchema": {}}],
+        ):
+            client.action_sync_tools()
+
+        tool = self.LLMTool.search([("name", "=", "gated_remote")])
+        llm_user = self.env.ref("llm.group_llm_user")
+        self.assertIn(llm_user, tool.allowed_group_ids)
+
     def test_sync_updates_an_existing_row_by_res_method(self):
         client = self._client()
         with patch.object(

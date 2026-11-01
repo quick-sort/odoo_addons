@@ -281,6 +281,7 @@ class LLMMcpClient(models.Model):
 
         remote_names = {t["name"] for t in remote_tools}
         created = updated = 0
+        llm_user_group = self.env.ref("llm.group_llm_user")
 
         for remote in remote_tools:
             tool_name = remote["name"]
@@ -312,6 +313,10 @@ class LLMMcpClient(models.Model):
                     "read_only_hint": False,
                     "destructive_hint": True,
                     "open_world_hint": True,
+                    # A remote tool is pulled in for Odoo's own LLM agents, not
+                    # for re-publication, so it starts restricted to LLM users.
+                    # The MCP server gate (expose_to_mcp) defaults off separately.
+                    "allowed_group_ids": [(4, llm_user_group.id)],
                 })
                 created += 1
 

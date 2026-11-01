@@ -79,3 +79,55 @@ class TestMCPToolVisibility(TransactionCase):
         tool.allowed_group_ids = [(5,)]
         admin = self.env.ref("base.user_admin")
         self.assertIn(admin, tool.authorized_user_ids)
+
+
+@tagged("post_install", "-at_install")
+class TestMCPToolExposeFlag(TransactionCase):
+    """``expose_to_mcp`` gates which tools the MCP server re-publishes."""
+
+    def _remote_tool(self, name="remote_probe", **kwargs):
+        client = self.env["llm.mcp.client"].create(
+            {"name": "probe", "url": "http://localhost:1/mcp"}
+        )
+        values = {
+            "name": name,
+            "executor": "mcp",
+            "source": "remote",
+            "mcp_client_id": client.id,
+            "res_method": name,
+            "description": "remote tool",
+            "input_schema": '{"type": "object", "properties": {}}',
+        }
+        values.update(kwargs)
+        return self.env["llm.tool"].create(values)
+
+    def _tool_names(self, user):
+        result = self.env["llm.tool"].with_user(user).get_mcp_tools_list()
+        return {tool.name for tool in result.tools}
+
+    def test_remote_tool_defaults_to_not_exposed(self):
+        tool = self._remote_tool()
+        self.assertFalse(tool.expose_to_mcp)
+
+    def test_code_tool_defaults_to_exposed(self):
+        tool = self.env["llm.tool"].search([("source", "=", "code")], limit=1)
+        self.assertTrue(tool.expose_to_mcp)
+
+    def test_remote_tool_hidden_from_mcp_list_by_default(self):
+        tool = self._remote_tool(name="hidden_remote")
+        admin = self.env.ref("base.user_admin")
+        self.assertNotIn(tool.name, self._tool_names(admin))
+
+    def test_remote_tool_exposed_after_opt_in(self):
+        tool = self._remote_tool(name="opted_in_remote")
+        tool.expose_to_mcp = True
+        admin = self.env.ref("base.user_admin")
+        self.assertIn(tool.name, self._tool_names(admin))
+
+    def test_remote_tool_not_callable_when_not_exposed(self):
+        tool = self._remote_tool(name="uncallable_remote")
+        admin = self.env.ref("base.user_admin")
+        with self.assertRaises(exceptions.UserError):
+            self.env["llm.tool"].with_user(admin).execute_mcp_tool(
+                {"name": tool.name, "arguments": {}}
+            )
