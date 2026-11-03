@@ -1,7 +1,7 @@
 {
     "name": "Agent Hub",
     "summary": "Framework connecting Odoo to external AI agents over pluggable channels",
-    "version": "19.0.1.0.0",
+    "version": "19.0.2.1.0",
     "author": "quick-sort@outlook.com",
     "website": "quick-sort@outlook.com",
     "license": "LGPL-3",
@@ -10,7 +10,12 @@
     "data": [
         "security/ir.model.access.csv",
         "security/agenthub_security.xml",
+        "data/agenthub_message_subtypes.xml",
+        "data/agenthub_cron.xml",
         "views/agenthub_agent_views.xml",
+        "views/agenthub_identity_views.xml",
+        "views/agenthub_binding_views.xml",
+        "views/agenthub_command_views.xml",
     ],
     "installable": True,
     "application": True,

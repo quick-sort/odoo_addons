@@ -26,6 +26,7 @@ agent 经哪条 channel 触达，agent 不关心。谁配谁，由 ``agenthub.th
 ``agenthub`` 依赖 component 框架，不依赖 ``llm``，也不绑定任何具体 channel /
 agent。要真正接通，需要再装至少一个 channel 和至少一个 agent：
 
+* ``agenthub_discuss`` —— Discuss 入站消息 → ``agenthub.publish`` outbox（推荐入口）。
 * ``agenthub_wecom`` —— 企微智能机器人（aibot）WebSocket 服务端（已标记 legacy）。
 * ``agenthub_openclaw`` —— OpenClaw 的对话语义（已标记 legacy）。
 
@@ -34,11 +35,14 @@ agent。要真正接通，需要再装至少一个 channel 和至少一个 agent
 
 ::
 
-    agenthub (core, 只有抽象)
-    ├── agenthub.channel   传输 (channel_type 置空, component 扩展)
-    ├── agenthub.agent     应答 (agent_type 置空, component 扩展)
-    ├── agenthub.thread    会话 = 运行时绑定 + 聊天载体 (mail.thread)
-    └── mail.message       消息 + 跨进程 DB 出站队列 (agenthub_* 扩展字段)
+    agenthub (core)
+    ├── agenthub.channel   传输配置 (channel_type 置空, component 扩展)
+    ├── agenthub.agent     外部 agent 注册 (runtime/service user/token)
+    ├── agenthub.thread    会话 = channel + peer + agent (mail.thread)
+    ├── agenthub.turn/command/delivery/publish
+    └── mail.message       语义消息 + 长期归档
+    relay (独立服务)       实时连接、路由、队列、record feed
+    agenthub_discuss       Discuss 入站 → publish outbox
 
 扩展一个 channel 或一个 agent，都只加一个独立 addon：
 
@@ -46,6 +50,22 @@ agent。要真正接通，需要再装至少一个 channel 和至少一个 agent
   ``agenthub.channel.<type>`` component。
 * agent addon：``_inherit`` 加字段 + ``selection_add`` 加 ``agent_type`` +
   ``agenthub.agent.<type>`` component。
+
+目标架构（>100 agent）把实时连接、路由和队列移到独立 relay；Odoo 只做配置、
+Discuss UI、publish outbox、异步记录与归档。详见 ``docs/relay-v1.md`` 与
+``docs/relay-message-envelope.md``。``agenthub_wecom`` 与 ``agenthub_openclaw``
+为 legacy，保留给已有安装。
+
+配置
+----
+
+通过 ``ir.config_parameter`` 配置 relay：
+
+* ``agenthub.relay_url`` — relay 地址
+* ``agenthub.relay_secret`` — publish outbox 的 HMAC 密钥
+* ``agenthub.relay_recorder_token`` — recorder 拉取 record feed 的 token
+* ``agenthub.relay_config_token`` — relay 拉取配置快照的 token
+* ``agenthub.recorder_batch_limit`` — 单次拉取上限（默认 500）
 
 设计文档
 --------

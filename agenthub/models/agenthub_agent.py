@@ -1,3 +1,7 @@
+import hashlib
+import hmac
+import secrets
+
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
 
@@ -7,19 +11,14 @@ from odoo.addons.component.exception import NoComponentError, RegistryNotReadyEr
 class AgenthubAgent(models.Model):
     """A conversation partner — *who* turns an inbound message into a reply.
 
-    Agents are a ``component`` collection. Each concrete agent type lives in its
-    own addon (``agenthub_openclaw``, ...) and contributes a ``selection_add``
-    entry on ``agent_type`` plus an ``agenthub.agent.adapter`` component resolved
-    by usage.
-
-    An agent is reached over whatever channel a ``agenthub.thread`` binds it to;
-    the agent itself is channel-agnostic.
+    Agents are a ``component`` collection. An agent is either an external
+    agent-box instance reached through the relay (``runtime=relay``) or an
+    in-process adapter (``runtime=in_process``).
 
     Every agent carries an execution identity. ``user_id`` is a dedicated
-    service user that the agent's tool calls and record reads/writes run as —
-    never the owner and never ``sudo``. ``owner_user_id`` records who authorised
-    the agent and caps its permissions. See ``docs/design.md`` →
-    "执行身份与权限（agent 挂在用户上）".
+    service user; its partner is the conversation object users select in
+    Discuss. ``owner_user_id`` records who authorised the agent and caps its
+    permissions.
     """
 
     _name = "agenthub.agent"
@@ -33,6 +32,14 @@ class AgenthubAgent(models.Model):
         required=True,
         help="Who the conversation partner is. Each agent addon adds its own value.",
     )
+    runtime = fields.Selection(
+        [("relay", "Relay"), ("in_process", "In Process")],
+        default="in_process",
+        required=True,
+        help="External agent-box over the relay, or an in-process adapter. "
+        "Existing legacy agents default to in_process; new external agents "
+        "should select relay.",
+    )
     active = fields.Boolean(default=True)
 
     user_id = fields.Many2one(
@@ -41,7 +48,7 @@ class AgenthubAgent(models.Model):
         required=True,
         ondelete="restrict",
         default=lambda self: self.env.user.id,
-        help="User the agent acts as (tools, record reads/writes).",
+        help="Service user the agent acts as; its partner is shown in Discuss.",
     )
     owner_user_id = fields.Many2one(
         "res.users",
@@ -56,9 +63,24 @@ class AgenthubAgent(models.Model):
         related="user_id.partner_id",
         readonly=True,
     )
+    token_hash = fields.Char(
+        string="Relay Token Hash",
+        copy=False,
+        help="Hash of the token the external agent presents to the relay.",
+    )
     api_key = fields.Char(
         string="API Key",
-        help="Credential the external agent presents to authenticate over JSON-RPC.",
+        help="Legacy credential; new relay agents use token_hash.",
+    )
+    state = fields.Selection(
+        [("offline", "Offline"), ("online", "Online"), ("busy", "Busy")],
+        default="offline",
+        readonly=True,
+        help="Presence synced from the relay; display only.",
+    )
+    last_seen = fields.Datetime(readonly=True)
+    workspace = fields.Json(
+        help="Agent-box workspace/project metadata (informational).",
     )
 
     @api.constrains("user_id", "owner_user_id")
@@ -74,12 +96,31 @@ class AgenthubAgent(models.Model):
                     _("The execution user of agent '%s' must be active.") % agent.name
                 )
 
+    @api.constrains("user_id", "active")
+    def _check_unique_service_user(self):
+        for agent in self:
+            if not agent.active:
+                continue
+            duplicate = self.search_count(
+                [
+                    ("user_id", "=", agent.user_id.id),
+                    ("active", "=", True),
+                    ("id", "!=", agent.id),
+                ]
+            )
+            if duplicate:
+                raise ValidationError(
+                    _(
+                        "User '%s' is already the execution user of another active agent.",
+                        agent.user_id.display_name,
+                    )
+                )
+
     def _agent_env(self):
         """Return the environment bound to this agent's execution user.
 
         Forces ``su=False`` so the agent never runs in superuser mode even when
-        the caller is sudoed — the same contract ``llm.agent._run_in_thread``
-        relies on via ``with_user``.
+        the caller is sudoed.
         """
         self.ensure_one()
         return self.env(user=self.user_id, su=False)
@@ -96,6 +137,14 @@ class AgenthubAgent(models.Model):
     def reply(self, message):
         """Produce a reply for an inbound ``mail.message``, in the agent's env."""
         self.ensure_one()
+        if self.runtime == "relay":
+            raise UserError(
+                _(
+                    "Agent '%s' is handled by the relay; dispatch happens through "
+                    "the relay inbox, not reply()."
+                )
+                % self.name
+            )
         agent = self.with_env(self._agent_env())
         adapter = agent._adapter()
         if adapter is None:
@@ -107,3 +156,20 @@ class AgenthubAgent(models.Model):
                 )
             )
         return adapter.reply(agent, message)
+
+    def _generate_token(self):
+        """Generate a relay token, store its hash, and return the plaintext."""
+        self.ensure_one()
+        token = secrets.token_urlsafe(32)
+        self.write({"token_hash": self._hash_token(token)})
+        return token
+
+    @api.model
+    def _hash_token(self, token):
+        return hashlib.sha256(token.encode()).hexdigest()
+
+    def _check_token(self, token):
+        self.ensure_one()
+        if not self.token_hash or not token:
+            return False
+        return hmac.compare_digest(self.token_hash, self._hash_token(token))
