@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+
+    <record id="agenthub_agent_view_form_provisioner" model="ir.ui.view">
+        <field name="name">agenthub.agent.form.provisioner</field>
+        <field name="model">agenthub.agent</field>
+        <field name="inherit_id" ref="agenthub.agenthub_agent_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[hasclass('oe_title')]" position="before">
+                <div class="oe_button_box" name="button_box">
+                    <button name="action_open_deployments" type="object"
+                            class="oe_stat_button" icon="fa-server"
+                            groups="base.group_system">
+                        <field name="deployment_count" widget="statinfo"
+                               string="Deployments"/>
+                    </button>
+                </div>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

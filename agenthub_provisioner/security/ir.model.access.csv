@@ -1,0 +1,4 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_agenthub_provisioner_host_system,agenthub.provisioner.host system,model_agenthub_provisioner_host,base.group_system,1,1,1,1
+access_agenthub_provisioner_llm_system,agenthub.provisioner.llm system,model_agenthub_provisioner_llm,base.group_system,1,1,1,1
+access_agenthub_agent_deployment_system,agenthub.agent.deployment system,model_agenthub_agent_deployment,base.group_system,1,1,1,1

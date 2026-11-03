@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+
+    <record id="agenthub_provisioner_host_view_form_ssh" model="ir.ui.view">
+        <field name="name">agenthub.provisioner.host.form.ssh</field>
+        <field name="model">agenthub.provisioner.host</field>
+        <field name="inherit_id"
+               ref="agenthub_provisioner.agenthub_provisioner_host_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//group[@name='driver_config']" position="inside">
+                <group invisible="driver_type != 'ssh'">
+                    <field name="ssh_host"/>
+                    <field name="ssh_port"/>
+                    <field name="ssh_user"/>
+                    <field name="remote_docker"/>
+                </group>
+                <group invisible="driver_type != 'ssh'">
+                    <field name="ssh_strict_host_key"/>
+                    <field name="ssh_timeout"/>
+                    <field name="ssh_private_key" widget="password"/>
+                    <field name="ssh_key_passphrase" widget="password"/>
+                    <field name="ssh_known_hosts"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

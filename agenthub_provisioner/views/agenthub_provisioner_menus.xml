@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+
+    <menuitem id="menu_agenthub_provisioning"
+              name="Provisioning"
+              parent="agenthub.menu_agenthub_root"
+              sequence="40"/>
+
+    <menuitem id="menu_agenthub_provisioner_host"
+              name="Hosts"
+              parent="menu_agenthub_provisioning"
+              action="agenthub_provisioner_host_action"
+              sequence="10"/>
+
+    <menuitem id="menu_agenthub_agent_deployment"
+              name="Deployments"
+              parent="menu_agenthub_provisioning"
+              action="agenthub_agent_deployment_action"
+              sequence="20"/>
+
+    <menuitem id="menu_agenthub_provisioner_llm"
+              name="LLM Profiles"
+              parent="menu_agenthub_provisioning"
+              action="agenthub_provisioner_llm_action"
+              sequence="30"/>
+
+</odoo>
