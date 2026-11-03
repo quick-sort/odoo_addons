@@ -6,8 +6,6 @@ import shlex
 import tempfile
 import uuid
 
-import paramiko
-
 from odoo.addons.agenthub_provisioner.contract import (
     ContainerState,
     HostProbe,
@@ -27,6 +25,14 @@ class AgenthubProvisionerDriverSsh(Component):
     # Connection / command execution
     # ------------------------------------------------------------------
 
+    def _paramiko(self):
+        # Imported lazily: the CI image removes pip-installed cffi after the
+        # mcp step, and the addon must still load when only the distribution
+        # metadata is present.
+        import paramiko  # noqa: PLC0415
+
+        return paramiko
+
     def _validate_host(self, host):
         if not host.ssh_host or not host.ssh_user:
             raise ProvisionerError(
@@ -42,6 +48,7 @@ class AgenthubProvisionerDriverSsh(Component):
             raise ProvisionerError(
                 "UNREACHABLE", "No SSH private key is configured."
             )
+        paramiko = self._paramiko()
         password = host.ssh_key_passphrase or None
         for key_class in (
             paramiko.RSAKey,
@@ -60,6 +67,7 @@ class AgenthubProvisionerDriverSsh(Component):
 
     def _connect(self, host):
         self._validate_host(host)
+        paramiko = self._paramiko()
         client = paramiko.SSHClient()
         if host.ssh_strict_host_key:
             client.set_missing_host_key_policy(paramiko.RejectPolicy())
@@ -100,6 +108,7 @@ class AgenthubProvisionerDriverSsh(Component):
         return " ".join(shlex.quote(str(argument)) for argument in argv)
 
     def _exec(self, host, argv, stdin=None, check=True):
+        paramiko = self._paramiko()
         client = self._connect(host)
         try:
             command = self._command(argv)

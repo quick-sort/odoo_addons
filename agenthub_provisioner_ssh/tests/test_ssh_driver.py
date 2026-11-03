@@ -1,16 +1,11 @@
 import json
 from unittest import mock
 
-import paramiko
-
 from odoo.tests import common, tagged
 
 from odoo.addons.agenthub_provisioner.contract import (
     ContainerSpec,
     ProvisionerError,
-)
-from odoo.addons.agenthub_provisioner_ssh.components import (
-    driver as driver_module,
 )
 
 
@@ -318,17 +313,30 @@ class TestSshDriver(common.TransactionCase):
         self.assertIn("'name; rm -rf /'", command)
         self.assertIn("'$(touch /tmp/x)'", command)
 
+    def _fake_connect(self, fake_client):
+        fake_paramiko = FakeParamiko(fake_client)
+        paramiko_patch = mock.patch.object(
+            type(self.component),
+            "_paramiko",
+            lambda component: fake_paramiko,
+        )
+        paramiko_patch.start()
+        self.addCleanup(paramiko_patch.stop)
+        key_patch = mock.patch.object(
+            type(self.component), "_parse_key", lambda component, host: object()
+        )
+        key_patch.start()
+        self.addCleanup(key_patch.stop)
+        return fake_paramiko
+
     def test_strict_host_key_default(self):
         self.assertTrue(self.host.ssh_strict_host_key)
         fake_client = FakeSSHClient()
-        with mock.patch.object(
-            driver_module.paramiko, "SSHClient", return_value=fake_client
-        ), mock.patch.object(
-            type(self.component), "_parse_key", lambda component, host: object()
-        ):
-            self.component._connect(self.host)
+        fake_paramiko = self._fake_connect(fake_client)
 
-        self.assertIsInstance(fake_client.policy, paramiko.RejectPolicy)
+        self.component._connect(self.host)
+
+        self.assertIsInstance(fake_client.policy, fake_paramiko.RejectPolicy)
         self.assertTrue(fake_client.loaded_system_keys)
         self.assertFalse(fake_client.kwargs["allow_agent"])
         self.assertFalse(fake_client.kwargs["look_for_keys"])
@@ -339,24 +347,18 @@ class TestSshDriver(common.TransactionCase):
     def test_non_strict_host_key_uses_auto_add(self):
         self.host.ssh_strict_host_key = False
         fake_client = FakeSSHClient()
-        with mock.patch.object(
-            driver_module.paramiko, "SSHClient", return_value=fake_client
-        ), mock.patch.object(
-            type(self.component), "_parse_key", lambda component, host: object()
-        ):
-            self.component._connect(self.host)
+        fake_paramiko = self._fake_connect(fake_client)
 
-        self.assertIsInstance(fake_client.policy, paramiko.AutoAddPolicy)
+        self.component._connect(self.host)
+
+        self.assertIsInstance(fake_client.policy, fake_paramiko.AutoAddPolicy)
 
     def test_known_hosts_content_is_loaded(self):
         self.host.ssh_known_hosts = "docker.example ssh-ed25519 AAAA"
         fake_client = FakeSSHClient()
-        with mock.patch.object(
-            driver_module.paramiko, "SSHClient", return_value=fake_client
-        ), mock.patch.object(
-            type(self.component), "_parse_key", lambda component, host: object()
-        ):
-            self.component._connect(self.host)
+        self._fake_connect(fake_client)
+
+        self.component._connect(self.host)
 
         self.assertEqual(len(fake_client.loaded_paths), 1)
         self.assertFalse(fake_client.loaded_system_keys)
@@ -383,3 +385,26 @@ class FakeSSHClient:
 
     def close(self):
         pass
+
+
+class FakeParamiko:
+    class SSHException(Exception):
+        pass
+
+    class RejectPolicy:
+        pass
+
+    class AutoAddPolicy:
+        pass
+
+    class RSAKey:
+        pass
+
+    class ECDSAKey:
+        pass
+
+    class Ed25519Key:
+        pass
+
+    def __init__(self, client):
+        self.SSHClient = lambda: client
