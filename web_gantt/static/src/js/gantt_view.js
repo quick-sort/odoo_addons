@@ -18,7 +18,7 @@ export class GanttController extends Component {
         this.notification = useService("notification");
 
         this.state = useState({
-            scale: 'month',
+            scale: 'day',
             groupBy: this.props.groupBy?.[0] || 'project_id',
             ganttData: [],
             markers: [],

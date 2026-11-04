@@ -59,15 +59,17 @@ mixin 只负责日期映射，**不提供** `get_gantt_data`；数据载荷仍�
 
 ## 时间尺度
 
+尺度名取该视图的**最小单元格单位**，表头上层只是更粗的分组：
+
 | scale | 一个单元格 | 表头上层 | 表头下层 |
 |---|---|---|---|
+| day | 1 天 | 月 | 日 |
 | week | 1 周 | 月 | W<周数> |
-| month | 1 天 | 月 | 日 |
+| month | 1 个月 | 年 | 月 |
 | quarter | 1 季度（3 个月） | 年 | Q1–Q4 |
-| year | 1 个月 | 年 | 月 |
 
 `dateToX()` / `xToDate()` 与各尺度的 `cellWidth` 系数一一对应；拖拽改期按尺度
-吸附（周按天、月按天、季度按 3 个月、年按 1 个月）。切换尺度后视图重新居中到
+吸附（天/周按天、月按 1 个月、季度按 3 个月）。切换尺度后视图重新居中到
 today（cellWidth 变化会让旧的横向滚动偏移失效）。新增尺度必须同时修改：
 `cellWidth`、`getTotalUnits`、`drawGrid`、`drawHeader`、`dateToX`、`xToDate`、
 拖拽分支、`handleVerticalTimeScaleNavigation`、`handleNavigate`。
