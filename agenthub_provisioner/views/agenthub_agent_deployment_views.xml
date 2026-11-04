@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+
+    <record id="agenthub_agent_deployment_action" model="ir.actions.act_window">
+        <field name="name">Deployments</field>
+        <field name="res_model">agenthub.agent.deployment</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="agenthub_agent_deployment_view_list" model="ir.ui.view">
+        <field name="name">agenthub.agent.deployment.list</field>
+        <field name="model">agenthub.agent.deployment</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="agent_id"/>
+                <field name="host_id"/>
+                <field name="mode"/>
+                <field name="state" widget="badge"
+                       decoration-success="state == 'running'"
+                       decoration-danger="state == 'error'"
+                       decoration-warning="state == 'provisioning'"/>
+                <field name="desired_state"/>
+                <field name="config_drift"/>
+                <field name="last_status_at"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="agenthub_agent_deployment_view_form" model="ir.ui.view">
+        <field name="name">agenthub.agent.deployment.form</field>
+        <field name="model">agenthub.agent.deployment</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_apply" type="object" string="Apply"
+                            class="btn-primary"/>
+                    <button name="action_stop" type="object" string="Stop"/>
+                    <button name="action_remove" type="object" string="Remove"
+                            confirm="Remove the managed container? This cannot be undone."/>
+                    <button name="action_sync" type="object" string="Sync"/>
+                    <button name="action_rotate_token" type="object"
+                            string="Rotate Token"
+                            confirm="Rotate the relay token and recreate the container?"/>
+                    <button name="action_logs" type="object" string="Logs"/>
+                    <field name="state" widget="statusbar"
+                           statusbar_visible="draft,provisioning,running,stopped,error"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" placeholder="Deployment name"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="agent_id"/>
+                            <field name="host_id"/>
+                            <field name="mode"/>
+                            <field name="image"/>
+                            <field name="pull_policy"/>
+                            <field name="container_name"/>
+                        </group>
+                        <group>
+                            <field name="desired_state"/>
+                            <field name="runtime_id"/>
+                            <field name="config_hash"/>
+                            <field name="config_drift"/>
+                            <field name="last_action_at"/>
+                            <field name="last_status_at"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Relay" name="relay">
+                            <group>
+                                <field name="relay_url"/>
+                                <field name="relay_heartbeat_seconds"/>
+                            </group>
+                        </page>
+                        <page string="LLM" name="llm">
+                            <group>
+                                <field name="llm_profile_id"/>
+                            </group>
+                        </page>
+                        <page string="Odoo" name="odoo">
+                            <group>
+                                <group>
+                                    <field name="odoo_url"/>
+                                    <field name="odoo_db"/>
+                                    <field name="odoo_login"/>
+                                    <field name="odoo_api_key" widget="password"/>
+                                    <field name="odoo_channel_id"/>
+                                </group>
+                            </group>
+                        </page>
+                        <page string="Environment" name="environment">
+                            <group>
+                                <field name="extra_env" widget="json"/>
+                                <field name="auto_heal"/>
+                                <field name="logs_tail"/>
+                            </group>
+                        </page>
+                        <page string="Advanced" name="advanced">
+                            <group>
+                                <field name="command" widget="json"/>
+                                <field name="volumes" widget="json"/>
+                                <field name="network"/>
+                                <field name="restart_policy"/>
+                            </group>
+                        </page>
+                    </notebook>
+                    <group string="Last Error">
+                        <field name="last_error" nolabel="1" readonly="1"/>
+                    </group>
+                </sheet>
+                <chatter />
+            </form>
+        </field>
+    </record>
+
+    <record id="agenthub_agent_deployment_view_search" model="ir.ui.view">
+        <field name="name">agenthub.agent.deployment.search</field>
+        <field name="model">agenthub.agent.deployment</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="agent_id"/>
+                <field name="host_id"/>
+                <field name="container_name"/>
+                <filter name="running" string="Running"
+                        domain="[('state', '=', 'running')]"/>
+                <filter name="error" string="Error"
+                        domain="[('state', '=', 'error')]"/>
+                <filter name="drift" string="Config Drift"
+                        domain="[('config_drift', '=', True)]"/>
+            </search>
+        </field>
+    </record>
+
+</odoo>

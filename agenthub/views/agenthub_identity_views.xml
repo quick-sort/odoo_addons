@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="agenthub_identity_action" model="ir.actions.act_window">
+        <field name="name">Channel Identities</field>
+        <field name="res_model">agenthub.identity</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="agenthub_identity_view_list" model="ir.ui.view">
+        <field name="name">agenthub.identity.list</field>
+        <field name="model">agenthub.identity</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="channel_id"/>
+                <field name="peer_ref"/>
+                <field name="user_id"/>
+                <field name="partner_id"/>
+                <field name="active"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="agenthub_identity_view_form" model="ir.ui.view">
+        <field name="name">agenthub.identity.form</field>
+        <field name="model">agenthub.identity</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="channel_id"/>
+                            <field name="peer_ref"/>
+                        </group>
+                        <group>
+                            <field name="user_id"/>
+                            <field name="partner_id"/>
+                            <field name="active"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="agenthub_identity_view_search" model="ir.ui.view">
+        <field name="name">agenthub.identity.search</field>
+        <field name="model">agenthub.identity</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="channel_id"/>
+                <field name="peer_ref"/>
+                <field name="user_id"/>
+                <filter name="active" string="Active" domain="[('active', '=', True)]"/>
+            </search>
+        </field>
+    </record>
+
+    <menuitem id="menu_agenthub_identity"
+              name="Identities"
+              parent="menu_agenthub_root"
+              action="agenthub_identity_action"
+              sequence="20"/>
+
+</odoo>

@@ -91,7 +91,8 @@ Four in-house stacks plus vendored OCA addons:
 
 **AgentHub stack** — Odoo ↔ external AI agent runtimes (WeCom, OpenClaw, …):
 - `agenthub` — core abstractions only, no concrete implementation: two orthogonal axes, *channel* (transport — which line messages arrive on / leave by) and *agent* (responder — who answers). `agenthub.thread` binds one of each at runtime and is the conversation carrier (`mail.thread`, reusing the Discuss UI). Core keeps `channel_type`/`agent_type` as empty selections and does not depend on `llm`.
-- A channel or agent is added as its own addon: `_inherit` for config fields + `selection_add` for the type + an `agenthub.channel.<type>` / `agenthub.agent.<type>` component. Implementations: `agenthub_wecom` (WeCom aibot WebSocket server) and `agenthub_openclaw` (OpenClaw conversation semantics) — both marked legacy, kept only for existing installs.
+- A channel or agent is added as its own addon: `_inherit` for config fields + `selection_add` for the type + an `agenthub.channel.<type>` / `agenthub.agent.<type>` component. `agenthub_discuss` bridges bound Discuss channels into the publish outbox. `agenthub_wecom` (WeCom aibot WebSocket server) and `agenthub_openclaw` (OpenClaw conversation semantics) are marked legacy, kept only for existing installs.
+- Target architecture (>100 agents): an external **relay** owns real-time connections, routing, queues and the durable log; Odoo only does config, Discuss UI, publish outbox, async recording/archiving. See `agenthub/docs/relay-v1.md` and `relay-message-envelope.md`.
 
 **Storage/cloud stack**:
 - `storage_backend` (OCA) + `storage_backend_{s3,sftp,ftp}` adapters; `storage_backend_sharepoint` — SharePoint drive adapter on the `microsoft_graph` auth core (Entra app registrations, per-user delegated OAuth, Graph client); `one_storage` — VFS layer over storage backends (see `one_storage/README.rst`); `one_cloud*` — cloud account/firewall integrations.

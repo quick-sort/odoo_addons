@@ -11,9 +11,13 @@
 1. **core 只放抽象，不放任何具体 channel/agent。** 新增 channel 或 agent 只加
    独立 addon，用 `_inherit` 加字段、`selection_add` 加类型、component 提供
    实现；core 的 `channel_type`/`agent_type` 保持 `selection=[]`。
-2. **channel 与 agent 互不依赖，由 `thread` 运行时绑定。** 任何一边都不得
-   import 另一边的 addon；关联只走 `agenthub_external_id` /
-   `agenthub_reply_to_external_id`。
-3. **会话载体是 `mail.thread`，消息是 `mail.message`。** 不得另建
-   `agenthub.message` 或 delivery 表；投递状态用 `agenthub_delivery_state`。
+2. **channel 与 agent 互不依赖，由 `thread`/binding 运行时绑定。** 任何一边
+   都不得 import 另一边的 addon；跨腿关联只走 `thread_key`、`turn_id` 以及
+   `agenthub_external_id` / `agenthub_reply_to_external_id`。
+3. **会话内容载体是 `mail.thread`，消息是 `mail.message`。** 不得另建
+   `agenthub.message`；`agenthub.delivery` 只作 Odoo 侧审计副本，热队列与
+   投递状态在 relay（见 `docs/design.md`）。
 4. **core 不依赖 `llm`。** 需要 LLM 的 agent 实现把依赖封闭在它自己的 addon。
+5. **Odoo 不在实时热路径。** 渠道长连接、路由、队列归 relay；Odoo 只做
+   配置、Discuss UI、publish outbox、record feed 与归档。legacy 的 Odoo WS
+   不得与 relay 同时持有同一个 `bot_id`。

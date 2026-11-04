@@ -2,49 +2,69 @@
 
 ## 背景
 
-Odoo 需要与外部 AI Agent 运行时（如 OpenClaw）对话，而这条对话跑在某个消息
-传输上（如企业微信）。两者都只是「一类」，不是「唯一」：
+Odoo 需要与外部 AI Agent 运行时（当前是 agent-box 实例）对话。对话的入口不唯一：
 
-- 传输层（channel）：企业微信只是其中一种，未来可能有 Telegram、Slack、
-  邮件、网页、MCP 等。
-- Agent 层（agent）：OpenClaw 只是其中一种，未来可能有内部 `llm.agent`、
-  工作流引擎、人工坐席等。
+- 传输层（channel）：Discuss/Odoobot、企业微信 bot，未来还有 Web、Telegram、邮件等。
+- Agent 层（agent）：一个用户可以有多个 agent-box 实例，各自有独立工作区、权限和运行环境。
 
-如果按「Odoo ↔ 企微 ↔ OpenClaw」一对一硬编码，每新增一种传输或一种 agent
-都要重写一遍路由、消息落库、状态机、重试。agenthub 的目标是把这两轴抽成
-可扩展的框架，让「新增一种 channel」或「新增一种 agent」只加一个独立 addon。
+目标规模是 **>100 个 agent、50 万条消息/天**。在这个量级上，如果让 Odoo 自己承载实时连接、路由和投递队列，会与 HTTP/gevent worker、ORM、Discuss 通知和数据库争抢资源。因此需要把实时消息层拆出来，Odoo 专注配置、UI、权限和长期记录。
 
 ## 目标
 
-1. **core 只定义抽象**：channel / agent / thread 三个模型 + 对 `mail.message`
-   的字段扩展 + 两个 component 扩展点 + 路由，不含任何具体传输或具体 agent。
-   会话载体用 `mail.thread`（对齐 `llm.thread`），入口复用 Discuss 聊天界面。
-2. **企微 channel 是第一个 channel 实现**：在 Odoo 内实现企业微信智能机器人
-   （aibot）WebSocket 服务端，让外部 bot（如 OpenClaw 的企微插件）以
-   `botId + secret + websocketUrl` 连进来。
-3. **OpenClaw agent 是第一个 agent 实现**：把「用户消息交给 OpenClaw、
-   拿回 OpenClaw 的回复」封装成一个 agent 类型。
-4. 与仓库既有分层模式对齐：`infohub_channel_*` 的 channel 扩展方式、
-   `llm_*` 的 provider 扩展方式，都用 component + `selection_add`，core 保持干净。
+1. **Relay 作为实时消息层**：终结 agent/channel 连接、归一协议、按配置路由、排队投递、维护 presence 与背压、生产 durable 事件。
+2. **Odoo 作为配置与归档中心**：Discuss UI、agent service user、identity/binding 配置、publish outbox、异步 recorder、`mail.message` 长期归档与审计。
+3. **外部 agent-box 通过 relay 接入**：agent 是外部进程，以 Odoo service user 为身份；通过 WebSocket 连 relay，按会话维护 session，流式回包。
+4. **消息模型对齐 `llm`**：最小记录单元是语义 message（user/assistant/tool/system），用 `mail.message` + role/subtype + body_json 表达；流式回复用占位消息原地更新，默认只落最终消息。
+5. **多 agent 入口**：Discuss 里用户直接与 agent 的 service user partner 会话；企微等渠道通过 `(user, channel) → agent` 的 binding 配置。
+6. **渠道隔离**：同一用户在 Discuss 与企微有各自独立的会话上下文；thread 以 `(channel, peer, agent)` 区分。
 
 ## 范围
 
 ### 在范围内
 
-- `agenthub` core：3 个模型 + `mail.message` 扩展 + 扩展点 + 路由 + 投递状态机。
-- `agenthub_wecom`：aibot WebSocket 服务端（认证、心跳、收发、多连接），
-  对端 agent 无关。
-- `agenthub_openclaw`：OpenClaw 的对话语义（回包解析/流式累积/媒体卡片），
-  传输无关。
+- **Odoo core / addon**
+  - 模型：`agenthub.channel`、`agent`、`identity`、`binding`、`thread`、`turn`、`command`、`delivery`（审计副本）、`publish`（outbox）、`record.cursor`。
+  - `mail.message` 扩展：`agenthub_role`、`agenthub_body_json`、`is_error`、`agenthub_content`、`turn/stream/external id` 等。
+  - Discuss 入站发布、最终消息投影、cron 命令、agent/service user/token 管理、record rule。
+  - 异步 recorder：从 relay 拉取事件，批量幂等写 `mail.message` / turn / delivery，并归档。
+- **Relay（独立服务）**
+  - agent WebSocket gateway（认证、心跳、投递、stream、ack、resume）。
+  - 渠道 gateway（企微 aibot；每个 bot_id 单 owner 租约）。
+  - Router（identity/binding 解析、确定性 thread_key、thread 串行）。
+  - delivery/outbox（租约、重试、DLQ）、presence、背压、配置同步。
+  - `record` 流与 Odoo recorder 拉取接口。
+  - 基础 metrics/health/admin。
+- **agent-box**
+  - relay 客户端：`AGENT_ID` / `AGENT_TOKEN` / `RELAY_URL`；WS 或长轮询。
+  - `thread_key ↔ session_id` 映射；流式回包带 `turn_id/stream_id/seq/final`。
+- **cron/命令**
+  - Odoo 定时任务可创建 `agenthub.command`，按 `reply_mode` 指定回复去向。
 
 ### 明确不做（本阶段）
 
-- **不实现真实企微后台的 Agent 模式**（自建应用 HTTP 回调的 XML/AES 加解密、
-  `qyapi.weixin.qq.com` 主动发送 API）。那是另一种 channel 形态，与 aibot
-  长连接是两条独立协议，另开 addon 处理。
-- **core 不依赖 `llm`。** 只有将来某个 agent 实现需要内部 LLM 时才引入，且
-  封闭在该扩展 addon 内（类比 `infohub_channel_mcp` 依赖 `llm`）。
-- **不做多级路由/复杂的 agent 自动选择**。MVP 只做显式绑定：一个 thread
-  （channel + peer）绑定一个 agent。自动路由规则留到以后。
-- **不做消息的多端同步/已读回执等 IM 级语义**，只保证消息可靠落库与投递。
-- 不碰生产端口（8069/8072/5432 等），WebSocket 只服务在 gevent worker。
+- **目标架构中不再由 Odoo 持有企微 WS**。Odoo 内的 `agenthub_wecom` 仅作为 legacy 保留；同一 `bot_id` 不能同时由 Odoo 和 relay 持有。
+- **不做语义路由/LLM 意图分类**。路由只按显式 identity/binding/thread；无法确定时拒绝并提示配置。
+- **不承诺 exactly-once**。Relay 是 at-least-once，消费方用 `(turn_id, stream_id, seq)` 等键幂等。
+- **Relay 不做长期存储**。长期归档在 Odoo；relay 只保留热日志（默认 7 天）。
+- **不把所有流式帧写进 `mail.message`**。默认只记录最终语义消息；中间帧留在 relay 热日志。
+- **v1 不做**：relay 多实例 router 分片、跨机房、Discuss 流式中间态投影、图形化 DLQ/replay、群聊完整语义。
+- **不碰生产端口**。relay 与 Odoo 的部署边界按运维规范另行约定。
+
+## 非功能约束
+
+- **规模**：100+ agent、50 万消息/天；单 relay 实例 v1 目标，可水平扩展留到后续。
+- **Odoo 不在热路径**：长连接、路由、队列、租约、重试都在 relay；Odoo 只做配置、Discuss UI、publish outbox、record feed/归档。
+- **记录一致性**：默认异步 recorder，lag SLO < 5 秒；若要求投递前可查，只对用户消息改为同步写前记录。
+- **可靠性**：已接受的消息不能静默丢失；relay 重启可恢复；DLQ 可人工重放。
+- **安全**：agent token 哈希存储、按 agent 隔离 inbox；Odoo publish 用 HMAC；渠道密钥不落日志；Odoo 权限不被 relay 绕过。
+- **可观测**：每 agent/channel 队列深度、投递延迟、租约过期率、DLQ、record lag、WS 重连。
+- **测试**：Odoo 测试无网络/无 API key；relay 使用 fake channel/agent；集成测试使用 fake relay。
+
+## 关键术语
+
+- **channel**：面向用户的传输（Discuss、企微等）。
+- **agent**：一个外部 agent-box 实例；在 Odoo 里有唯一的 service user/partner。
+- **thread**：`(channel, peer, agent)` 的一段会话；渠道隔离。
+- **turn**：一次提问/命令 → agent 执行 → 回复。
+- **relay**：实时消息层，持有连接、路由、队列和 durable log。
+- **recorder**：Odoo 侧消费者，从 relay 拉事件并批量归档。

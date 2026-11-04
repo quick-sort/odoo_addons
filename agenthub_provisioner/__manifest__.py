@@ -1,0 +1,22 @@
+{
+    "name": "Agent Hub Provisioner",
+    "summary": "Provision and manage agent-box containers from Odoo",
+    "version": "19.0.1.0.0",
+    "author": "quick-sort@outlook.com",
+    "website": "quick-sort@outlook.com",
+    "license": "LGPL-3",
+    "category": "Productivity",
+    "depends": ["agenthub", "component", "queue_job"],
+    "data": [
+        "security/ir.model.access.csv",
+        "data/agenthub_provisioner_cron.xml",
+        "views/agenthub_provisioner_host_views.xml",
+        "views/agenthub_provisioner_llm_views.xml",
+        "views/agenthub_agent_deployment_views.xml",
+        "views/agenthub_agent_views.xml",
+        "views/agenthub_provisioner_menus.xml",
+    ],
+    "installable": True,
+    "application": False,
+    "auto_install": False,
+}

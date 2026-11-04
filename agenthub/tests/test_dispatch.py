@@ -85,6 +85,7 @@ class TestAgentDispatch(_DispatchCase):
                 "name": "probe",
                 "agent_type": FAKE_AGENT,
                 "user_id": self.env.ref("base.user_admin").id,
+                "runtime": "in_process",
             }
         )
 
@@ -115,3 +116,22 @@ class TestAgentDispatch(_DispatchCase):
         self._build_stub("other_type", "stub.other.adapter")
         with self.assertRaises(UserError):
             self.agent.reply(object())
+
+    def test_relay_agent_reply_raises_user_error(self):
+        user = self.env["res.users"].create(
+            {
+                "name": "Relay Probe",
+                "login": "relay_probe_agenthub_test",
+                "group_ids": [(6, 0, [self.env.ref("base.group_user").id])],
+            }
+        )
+        relay_agent = self.env["agenthub.agent"].create(
+            {
+                "name": "relay probe",
+                "agent_type": FAKE_AGENT,
+                "user_id": user.id,
+                "runtime": "relay",
+            }
+        )
+        with self.assertRaises(UserError):
+            relay_agent.reply(object())

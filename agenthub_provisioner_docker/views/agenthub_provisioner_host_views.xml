@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+
+    <record id="agenthub_provisioner_host_view_form_docker" model="ir.ui.view">
+        <field name="name">agenthub.provisioner.host.form.docker</field>
+        <field name="model">agenthub.provisioner.host</field>
+        <field name="inherit_id"
+               ref="agenthub_provisioner.agenthub_provisioner_host_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//group[@name='driver_config']" position="inside">
+                <group invisible="driver_type != 'docker'">
+                    <field name="docker_url"/>
+                    <field name="docker_timeout"/>
+                    <field name="docker_tls"/>
+                </group>
+                <group invisible="driver_type != 'docker' or not docker_tls">
+                    <field name="docker_tls_ca"/>
+                    <field name="docker_tls_cert"/>
+                    <field name="docker_tls_key"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

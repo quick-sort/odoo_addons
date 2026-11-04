@@ -19,6 +19,22 @@ class TestWecomChannelModel(common.TransactionCase):
         self.assertIn("bot_id", fields)
         self.assertIn("secret", fields)
 
+    def test_relay_config_snapshot_includes_bot_credentials(self):
+        channel = self.env["agenthub.channel"].create(
+            {
+                "name": "wecom",
+                "channel_type": "wecom",
+                "bot_id": "bot-snap",
+                "secret": "s3cret",
+            }
+        )
+        snapshot = self.env["agenthub.relay.config"]._snapshot()
+        payload = next(
+            item for item in snapshot["channels"] if item["id"] == channel.id
+        )
+        self.assertEqual(payload["bot_id"], "bot-snap")
+        self.assertEqual(payload["secret"], "s3cret")
+
 
 @tagged("post_install", "-at_install")
 class TestWecomChannelSend(common.TransactionCase):

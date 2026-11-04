@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo noupdate="1">
+    <record id="mt_tool" model="mail.message.subtype">
+        <field name="name">Agent Hub Tool</field>
+        <field name="internal" eval="False" />
+        <field name="default" eval="False" />
+        <field name="sequence">200</field>
+        <field name="res_model">mail.thread</field>
+    </record>
+    <record id="mt_user" model="mail.message.subtype">
+        <field name="name">Agent Hub User</field>
+        <field name="internal" eval="False" />
+        <field name="default" eval="False" />
+        <field name="sequence">210</field>
+        <field name="res_model">mail.thread</field>
+    </record>
+    <record id="mt_assistant" model="mail.message.subtype">
+        <field name="name">Agent Hub Assistant</field>
+        <field name="internal" eval="False" />
+        <field name="default" eval="False" />
+        <field name="sequence">220</field>
+        <field name="res_model">mail.thread</field>
+    </record>
+    <record id="mt_system" model="mail.message.subtype">
+        <field name="name">Agent Hub System</field>
+        <field name="internal" eval="False" />
+        <field name="default" eval="False" />
+        <field name="sequence">230</field>
+        <field name="res_model">mail.thread</field>
+    </record>
+</odoo>

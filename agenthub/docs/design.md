@@ -1,380 +1,366 @@
 # agenthub — 系统设计
 
-## 总览：两轴正交、运行时绑定
+## 总览：两轴正交，relay 中转，Odoo 归档
 
-agenthub 把「Odoo 与外部智能对话」拆成两轴，各轴独立扩展：
+agenthub 把「Odoo 与外部智能对话」拆成两个正交维度：
 
-- **channel（传输）** —— 消息从哪条线上进来、往哪条线出去。企微、Telegram、
-  网页… 是 channel 的具体取值。
-- **agent（应答）** —— 一个「对话对象」是谁、怎么理解它的消息。OpenClaw、
-  OpenCode、内部 `llm.agent`、人工… 是 agent 的具体取值。
+- **channel（传输）**：消息从哪条线到达用户。Discuss/Odoobot、企微 bot、未来 Web 等。
+- **agent（应答）**：一个外部 agent-box 实例，负责理解消息并回复。一个用户可以有多个 agent。
 
-两者**正交且不耦合**：
+两者互不依赖，由数据在运行时绑定：一个会话（channel + peer + agent）由 `agenthub.thread` 表达。channel addon 与 agent addon 都只依赖 core。
 
-- 一条 channel 上跑的是谁，channel 本身**不知道也不该知道**——从企微收到的
-  消息，无法区分对端是 OpenClaw、OpenCode 还是任何实现了企微 aibot 插件的
-  运行时。channel 只认对端的传输标识（企微的 `bot_id`）。
-- 一个 agent 经哪条 channel 触达，agent 本身**也不关心**——它只负责「这段
-  对话该怎么理解、怎么应答」。
+**目标部署形态（>100 agent）**：
 
-谁配谁，由 `agenthub.thread` 在**运行时绑定**（一条数据，不是代码依赖）：一个
-会话（channel + peer）绑定一个 agent。channel addon 与 agent addon 都只依赖
-core。
+```
+用户
+ ├─ Discuss（Odoo 原生 UI）── Odoo publish outbox ──┐
+ └─ 企微 / 其他渠道 ── relay channel gateway ────────┤
+                                                    ▼
+                                                 Relay
+                          ┌─────────────────────────┼─────────────────────────┐
+                          ▼                         ▼                         ▼
+                   agent inboxes            channel outboxes           record stream
+                          │                         │                         │
+                    agent-box × N            渠道发送                   Odoo recorder
+                                                                             │
+                                                                             ▼
+                                                               mail.message / turn / delivery
+```
 
-会话的**载体是 `mail.thread`**（对齐 `llm.thread`）：消息用标准 `mail.message`
-存储，天然获得 Discuss 聊天界面、附件、流式推送，流式回复用「一条消息原地
-更新」表达。
+- **Relay**：实时消息层。终结 agent/渠道连接、归一协议、解析路由、排队投递、维护 presence/背压、生产 durable 事件。
+- **Odoo**：Discuss UI、agent service user、配置（agent/identity/binding）、publish outbox、异步 recorder、归档与审计。
+- **agent-box**：外部进程。通过 WebSocket 连 relay，按 `thread_key` 维护 session，流式回包。
+
+**Odoo 不在实时热路径**：长连接、路由和队列都在 relay。Odoo 只做配置、Discuss UI、事件发布、异步记录与归档。Discuss 是 Odoo 原生入口，它的入站消息由 Odoo 写入 publish outbox，但不做路由。
+
+运行时的操作事实来源是 relay 的 durable log；Odoo 是可查询的长期归档。recorder lag 目标 SLO < 5 秒；当前 v1 骨架用 1 分钟 cron 拉取，达到 5 秒需要后续长轮询/推送 worker。
 
 ## 数据模型
 
-三个模型都在 `agenthub` core，namespace 在 `agenthub.*`；再加一个对
-`mail.message` 的字段扩展。
+所有模型在 `agenthub` core，namespace 为 `agenthub.*`，另加 `mail.message` 扩展。
 
-### agenthub.channel（传输）
+| 模型 | 作用 |
+|---|---|
+| `agenthub.channel` | 用户侧传输配置 |
+| `agenthub.agent` | 外部 agent-box 实例注册 |
+| `agenthub.identity` | 渠道外身份 ↔ Odoo 用户 |
+| `agenthub.binding` | 用户配置：哪个渠道找哪个 agent |
+| `agenthub.thread` | 会话（channel + peer + agent） |
+| `agenthub.turn` | 一次提问 → 执行 → 回复 |
+| `agenthub.command` | cron/系统下发命令 |
+| `agenthub.delivery` | 投递审计副本；热队列在 relay |
+| `agenthub.publish` | Odoo → relay 的发布 outbox |
+| `agenthub.record.cursor` | Odoo recorder 的 checkpoint |
 
-继承 `collection.base`（component 的 collection）。字段：
-
-- `channel_type`：Selection，**core 置空**，由各 channel addon `selection_add`
-  填充。
-- `name`、`active`
-- 健康状态：`last_run_at` / `error_count` / `last_error`
-
-**core 不预置任何 channel 专属字段**（企微的 `bot_id`/`secret`、Telegram 的
-`bot_token` 都由各自 addon 用 `_inherit` 追加）。
-
-### agenthub.agent（应答）
+### agenthub.channel
 
 继承 `collection.base`。字段：
 
-- `agent_type`：Selection，**core 置空**，由各 agent addon `selection_add`
-  填充。
-- `name`、`active`
+- `channel_type`：Selection，**core 置空**，由各 channel addon `selection_add` 填充。
+- `name`、`active`、健康状态（`last_run_at` / `error_count` / `last_error`）。
+- 渠道专属字段由各 addon `_inherit` 追加（企微的 `bot_id`/`secret` 等）。
+- 目标架构下，外部渠道的 socket 由 relay gateway 持有；Odoo 只保存配置，并把凭据/引用同步给 relay。
 
-同样不预置 agent 专属字段。
+Discuss 作为 Odoo 原生渠道，不强制创建 `agenthub.channel`：`agenthub.thread.channel_id` 可为空，用 `discuss_channel_id` 关联真实的 `discuss.channel`。`agenthub_discuss` 负责在 `_message_post_after_hook` 里把用户消息写入 publish outbox。
 
-### agenthub.thread（会话 = 运行时绑定 + 聊天载体）
+### agenthub.agent
 
-继承 `mail.thread`（像 `llm.thread`）。字段：
+继承 `collection.base`。一个记录代表一个外部 agent-box 实例；同一个用户可有多条。
 
-- `name`：标题
-- `channel_id`：M2o `agenthub.channel`，怎么到达
-- `peer_ref`：Char，channel 侧的对端标识（企微的 `bot_id`，Telegram 的
-  chat id…）
-- `agent_id`：M2o `agenthub.agent`，谁来应答
-- `external_id`：channel 侧稳定标识，用于幂等/去重
+- `name`、`agent_type`、`active`
+- `runtime`：`relay`（外部 agent-box）或 `in_process`（Odoo 内适配器，如 `llm.agent`/人工）。
+- `owner_user_id`：授权人、权限天花板（可选）。
+- `user_id`：执行身份/专职 service user（required；内部用户、active）。**每个 agent 一个唯一 service user**，它在 Discuss 里的 partner 就是用户直接选择的对话对象。
+- `partner_id`：related `user_id.partner_id`，用于 Discuss 显示与消息作者。
+- `token_hash`：relay 认证 token 的哈希；明文只在生成时展示一次。
+- `state` / `last_seen`：从 relay presence 同步，仅展示，不作为投递依据。
+- `workspace` / `project` 等 JSON 元数据，描述 agent-box 的运行环境。
+- `api_key`：legacy 字段，保留兼容；新实现使用 `token_hash`。
+
+约束：
+
+- `user_id` 必须是内部用户（`share=False`）且 `active=True`。
+- 活跃 agent 的 `user_id` 唯一；不允许两个 agent 共用同一个 service user，否则 Discuss 无法区分。
+- 允许 `user_id == owner_user_id`（以 owner 本人身份执行），但推荐专职 service user。
+
+### agenthub.identity
+
+渠道外身份映射：
+
+- `channel_id`、`peer_ref`（企微 `userid`、外部会话 id 等）
+- `partner_id` / `user_id`
+- `active`
+- 唯一约束 `(channel_id, peer_ref)`
+
+没有 identity 就无法把渠道消息映射到用户，也就无法应用“用户各自的配置”。
+
+### agenthub.binding
+
+用户侧路由配置，主要用于非 Discuss 渠道：
+
+- `user_id`、`channel_id`、`agent_id`
+- `active`
+- 唯一约束 `(user_id, channel_id)`（v1：同一用户在同一渠道绑定一个 agent）
+
+Discuss 不走 binding：用户直接与 agent 的 service user partner 会话，partner 即路由键。
+
+### agenthub.thread
+
+继承 `mail.thread`。会话载体：
+
+- `name`、`channel_id`（外部渠道；Discuss-only 可为空）、`peer_ref`、`agent_id`
+- `external_id`：渠道侧稳定标识
+- `relay_thread_key`：relay 使用的稳定键（唯一/索引）
+- `discuss_channel_id`：Discuss 场景关联的真实 `discuss.channel`
 - `state`：`active` / `closed`
-- 唯一约束 `(channel_id, peer_ref)`：同一 channel 上的同一 peer 只有一个会话
+- 约束：`channel_id` 或 `discuss_channel_id` 至少一个；`(channel_id, peer_ref, agent_id)` 唯一；`relay_thread_key` 唯一（Discuss 去重靠它）
 
-继承 `mail.thread` 意味着：消息就是 `mail.message`，可直接在 Discuss 界面里
-聊，流式与附件的 UI/推送都复用标准机制。
+`relay_thread_key`：
 
-### mail.message 扩展（会话内容 + 传输状态）
+- 外部渠道：`agenthub:channel:<channel_id>:peer:<peer_ref>:agent:<agent_id>`（确定性生成）
+- Discuss：`discuss.channel:<id>`（由 Odoo publish 事件直接给出）
+- 命令：`command:<id>`
 
-`_inherit = "mail.message"`，给消息加 agenthub 专属字段（core 不依赖 `llm`，
-用 agenthub 自己的字段，不借用 `llm_role`）：
+外部渠道的确定性 thread_key 让 relay 不需要查询 Odoo 的 thread 表；Odoo recorder 在归档时 ensure thread。
 
-- `agenthub_role`：`user`（Odoo 侧）/ `assistant`（外部 agent 侧），供 UI 区分
-  气泡
-- `agenthub_direction`：`in`（从 channel 进来）/ `out`（要发往 channel）
-- `agenthub_external_id`：channel 侧消息 id（企微的 `msgid` / `req_id`），用于
-  关联与去重
-- `agenthub_reply_to_external_id`：channel 侧「这条消息在回复谁」的关联 id
-  （企微 `aibot_respond_msg` 回传的 `req_id`），把回包关联回原 outbound
-- `agenthub_delivery_state`：`pending` / `sent` / `failed`——出站投递状态机，
-  也是跨进程出站队列的载体
-- `agenthub_stream_id`：流式累积关联（同一次流式回复的多帧共用）
-- `agenthub_content`：channel 侧**原始内容**（HTML 渲染前），agent 读它解释
-  消息（如 OpenClaw 的 `<think>` 块）
+### agenthub.turn
 
-**出站队列直接落在 `mail.message` 上**：`agenthub_delivery_state=pending` 的
-outbound 消息就是要投递的队列项。不单开 `agenthub.message` 表，避免「内容」
-与「投递状态」两张表同步。
+一次「提问/命令 → agent 执行 → 回复」的聚合：
 
-流式回复对齐 `llm.thread` 的 `message_post_from_stream`：首帧建占位消息，逐帧
-原地 `write` 累积内容（原始 markdown 存 `body_json`），终帧收尾。
+- `thread_id`、`agent_id`、`inbound_message_id`
+- `relay_turn_id`：全局唯一，用于幂等
+- `state`：`queued` / `running` / `completed` / `failed` / `cancelled` / `expired`
+- `attempt`、`started_at`、`finished_at`、`error`
+- `is_active`：布尔标记；同一 thread 只允许一个活跃 turn（实现用部分唯一索引）
+
+### agenthub.command
+
+cron/系统下发命令：
+
+- `agent_id`、`thread_id`（可选）
+- `name`、`payload`（Json）
+- `reply_mode`：`none` / `owner` / `thread`
+- `state`、`result_message_id`、`created_by`
+- 定时任务通过 `ir.cron` 创建 command，再由 publish outbox 发给 relay。
+
+### agenthub.delivery
+
+**只作为 Odoo 侧审计副本**，由 recorder 写入；不是热队列：
+
+- `turn_id`、`message_id`、`agent_id`/`channel_id`
+- `leg`：`to_agent` / `to_user`
+- `relay_delivery_id`、`state`、`attempt`、`error`
+- `created_at`、`sent_at`
+
+热队列、租约、重试和 DLQ 都在 relay；Odoo 不轮询 `pending` 消息。
+
+### agenthub.publish / agenthub.record.cursor
+
+- `agenthub.publish`：Odoo → relay 的 outbox。与业务消息/命令在同一事务写入，由 worker 推送；relay 按 `event_id` 去重。
+- `agenthub.record.cursor`：Odoo recorder 拉取 relay `record` 流的 checkpoint。recorder 先批量幂等写库，再提交 cursor。
+
+### agenthub.recorder（Odoo 消费端）
+
+- AbstractModel；`_process_event(event)` 把 relay record 事件幂等写入 `mail.message` / `agenthub.turn` / `agenthub.delivery`。
+- 默认忽略 `message.updated`，只在 `message.created` / `message.final` 落最终消息。
+- 幂等键：`agenthub_relay_message_id` + `agenthub_stream_id`；`meta.origin_record_id`（`mail.message,<id>`）用于跳过 Odoo 已落库的 Discuss 用户消息。
+- Discuss 投影：通过 `discuss.channel.message_post` 以 agent service user 身份发帖；外部渠道写入 `agenthub.thread` 的 `mail.message`。
+- `agenthub.record.cursor._cron_pull()` 从 relay `/v1/record` 拉取，携带 `X-AgentHub-Recorder-Token`；批次成功后更新 cursor 并 ack。
+- Odoo 配置：`agenthub.relay_url`、`agenthub.relay_secret`、`agenthub.relay_recorder_token`、`agenthub.relay_config_token`、`agenthub.recorder_batch_limit`。
+- 配置快照：Odoo 提供 `GET /agenthub/relay/config`，要求 `X-AgentHub-Config-Token`；relay 按版本拉取并原子替换 agent token/identity/binding 缓存。
+- 当前 cron 间隔 1 分钟；<5s SLO 需要后续长轮询/推送 worker。
+
+### mail.message 扩展
+
+`_inherit = "mail.message"`，与 `llm` 的语义对齐，但 core 不依赖 `llm`：
+
+- subtype：`agenthub.mt_user` / `mt_assistant` / `mt_tool` / `mt_system`
+- `agenthub_role`：由 subtype 计算并存储（`user` / `assistant` / `tool` / `system`）
+- `agenthub_body_json`：tool_calls、tool_result、结构化内容
+- `agenthub_is_error`：展示但不进入上下文（用前缀避免与 `llm.is_error` 冲突）
+- `agenthub_content`：渠道侧原始文本/markdown；`body` 存渲染后的 HTML
+- `agenthub_relay_message_id`：relay 侧消息 id，用于 recorder 幂等
+- `agenthub_relay_turn_id` / `agenthub_turn_id`：问答关联
+- `agenthub_stream_id`：流式回复关联
+- `agenthub_external_id` / `agenthub_reply_to_external_id`：渠道侧消息 id 与回复关联
+- `agenthub_direction` / `agenthub_delivery_state`：legacy/审计字段；不再作为出站队列
+
+约定：
+
+- 最小记录单元是语义 message（user/assistant/tool/system），不是流式 chunk。
+- 一个 `stream_id` 只建一条占位消息，最终帧收尾；Odoo recorder 默认只落最终消息。
+- tool call 放 assistant 的 `body_json.tool_calls`；tool result 是独立的 `tool` message + `body_json`。
+- 中间帧/工具事件保留在 relay 热日志；确需完整回放时再引入短保留 event 表。
 
 ## 扩展点
 
-core 定义两个抽象 component，各自的具体类型用 **usage 后缀** 消歧（与
-InfoHub 一致，绕开 `SeveralComponentError`）：
+core 定义两个抽象 component：
 
-```
-WorkContext(model_name=..., collection=channel).component(
-    usage=channel.channel_type)
-WorkContext(model_name=..., collection=agent).component(
-    usage=agent.agent_type)
-```
+- `agenthub.channel.adapter`：`send(channel, message)`，用于 `in_process`/本地渠道。
+- `agenthub.agent.adapter`：`reply(agent, message)`，用于 `in_process` agent（如 `llm.agent`、人工）。
 
-（usage 等于类型值，如 `"wecom"` / `"openclaw"`，由 component 的 `_collection`
-限定到对应模型，对齐 `llm.provider.adapter` 的用法，而非 InfoHub 的前缀后缀式。）
+解析按 usage 后缀（`usage == channel_type` / `agent_type`），与 InfoHub 一致，避免 `SeveralComponentError`。
 
-### agenthub.channel 契约（传输，agent 无关）
+外部 agent（`runtime=relay`）**不走 `reply()`**：Odoo 创建 turn 并写入 publish outbox，由 relay 投递给 agent-box；回包经 record feed 回到 Odoo。agent addon 仍负责 `selection_add`、配置字段、token/service user 管理。
 
-- `send(channel, message)`——把一个 outbound `mail.message` 投递到对端。这是
-  core 路由唯一需要调用的抽象契约。
-- 入站归一化与连接生命周期（企微的 gevent 循环）是 channel 内部实现，由
-  channel 自己的控制器驱动，不进抽象契约。
+新增 channel/agent 只加独立 addon：
 
-### agenthub.agent 契约（应答，channel 无关）
+- channel addon：`_inherit` 加字段 + `selection_add` + 对应 gateway/component。
+- agent addon：`_inherit` 加字段 + `selection_add` + `agent_type`/runtime 实现。
 
-- `reply(agent, message)`——给定一个 inbound `mail.message`，返回归一化后的
-  回复内容（文本）。
-- agent 只操作 `mail.message` 的内容与关联，不触碰任何具体 channel 的传输。
+## 路由与数据流
 
-## 路由与数据流（core 中介）
+### 外部渠道
 
-core 的路由层是 channel 与 agent 之间唯一的中介，两者互不直接调用：
+1. relay channel gateway 收到消息，归一化为 `message.created` envelope。
+2. relay router 用 `peer_ref` 查配置缓存：identity → user → binding → agent。
+3. 生成确定性 `thread_key`，创建 turn，写入 agent inbox；同时写 record 流。
+4. agent-box 领取、流式回包；final 后写入 channel outbox。
+5. gateway 发送给用户；Odoo recorder 异步拉取 record 流，落 `mail.message` / `agenthub.turn` / `agenthub.delivery`。
 
-入站（外部 → Odoo → agent → 外部）：
+### Discuss
 
-1. channel 收到传输事件，归一化成 inbound `mail.message`，按
-   `(channel_id, peer_ref)` 找/建 thread 并落库
-2. core 路由取 `thread.agent_id`，调 `agent.reply(inbound)`
-3. agent 产出 outbound `mail.message`，core 路由交 `channel.send()` 投递
+1. 用户在 `discuss.channel` 里与 agent 的 service user partner 会话。
+2. `agenthub_discuss` 在 `_message_post_after_hook` 里检测绑定到 agenthub 的频道，跳过 agent/OdooBot 回帖，与消息同事务写 `agenthub.publish` outbox。
+3. worker 调 relay publish 接口；事件带 `thread_key=discuss.channel:<id>`、`agent_id`，以及 `meta.origin_record_id=mail.message,<id>`。
+4. agent 回包 final 后写 record；Odoo recorder 以 service user 身份投影回 `discuss.channel`。用户原始消息已由 Odoo 落库，recorder 按 `origin_record_id` 跳过，不重复创建。
 
-出站（Odoo 主动发起，例如 Odoo 作为「用户」向外部 agent 提问）：
+Odoo 不参与实时路由；它只做入站发布、最终消息投影和归档。
 
-1. 业务侧（Discuss 界面 / cron）在某个 thread 下建 outbound `mail.message`
-   （`agenthub_delivery_state=pending`）
-2. gevent worker 的 channel 连接循环轮询「本 channel 的 pending」→ `send()`
-   → 置 `sent`
-3. 外部 agent 的回包作为 inbound 回来（`agenthub_reply_to_external_id` 关联到
-   原 outbound），core 路由交 agent 解释、落库、投递给发起方
+### cron/命令
 
-一轮「提问→应答」的关联由 `agenthub_external_id` / `agenthub_reply_to_external_id`
-串起来：channel 负责在归一化时填这两个字段，agent 负责用它们匹配，谁都不
-需要知道对方的实现。
+1. `ir.cron` 创建 `agenthub.command`，写 publish outbox。
+2. relay 创建 turn，投递给目标 agent。
+3. 回包按 `reply_mode`：`none` 只落库；`owner` 通知 owner；`thread` 回到指定会话。
 
-## 企微 channel（agenthub_wecom）
+### 流式
 
-### 协议定位
+- agent 首帧 `message.updated`（`final=false`）；中间帧按 `seq` 更新同一 `stream_id`。
+- relay 节流后转发；Odoo recorder 默认忽略中间帧，只落 `message.final`。
+- 若后续 Discuss 需要流式展示，再让 recorder 对占位消息做节流更新。
+- agent 崩溃/租约过期：未 ack 的 delivery 重投；agent 用 `(turn_id, stream_id, seq)` 幂等重放。
 
-实现企业微信智能机器人（aibot）**WebSocket 服务端**。对端是外部 agent
-运行时装的企微插件（`@wecom/aibot-node-sdk` 客户端），它主动 `ws://` 连进来，
-用 `bot_id + secret` 认证，之后双方用 JSON 文本帧 `{cmd, headers:{req_id},
-body}` 通信。
+## Relay（独立服务）
 
-命令集（以 SDK 为准，插件源码里 `aibot_callback`/`aibot_response` 是过时命名）：
+Relay 的完整职责、状态机、接口见：
 
-| 方向 | cmd | 语义 |
-|---|---|---|
-| C→S | `aibot_subscribe` | 认证 `{bot_id, secret, scene?, plug_version?}` |
-| C→S | `ping` | 心跳（30s） |
-| C→S | `aibot_respond_msg` | 被动回复（对某回调的流式/文本回复） |
-| C→S | `aibot_send_msg` | 主动发送 |
-| C→S | `aibot_upload_media_init/_chunk/_finish` | 分片上传换 `media_id` |
-| S→C | `aibot_msg_callback` | 推给 bot 的「用户消息」 |
-| S→C | `aibot_event_callback` | 事件（`enter_chat` / `disconnected_event` …） |
-| S→C | （无 cmd） | 所有 ACK：`{headers:{req_id}, errcode, errmsg}` |
+- `relay-v1.md`：组件、队列、turn/delivery/outbox/presence 状态机、agent WS、publish、record feed、config sync、admin、背压、安全、HA。
+- `relay-message-envelope.md`：统一 envelope、event_type、payload schema、幂等、校验、Odoo 映射。
 
-三条硬规则（决定连接能否稳定）：
+设计要点：
 
-1. **认证**：subscribe 回 `errcode:0` 即成功，非 0 客户端断连重试。
-2. **心跳**：`ping` 必须回显 `req_id` + `errcode:0`，否则客户端判定连接死亡。
-3. **ACK**：`respond`/`send`/`upload_*` 每个都要按 `req_id` 精确回显 ACK，
-   否则客户端 reject/超时。
+- **连接**：agent WebSocket 为主，HTTP 长轮询降级；企微 gateway 持有 aibot WS，每个 `bot_id` 用租约保证单 owner。
+- **路由**：只按显式 identity/binding/thread，不做语义路由。
+- **投递**：至少一次 + 租约 + ack + 重试 + DLQ；同一 thread 串行，不同 thread/agent 并发。
+- **状态**：turn/delivery/presence/thread 活跃态放 Redis KV；durable 事件放 Redis Streams（NATS JetStream 可替换）。
+- **归档**：所有语义事件写 `record` 流；Odoo recorder 主动拉取并维护 cursor。
+- **背压**：每 agent/每 channel 队列上限、未 ack 上限、record lag 上限；触发时拒绝新入站，不丢已接受消息。
+- **安全**：agent token 哈希、按 agent 隔离 inbox；Odoo publish 用 HMAC；渠道密钥不落日志。
 
-**channel 只认 `bot_id`**：认证成功后只记录「bot_id ↔ 连接」，不关心、也不
-保存「这个 bot 背后是 OpenClaw 还是 OpenCode」。那是 thread 绑定层的事。
+## 企微 channel 与 OpenClaw agent（legacy）
 
-### 多连接处理
+当前仓库里的两个实现是 **legacy**，保留给已有安装：
 
-三件事：
+- `agenthub_wecom`：在 Odoo gevent worker 内实现 aibot WebSocket 服务端。目标架构把它移到 relay channel gateway；同一 `bot_id` 不能同时由 Odoo 和 relay 持有，否则互踢。
+- `agenthub_openclaw`：Odoo 进程内的 OpenClaw 回复语义适配器。目标架构由外部 agent-box 通过 relay 接入；该 addon 不再作为主路径。
 
-1. **按 bot_id 区分**：认证成功后 `_live_connections[bot_id] = conn`（gevent
-   worker 进程内）。
-2. **同 bot_id 互踢**：新 subscribe 到来时，若已有同 bot_id 连接，先给旧连接
-   推 `aibot_event_callback(eventtype=disconnected_event)` 再关旧 socket，然后
-   接管。这复刻了真实企微服务端行为，也让外部运行时侧的双实例互踢死循环
-   得以避免。
-3. **跨进程下发走 DB**：注册表是 gevent worker 进程内内存态；HTTP/cron
-   worker 是另一个进程，拿不到 socket。所以 Odoo → 外部 agent 的消息落
-   `mail.message`（`agenthub_delivery_state=pending`），由连接循环轮询本
-   channel 的 pending 投递；多 gevent worker 用 `SELECT … FOR UPDATE SKIP
-   LOCKED` 抢占，保证只有持有该 bot 连接的那个 worker 投递。
-
-### 与 Odoo 的承载关系
-
-WebSocket 只跑在 Odoo **gevent worker**（8072），路由用
-`@route('/wecom/aibot/ws', type='http', auth='public', websocket=True)` 做
-HTTP→WS 升级，握手后 `call_on_close` 里进入连接循环。生产由 nginx 反代，
-不碰 8069。
-
-## OpenClaw agent（agenthub_openclaw）
-
-### 定位
-
-`agenthub_openclaw` 只实现「与 OpenClaw 对话的**语义**」——怎么组织一条提问、
-怎么理解 OpenClaw 的回包（流式多帧 `stream.id` 累积、`finish` 收尾、markdown、
-`<think>` 块、媒体/模板卡片指令）。它**不实现传输**：消息怎么送出去、回包
-怎么回来，是 core 路由 + 具体 channel 的事。
-
-因此 `agenthub_openclaw` 与 `agenthub_wecom` **互不依赖**，两者都只依赖
-`agenthub` core。把 OpenClaw 接到企微上，是在 Odoo 里建一条
-`thread(channel=企微 bot X, agent=OpenClaw)` 的运行时绑定，而非代码耦合。
-
-### 语义边界
-
-- agent 用 `agenthub_reply_to_external_id` 把回包关联回原 outbound，用流式
-  多帧累积出完整回复（一条 `mail.message` 原地更新），再交 core 路由投递。
-- 流式中间帧与终帧、媒体/卡片指令的解析，都是 OpenClaw 的语义，封闭在本
-  addon；换一个 agent（如 OpenCode）就在它自己的 addon 里写它自己的语义。
+legacy 实现的协议细节仍以各自 addon 的 `docs/` 为准。新部署不应同时启用 legacy Odoo WS 与 relay gateway。
 
 ## 关键取舍与理由
 
-### 为什么 channel 与 agent 拆成两轴，而不是「channel 自带 agent」
+### 为什么 relay 独立、Odoo 不在热路径
 
-传输（消息怎么到）与应答（这段对话怎么理解/回应）是两个正交的维度，而且
-**channel 收到的消息无法识别对端是哪个 agent**——企微 aibot 协议里没有
-「我是 OpenClaw」这样的字段。硬把 agent 塞进 channel，就是把一条传输和某个
-具体运行时焊死，换一个运行时就得换一条 channel。拆分后每轴各加一个 addon。
+>100 agent、50 万消息/天时，Odoo 作为实时路由/队列会成为瓶颈：gevent/HTTP worker、ORM 写入、DB 轮询和 Discuss 通知互相竞争。Relay 独立后可以水平扩展、使用专用队列、按 agent 隔离背压；Odoo 只做它擅长的配置、UI、权限和归档。
 
-### 为什么 channel 与 agent 互不依赖，由 thread 运行时绑定
+### 为什么 Odoo 仍然记录所有语义消息
 
-谁是谁的 agent 是部署时的配置（数据），不是代码关系。把「OpenClaw 经企微
-触达」写成 `agenthub_openclaw` 依赖 `agenthub_wecom`，就等于在代码里断言了
-「OpenClaw 只能走企微」，而实际上 OpenClaw 换条 channel、或企微接别的 agent，
-都不该改任何一边的代码。
+审计、Discuss UI、权限和查询都需要 Odoo 的长期数据。Relay 的 durable log 是操作事实来源，Odoo 的 `mail.message` 是可查询归档。默认异步 recorder，换取吞吐；若要求“投递前可查”，可把用户消息改为同步写前记录，但会重新引入 Odoo 热路径。
 
-### 为什么 thread 继承 mail.thread，而不是 plain 模型
+### 为什么消息仍落 mail.message，而不是另建 agenthub.message
 
-会话天然是「聊天」：有消息、有角色、有附件、要实时推送、要在 Discuss 界面
-里展示。`llm.thread` 已经用 `mail.thread` + `mail.message` 把这套做完了
-（角色、`body_json`、流式原地更新、`to_store_format()` 推送）。agenthub 抄同一
-个模型，白拿聊天 UI 和流式基础设施，不用重造。
+`mail.message` 直接复用 Discuss UI、附件、流式占位更新和 `llm` 的 role/body_json 语义。只要 recorder 批量直写、避开 `message_post` 的重开销、默认只落最终消息，就能支撑目标规模。若后续 profiling 证明 `mail.message` 是瓶颈，再引入轻量归档表 + 投影，而不是现在就拆两张表。
 
-### 为什么传输字段放 mail.message 上，而不是单开 agenthub.message / delivery 表
+### 为什么每个 agent 一个 service user
 
-「这条消息说了什么」与「这条消息投递到哪了」是同一个逻辑对象的两面。拆成
-两张表（内容表 + 投递表）就多一张表的同步与关联（正是 InfoHub 想避免的
-拆分之痛）。`llm` 已经示范过在 `mail.message` 上 `_inherit` 加 `llm_role` /
-`body_json`，agenthub 加自己的 `agenthub_*` 字段是同一条路。
+Discuss 里用户“直接选到 agent”的前提是每个 agent 有唯一的 Odoo user/partner。共用 Odoobot 或多个 agent 共用一个用户，就无法区分会话、无法审计、也无法独立收窄权限。service user 是身份与权限边界，agent-box 进程通过 token 以该身份读写。
 
-### 为什么出站走 DB 而不是直接写 socket
+### 为什么 thread_key 由 relay 确定性生成（外部渠道）
 
-WebSocket 连接活在 gevent worker 进程；发起消息的 Discuss/业务代码活在
-HTTP/cron worker（另一进程）。内存态注册表跨不过进程边界，DB 是现成的跨进程
-总线（Odoo `bus.bus` 同款）。代价是「轮询」带来一点投递延迟，换取进程解耦。
+relay 不查 Odoo thread 表：`(channel, peer, agent)` 已确定唯一 thread。Odoo recorder 收到事件后 ensure thread 即可。这样 relay 的路由是无状态/缓存式的，减少跨服务查询。
 
-### 为什么关联用 agenthub_external_id + agenthub_reply_to_external_id，而不是 agent 直连 channel
+### 为什么 channel 与 agent 仍然正交
 
-channel 归一化时填好关联 id，agent 只消费这两个字段，就能在完全不知道
-channel 实现的情况下把「提问」与「回包」配对。这是 channel/agent 解耦在
-消息关联上的落点。
+传输（消息怎么到）与应答（这段对话怎么理解/回复）是两个维度，且渠道消息无法识别对端是哪个 agent。把 agent 塞进 channel 会把传输和运行时焊死；拆开后每轴独立扩展。
+
+### 为什么 Odoo publish 用 outbox、record 用拉取
+
+- Odoo → relay：publish outbox 与业务事务同提交，保证 Discuss/cron 消息不丢；worker 重试，relay 按 event_id 去重。
+- relay → Odoo：Odoo recorder 主动拉取并维护 cursor，Odoo 宕机不阻塞 relay；relay 用 lag 指标做背压。
 
 ## 被否决的方案
 
 | 方案 | 否决理由 |
 |---|---|
 | 一对一硬编码「Odoo↔企微↔OpenClaw」 | 新增传输或 agent 都要重写路由/落库/重试，无法沉淀为框架。 |
-| agent 依赖 channel（`agenthub_openclaw` 依赖 `agenthub_wecom`） | 在代码里断言「OpenClaw 只能走企微」；且企微消息本无法识别对端 agent，反了。 |
-| plain `agenthub.thread` + 独立 `agenthub.message` 表 | 弃用。会话就是聊天，`mail.thread` 白送 UI/流式/附件；内容与投递拆两张表徒增同步。 |
-| 复用 `bus` 的 `WebsocketConnectionHandler` 直接跑 aibot | 该 handler 深度耦合 bus 通知协议（channel/subscribe/poll），不是通用 JSON 协议承载，改造不如自建连接循环。 |
-| 独立 WS 进程（`websockets` 库）承载 aibot | 与 Odoo 解耦更彻底，但「在 Odoo 里做 addon」的诉求下多一个进程/端口/运维面；MVP 先用 gevent 承载，将来确需独立扩缩容再拆。 |
-| agent 与 channel 合并成一个模型 | 无法表达两轴正交（见上），会把 `agent_type` 与 `channel_type` 搅成一维笛卡尔积。 |
-| 用 `_component_match` 消歧 | 框架在 collection/model 之外无法消歧，会抛 `SeveralComponentError`。usage 后缀天然唯一。 |
-| impersonate owner（`with_user(owner_user_id)` 执行） | 审计里全是 owner，分不清「人干/agent 干」；且 Odoo 无「比某用户更窄」的原生机制，无法把 agent 收窄到比 owner 更小。见「执行身份与权限」。 |
+| agent 依赖 channel | 在代码里断言“某个 agent 只能走某个 channel”；渠道消息本无法识别 agent。 |
+| plain `agenthub.thread` + 独立 `agenthub.message` 表 | 会话就是聊天，`mail.thread` 白送 UI/流式/附件；内容与投递拆两张表徒增同步。当前保留 `mail.message`，投递只做审计副本。 |
+| **Odoo 作为实时 router/queue** | >100 agent 时受 worker/ORM/DB 轮询限制；路由、队列、长连接移到 relay。 |
+| **每个 agent 轮询 Odoo 的 mail.message** | N 个 agent × 轮询频率会打爆 Odoo；改为 relay WS + 按 agent 的 inbox 流。 |
+| **所有事件同步写前记录到 Odoo** | 吞吐受 Odoo 写入限制；默认异步 recorder，必要时只对用户消息做同步写前。 |
+| **每条流式帧都落 mail.message** | 行数和写入量成倍增加；一个 stream_id 一条占位/最终消息即可。 |
+| **所有 agent 共用 Odoobot / 一个 Odoo 用户** | Discuss 无法区分 agent，审计和权限无法独立。 |
+| **目标架构中让 Odoo 继续持有企微 WS** | Odoo 会留在热路径；且与 relay gateway 争抢同一 bot_id 会互踢。仅保留为 legacy。 |
+| 复用 `bus` 的 `WebsocketConnectionHandler` 直接跑 aibot | 该 handler 深度耦合 bus 通知协议，不是通用 JSON 协议承载。 |
+| 独立的裸 `websockets` 进程（无路由/无持久化） | 早期否决的是“只有 socket、没有 relay 职责”的进程；v1 relay 有明确的队列、路由、状态机和归档接口。 |
+| agent 与 channel 合并成一个模型 | 无法表达两轴正交，会把类型搅成一维笛卡尔积。 |
+| 用 `_component_match` 消歧 | 框架在 collection/model 之外无法消歧，会抛 `SeveralComponentError`；usage 后缀天然唯一。 |
+| impersonate owner | 审计里全是 owner，分不清“人干/agent 干”；且 Odoo 无“比某用户更窄”的原生机制。 |
 
-## 执行身份与权限（agent 挂在用户上）
+## 执行身份与权限
 
-### 问题
-
-agent 要操作 Odoo 数据（读记录、写记录、发消息），就必须有一个**执行身份**。
-`agenthub.agent` 目前没有任何身份字段——`agent.reply()` 直接在调用者的 env 里
-跑。本层回答：agent 以谁的身份、用谁的权限，怎么既「继承某个用户的权限」，
-又「独立追踪、独立限制」。
-
-### 三个身份，拆开
+### 三个身份
 
 | 身份 | 字段 | 作用 | 用于执行？ |
 |---|---|---|---|
-| 归属/授权人 | `owner_user_id`（M2o res.users） | agent 属于谁、谁授权它；审计归属、权限上限 | 否 |
-| 执行身份 | `user_id`（M2o res.users，required） | agent 的工具调用/读写记录实际跑在谁的环境 | 是 |
-| 显示身份 | `partner_id`（M2o res.partner） | agent 在 Discuss 里的消息作者（= `user_id.partner_id`） | 否 |
-
-**「挂在某个用户上」= `user_id` 指向一个专职 service user，而不是 owner 本人。**
-粒度：**每个 agent 一个 service user**——独立审计、独立收窄，互不串扰。
+| 归属/授权人 | `owner_user_id` | agent 属于谁、谁授权；审计归属、权限上限 | 否 |
+| 执行身份 | `user_id`（service user） | agent 的工具调用/读写实际跑在谁的环境 | 是 |
+| 显示身份 | `partner_id` | Discuss 里的消息作者（= `user_id.partner_id`） | 否 |
 
 ### 执行契约
 
-对齐 `llm.agent._run_in_thread`（`llm/models/llm_agent.py:449`）：caller 用
-`with_user` 绑定执行身份，此后 thread 消息与工具调用都留在这个 env；provider
-凭据仍由 provider 层用窄 `sudo()` 读。
+- `in_process` agent：`_agent_env()` 返回 `env(user=self.user_id, su=False)`；caller 用 `with_user` 绑定执行身份，工具/记录访问用 `self.env[model]`，**never sudo**。
+- `relay` agent：Odoo 用 service user 记录消息作者与审计；agent-box 通过 relay token 认证，实际 Odoo 权限由 token 对应的 service user 决定。Relay 不得绕过 Odoo 权限。
+- 约束：`user_id` 必须是内部、active 用户；活跃 agent 的 service user 唯一；允许 `user_id == owner_user_id`，但推荐专职 service user。
+- 消息作者：`message_post(author_id=agent.partner_id)`；UI 上 agent 与人类可辨。
+- Record rule：按 `agent_id` / `owner_user_id` 收敛；普通用户只看/管自己的 agent 与 thread，`base.group_system` 看全部。
 
-```python
-# agenthub.agent
-user_id = fields.Many2one("res.users", required=True)      # 执行身份（service user）
-owner_user_id = fields.Many2one("res.users")               # 归属/授权（可选）
+## 管理 UI、Token 与命令
 
-def _agent_env(self):
-    self.ensure_one()
-    return self.env(user=self.user_id)   # 不用 sudo()
-```
+- 菜单 `Agent Hub → Agents`：list/form 管理 agent（name、runtime、owner、service user、token、workspace）。
+- Token：生成时展示一次，存储 `token_hash`；支持轮换。relay 通过配置快照拿到 hash。
+- 新增 `Identities`、`Bindings`、`Commands` 管理入口（或嵌入 agent/channel 表单）。
+- `agenthub.command` 可由 `ir.cron` 创建；表单支持 `reply_mode`。
+- 权限：`agenthub.agent` 对 `base.group_user` 开放 CRUD；record rule 按 `owner_user_id` 隔离，管理员看全部。
 
-路由层：所有 agent 动作在 `agent._agent_env()` 下执行——
+## 验收与测试边界
 
-```python
-adapter.reply(agent.with_env(agent._agent_env()), message)
-```
+- Odoo addon tests（`--test-tags /agenthub`）覆盖：模型/约束、component 扩展点、publish outbox、recorder 幂等、config 快照、Discuss 投影、token/权限。
+- Relay 由独立服务自己的 contract/integration tests 覆盖：envelope、路由、状态机、WS、租约、背压、DLQ、bot lease、HA 重连。
+- 集成测试使用 fake relay + fake channel，保证无外部网络/API key 也能跑。
+- 验收项见 `acceptance.md`。
 
-工具/记录访问用 `self.env[model]`（**never sudo**），绑定用户的 ACL + record
-rule 天然生效（对齐 `llm/models/llm_tool.py:482`）。`sudo()` 只允许出现在
-「读自己的 provider 配置/密钥」这种窄场景（照 `llm` provider 层的做法）。
+## 后续扩展
 
-### 为什么是专职 service user，而不是 impersonate owner
+- Relay 多实例 router 分片、跨机房。
+- Discuss 流式中间态投影。
+- 新 channel：Telegram/Web/邮件；新 agent：OpenCode/内部 `llm.agent`/人工。
+- Relay 技术选型：Redis Streams vs NATS JetStream。
+- 归档保留策略、冷存储、跨 agent 审计报表。
+- 群聊/多用户会话语义。
 
-1. **继承**：把该有的组授给 service user 即可。
-2. **独立追踪**：`create_uid`/`write_uid`/`mail.message.author_id` 都是该
-   service user，审计永远能分清「人干的还是 agent 干的」。impersonate owner
-   会让审计里全是 owner，分不清。
-3. **独立限制**：service user 有自己的组和 record rule。从它身上摘掉一个组 =
-   agent 失去该能力，**不动 owner**。Odoo 没有「比某用户更窄」的原生机制
-   （除了按 context 写 rule），所以 impersonate owner **做不到独立收窄**。
-4. **权限上限**：约束 `service_user.groups ⊆ owner_user.groups`——把「继承用户
-   的权限」表达为**天花板**，再通过裁剪 service user 的组在内部**进一步限制**。
-   一条规则同时表达「继承 + 限制」。
+## 参考
 
-### 护栏
-
-- constraint：`user_id` 必须是内部用户（`share=False`）、`active=True`。
-  允许 `user_id == owner_user_id`（agent 以 owner 本人身份执行）；专职 service
-  user 仍是推荐做法，但不再是硬约束。
-- record rule 按 `agent_id` / `user_id` 收敛，让用户只看到自己 agent 的 thread。
-- 消息作者：`message_post(author_id=agent.partner_id)`，UI 上 agent 与人类可辨。
-
-### 与 Discuss channel 的关系
-
-`discuss.channel` 是**展示/传输层**（成员是 `discuss.channel.member`，身份是
-partner，不携带 ACL），**不是授权边界**。执行身份必须是 `res.users`，不能是
-partner。会话载体仍用 `mail.thread`/`mail.message`（`agenthub.thread` 已如此，
-天然出现在 Discuss 界面）。若要把 agent 显示为一个 Discuss 会话，把它的
-partner 加成 `discuss.channel.member`——那是 `agenthub_discuss` 入口 addon 的活。
-
-## 管理 UI 与 API key
-
-用户通过一个管理界面登记/管理自己的 agent（「管理记录用户的 agents」）。
-
-- `agenthub.agent` 加 `api_key` 字段（Char）：外部 agent 通过 JSON-RPC 接入时
-  用于认证的凭证。明文存储，表单用 `widget="password"` 遮蔽（对齐 `llm`
-  provider 的 `api_key` 做法）。
-- 菜单 `Agent Hub → Agents`，list/form 视图。
-- 默认值：`owner_user_id` / `user_id` 都默认当前用户（`default=lambda self:
-  self.env.user.id`），即「我的 agent 以我本人身份执行」的简单场景。
-- 权限：`agenthub.agent` 对 `base.group_user` 开放 CRUD；record rule 按
-  `owner_user_id` 隔离——普通用户只看/管自己的 agent，`base.group_system`
-  看全部。
-
-## 后续扩展（不在本阶段，仅锚定方向）
-
-- 新 channel：`agenthub_telegram` / `agenthub_web` 等，各加 `_inherit` 字段 +
-  `selection_add` + `agenthub.channel.<type>` component。
-- 新 agent：`agenthub_opencode`、`agenthub_llm`（包内部 `llm.agent`）、
-  `agenthub_human` 等，各加 `agenthub.agent.<type>` component。
-- `agenthub_discuss`：薄的入口 addon，把 `agenthub.thread` 接进 Discuss 聊天
-  界面（`llm_discuss` 的 `llm.chat_client_action` 同款），core 保持 UI 无关。
-- **执行身份层**：`agenthub.agent` 加 `user_id`（专职 service user，每 agent 一个）
-  / `owner_user_id`，加 `_agent_env()` 执行契约、`share=False` 约束、按
-  `agent_id` 收敛的 record rule；路由层把 agent 动作包进 `_agent_env()`。
-  详见「执行身份与权限（agent 挂在用户上）」。
-- 路由规则模型：把「channel + peer pattern → 默认 agent」的自动绑定从
-  thread 上显式 `agent_id` 中抽出来，作为可选的自动建会话层。
+- `relay-v1.md` — relay 职责、状态机、接口。
+- `relay-message-envelope.md` — 统一 envelope。
+- `../../agenthub_relay/` — relay v1 骨架（内存 store；Redis/HA/企微 gateway 待补）。
+- `agenthub_wecom/docs/`、`agenthub_openclaw/docs/` — legacy 实现细节。
