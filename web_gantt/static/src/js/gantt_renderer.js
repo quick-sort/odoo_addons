@@ -140,13 +140,12 @@ export class GanttRenderer extends Component {
 
     get cellWidth() {
         // Adjust base width per scale for better zooming behavior
-        const scale = this.props.scale || 'month';
+        const scale = this.props.scale || 'day';
         const scaleFactor = (
-            scale === 'day' ? 2.0 :
+            scale === 'day' ? 1.0 :
             scale === 'week' ? 1.2 :
-            scale === 'month' ? 1.0 :
-            scale === 'quarter' ? 0.8 :
-            0.6 // year
+            scale === 'month' ? 0.6 :
+            0.8 // quarter
         );
         const width = this.baseCellWidth * scaleFactor * this.state.zoom;
         return Math.max(this.minCellWidth, Math.min(this.maxCellWidth, width));
@@ -189,13 +188,12 @@ export class GanttRenderer extends Component {
     }
 
     getTotalUnits(dates) {
-        const scale = this.props.scale || 'month';
+        const scale = this.props.scale || 'day';
         const days = Math.ceil((dates.end - dates.start) / 86400000);
         if (scale === 'week') {
             return Math.ceil(days / 7);
         }
-        if (scale === 'month' || scale === 'day') {
-            // Month view renders one column per day.
+        if (scale === 'day') {
             return Math.max(1, days);
         }
         const months = (dates.end.getFullYear() - dates.start.getFullYear()) * 12
@@ -447,7 +445,7 @@ export class GanttRenderer extends Component {
         }
 
         // Snap to whole scale units so the exported image has clean edges.
-        const scale = this.props.scale || 'month';
+        const scale = this.props.scale || 'day';
         let start, end;
         if (scale === 'week') {
             start = new Date(minDate);
@@ -456,7 +454,7 @@ export class GanttRenderer extends Component {
             end = new Date(maxDate);
             end.setDate(end.getDate() - end.getDay() + 6);
             end.setHours(23, 59, 59, 999);
-        } else if (scale === 'month' || scale === 'day') {
+        } else if (scale === 'day') {
             start = new Date(minDate.getFullYear(), minDate.getMonth(), 1);
             end = new Date(maxDate.getFullYear(), maxDate.getMonth() + 1, 0, 23, 59, 59, 999);
         } else if (scale === 'quarter') {
@@ -478,8 +476,8 @@ export class GanttRenderer extends Component {
         const days = Math.ceil((dates.end - dates.start) / 86400000);
 
         // Vertical grid lines (dates) with scale support
-        const scale = this.props.scale || 'month';
-        if (scale === 'day' || scale === 'month') {
+        const scale = this.props.scale || 'day';
+        if (scale === 'day') {
             for (let i = 0; i <= days; i++) {
                 const x = this.sidebarWidth + i * this.cellWidth - this.state.scrollX;
                 if (x >= this.sidebarWidth && x <= rect.width) {
@@ -518,7 +516,7 @@ export class GanttRenderer extends Component {
                 }
                 current.setMonth(current.getMonth() + 3);
             }
-        } else if (scale === 'year') {
+        } else if (scale === 'month') {
             let current = new Date(dates.start.getFullYear(), dates.start.getMonth(), 1);
             while (current <= dates.end) {
                 const x = this.dateToX(current, dates);
@@ -739,28 +737,8 @@ export class GanttRenderer extends Component {
         ctx.font = 'bold 13px Arial';
         ctx.textBaseline = 'top';
         ctx.textAlign = 'left';
-        const scale = this.props.scale || 'month';
-        if (scale === 'day') {
-            let current = new Date(dates.start);
-            while (current <= dates.end) {
-                const monthX = this.dateToX(new Date(current.getFullYear(), current.getMonth(), 1), dates);
-                const monthName = current.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-                ctx.fillText(monthName, Math.max(this.sidebarWidth + 5, monthX + 5), 15);
-                current.setMonth(current.getMonth() + 1);
-            }
-            ctx.font = '11px Arial';
-            ctx.fillStyle = '#6c757d';
-            let dayCounter = new Date(dates.start);
-            const days = Math.ceil((dates.end - dates.start) / 86400000);
-            for (let i = 0; i <= days; i++) {
-                const dayX = this.dateToX(dayCounter, dates);
-                const day = dayCounter.getDate();
-                const dayOfWeek = dayCounter.toLocaleDateString('en-US', { weekday: 'short' });
-                ctx.fillText(day.toString(), dayX + 5, 45);
-                ctx.fillText(dayOfWeek, dayX + 5, 60);
-                dayCounter.setDate(dayCounter.getDate() + 1);
-            }
-        } else if (scale === 'week') {
+        const scale = this.props.scale || 'day';
+        if (scale === 'week') {
             let current = new Date(dates.start);
             while (current <= dates.end) {
                 const monthX = this.dateToX(new Date(current.getFullYear(), current.getMonth(), 1), dates);
@@ -780,7 +758,7 @@ export class GanttRenderer extends Component {
                 ctx.fillText(weekLabel, weekX + 5, 50);
                 weekStart.setDate(weekStart.getDate() + 7);
             }
-        } else if (scale === 'month') {
+        } else if (scale === 'day') {
             let current = new Date(dates.start);
             while (current <= dates.end) {
                 const monthX = this.dateToX(new Date(current.getFullYear(), current.getMonth(), 1), dates);
@@ -830,7 +808,7 @@ export class GanttRenderer extends Component {
                 }
                 current.setMonth(current.getMonth() + 3);
             }
-        } else if (scale === 'year') {
+        } else if (scale === 'month') {
             let currentYear = dates.start.getFullYear();
             while (currentYear <= dates.end.getFullYear()) {
                 const yearX = this.dateToX(new Date(currentYear, 0, 1), dates);
@@ -1224,13 +1202,13 @@ export class GanttRenderer extends Component {
     }
 
     dateToX(date, dates) {
-        const scale = this.props.scale || 'month';
+        const scale = this.props.scale || 'day';
         // Ensure we're working with local dates to avoid timezone issues
         const localDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000));
         const localStart = new Date(dates.start.getTime() - (dates.start.getTimezoneOffset() * 60000));
         
         const days = (localDate - localStart) / 86400000;
-        if (scale === 'day' || scale === 'month') {
+        if (scale === 'day') {
             return this.sidebarWidth + days * this.cellWidth - this.state.scrollX;
         } else if (scale === 'week') {
             const weeks = days / 7.0;
@@ -1239,18 +1217,18 @@ export class GanttRenderer extends Component {
             const months = (localDate.getFullYear() - localStart.getFullYear()) * 12 + (localDate.getMonth() - localStart.getMonth()) + (localDate.getDate()-1)/30;
             return this.sidebarWidth + (months / 3) * this.cellWidth - this.state.scrollX;
         } else {
-            // year: months resolution
+            // month: one column per month
             const months = (localDate.getFullYear() - localStart.getFullYear()) * 12 + (localDate.getMonth() - localStart.getMonth()) + (localDate.getDate()-1)/30;
             return this.sidebarWidth + months * this.cellWidth - this.state.scrollX;
         }
     }
 
     xToDate(x, dates) {
-        const scale = this.props.scale || 'month';
+        const scale = this.props.scale || 'day';
         // Ensure we're working with local dates to avoid timezone issues
         const localStart = new Date(dates.start.getTime() - (dates.start.getTimezoneOffset() * 60000));
         
-        if (scale === 'day' || scale === 'month') {
+        if (scale === 'day') {
             const days = (x - this.sidebarWidth + this.state.scrollX) / this.cellWidth;
             const result = new Date(localStart.getTime() + days * 86400000);
             // Convert back to local timezone
@@ -1266,7 +1244,7 @@ export class GanttRenderer extends Component {
             start.setMonth(start.getMonth() + Math.round(quarters * 3));
             return new Date(start.getTime() + (start.getTimezoneOffset() * 60000));
         } else {
-            // year scale
+            // month scale
             const months = (x - this.sidebarWidth + this.state.scrollX) / this.cellWidth;
             const start = new Date(localStart.getFullYear(), localStart.getMonth(), 1);
             start.setMonth(start.getMonth() + months);
@@ -1350,11 +1328,11 @@ export class GanttRenderer extends Component {
         if (this.state.draggedTask) {
             const { originalStart, originalEnd, startX } = this.state.draggedTask;
             const deltaX = e.clientX - startX;
-            const scale = this.props.scale || 'month';
+            const scale = this.props.scale || 'day';
 
             let newStartDate, newEndDate;
-            if (scale === 'year') {
-                // One cell is one month at year scale, so snap to whole months.
+            if (scale === 'month') {
+                // One cell is one month at month scale, so snap to whole months.
                 const monthsDelta = Math.round(deltaX / this.cellWidth);
                 newStartDate = this.addMonths(originalStart, monthsDelta);
                 newEndDate = this.addMonths(originalEnd, monthsDelta);
@@ -1524,9 +1502,9 @@ export class GanttRenderer extends Component {
     }
 
     handleVerticalTimeScaleNavigation(deltaY) {
-        // Day scale removed per requirements
-        const scales = ['week', 'month', 'quarter', 'year'];
-        const currentScale = this.props.scale || 'month';
+        // Ordered from smallest to largest cell unit.
+        const scales = ['day', 'week', 'month', 'quarter'];
+        const currentScale = this.props.scale || 'day';
         const currentIndex = scales.indexOf(currentScale);
         
         if (deltaY > 0 && currentIndex > 0) {
@@ -1581,7 +1559,7 @@ export class GanttRenderer extends Component {
         const rect = canvas.getBoundingClientRect();
         const data = this.props.data;
         const dates = this.calculateDateRange(data);
-        const scale = this.props.scale || 'month';
+        const scale = this.props.scale || 'day';
 
         if (detail.type === 'today') {
             const today = new Date();
@@ -1593,14 +1571,14 @@ export class GanttRenderer extends Component {
         } else if (detail.type === 'prev' || detail.type === 'next') {
             const direction = detail.type === 'prev' ? -1 : 1;
             let deltaPx = 0;
-            if (scale === 'week') {
+            if (scale === 'day') {
+                deltaPx = this.cellWidth * 7 * direction; // about one week
+            } else if (scale === 'week') {
                 deltaPx = this.cellWidth * 1 * direction; // one week
             } else if (scale === 'month') {
-                deltaPx = this.cellWidth * 7 * direction; // approx one week jump
+                deltaPx = this.cellWidth * 1 * direction; // one month
             } else if (scale === 'quarter') {
                 deltaPx = this.cellWidth * 1 * direction; // one quarter
-            } else if (scale === 'year') {
-                deltaPx = this.cellWidth * 1 * direction; // one month at year scale
             }
             // Fallback: pan by half the viewport
             if (!deltaPx) {

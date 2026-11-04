@@ -40,7 +40,8 @@
   标记线，CSV 仍只含任务。直接返回旧的 groups 数组仍兼容（视为无标记线）。
 
 - 顶部工具栏提供 New、Refresh、Export（CSV）、Export Image（PNG）。
-- 时间尺度为 Week / Month / Quarter / Year。
+- 时间尺度为 Day / Week / Month / Quarter；尺度名即该视图的最小单元格单位，
+  表头上层是更粗的分组（如 Day 下每格 1 天、上层按月分组）。
 - 左侧列表中有子任务的行显示折叠箭头；任务名右侧显示 assignee（模型需在
   ``get_gantt_data`` 中提供 ``assignees`` 字段）。
 - 可编辑模式下可拖动任务条改期；滚轮横向/纵向滚动，Ctrl+滚轮缩放，

@@ -35,6 +35,12 @@
 
                         <div class="o_gantt_controller_scales btn-group btn-group-sm" role="group">
                             <button
+                                t-attf-class="btn btn-sm {{ state.scale === 'day' ? 'btn-primary' : 'btn-outline-secondary' }}"
+                                t-on-click="() => this.onScaleChange('day')"
+                                title="Day View">
+                                Day
+                            </button>
+                            <button
                                 t-attf-class="btn btn-sm {{ state.scale === 'week' ? 'btn-primary' : 'btn-outline-secondary' }}"
                                 t-on-click="() => this.onScaleChange('week')"
                                 title="Week View">
@@ -51,12 +57,6 @@
                                 t-on-click="() => this.onScaleChange('quarter')"
                                 title="Quarter View">
                                 Quarter
-                            </button>
-                            <button
-                                t-attf-class="btn btn-sm {{ state.scale === 'year' ? 'btn-primary' : 'btn-outline-secondary' }}"
-                                t-on-click="() => this.onScaleChange('year')"
-                                title="Year View">
-                                Year
                             </button>
                         </div>
 
