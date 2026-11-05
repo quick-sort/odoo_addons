@@ -17,6 +17,12 @@
 - 拖拽改期写回 `task_start_date` / `date_deadline`。
 - Gantt 上以竖向标记线展示域内任务所属项目的 milestone deadline：全部有 deadline
   的 milestone 都显示，已达成为灰色、未达成为主色，标签常显并可悬停查看详情。
+- 任务依赖：`get_gantt_data` 下发每个任务的 `predecessor_ids`（来自
+  `depend_on_ids`），由 `web_gantt` 的 Dependencies 按钮绘制完成-开始箭头。
+- 里程碑显隐：milestone 以图内竖向标记线展示，可通过 Timeline 多选下拉框
+  控制显隐；默认全部显示。
+- 任务单独配色：`gantt_color` 记录该任务的 Gantt 颜色索引，表单用色板选择；
+  载荷 `color` 优先取它，退回核心 `color`，最终退回主题色。
 
 ## 不做
 

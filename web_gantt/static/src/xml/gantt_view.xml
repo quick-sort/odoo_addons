@@ -31,6 +31,12 @@
                             <button class="btn btn-secondary btn-sm" t-on-click="() => this.exportImage()" title="Export the whole chart as a PNG image">
                                 <i class="fa fa-file-image-o"/> Export Image
                             </button>
+                            <button
+                                t-attf-class="btn btn-sm {{ state.showDependencies ? 'btn-primary' : 'btn-secondary' }}"
+                                t-on-click="() => this.toggleDependencies()"
+                                title="Show task dependencies">
+                                <i class="fa fa-sitemap"/> Dependencies
+                            </button>
                         </div>
 
                         <div class="o_gantt_controller_scales btn-group btn-group-sm" role="group">
@@ -89,6 +95,45 @@
                                 </option>
                             </select>
                         </div>
+
+                        <div class="o_gantt_controller_timeline position-relative">
+                            <button
+                                class="btn btn-secondary btn-sm"
+                                t-on-click="() => this.toggleTimelineMenu()"
+                                title="Choose which milestones appear on the timeline">
+                                <i class="fa fa-list-ul"/> Timeline
+                                <t t-if="state.markers.length"> (<t t-esc="visibleMarkers.length"/>/<t t-esc="state.markers.length"/>)</t>
+                            </button>
+                            <div
+                                t-if="state.timelineMenuOpen"
+                                class="position-fixed"
+                                style="inset: 0; z-index: 19;"
+                                t-on-click="() => this.closeTimelineMenu()"/>
+                            <div
+                                t-if="state.timelineMenuOpen"
+                                class="o_gantt_timeline_menu position-absolute bg-white border rounded shadow-sm p-2"
+                                style="top: 100%; right: 0; margin-top: 4px; z-index: 20; min-width: 220px; max-height: 280px; overflow-y: auto;">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="fw-bold small text-muted">Milestones</span>
+                                    <button
+                                        t-if="state.hiddenMarkerKeys.length"
+                                        class="btn btn-link btn-sm p-0 text-decoration-none"
+                                        t-on-click="() => this.showAllMarkers()">
+                                        Show all
+                                    </button>
+                                </div>
+                                <t t-foreach="timelineMarkerOptions" t-as="option" t-key="option.key">
+                                    <label class="d-flex align-items-center gap-2 small mb-1">
+                                        <input
+                                            type="checkbox"
+                                            t-att-checked="isMarkerVisible(option.key)"
+                                            t-on-change="() => this.toggleMarker(option.key)"/>
+                                        <span t-esc="option.name"/>
+                                    </label>
+                                </t>
+                                <div t-if="!timelineMarkerOptions.length" class="small text-muted">No milestones</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -102,9 +147,10 @@
                     <GanttRenderer
                         t-if="!state.isLoading"
                         data="state.ganttData"
-                        markers="state.markers"
+                        markers="visibleMarkers"
                         scale="state.scale"
                         editable="state.editable"
+                        showDependencies="state.showDependencies"
                         t-on-task-updated.stop.prevent="(ev) => this.onTaskUpdated(ev)"
                         t-on-task-clicked.stop.prevent="(ev) => this.onTaskClicked(ev)"
                         t-on-scale-change.stop.prevent="(ev) => this.onScaleChange(ev.detail.scale)"

@@ -23,3 +23,6 @@
 | AC19 | 标记状态 | 已达成为灰 `#adb5bd` / Reached，未达成为主色 `#71639e` / Unreached | `test_marker_color_and_description_reflect_is_reached` |
 | AC20 | 分组无关与去重 | 按 user 等非 project 分组时仍返回 marker；多分组/多任务不重复 | `test_markers_are_project_scoped_when_grouping_by_user`、`test_markers_not_duplicated_for_multi_group_tasks` |
 | AC21 | 进度百分比 | `get_gantt_data` 的 `progress` 为 0–100 百分比（由 hr_timesheet 的 0–1 比例换算，超配可 >100） | `test_gantt_progress_pct_converts_ratio_to_percentage` |
+| AC22 | 依赖数据 | 任务的 `predecessor_ids` 来自 `depend_on_ids`；无依赖时为空数组 | `test_get_gantt_data_includes_predecessor_ids` |
+| AC23 | 依赖展示 | 打开 Dependencies 后，前置任务的完成端连到后继任务的开始端 | 人工检查 |
+| AC24 | 任务配色 | `gantt_color` 非 0 时载荷 `color` 取该值；为 0 时回退核心 `color` | `test_get_gantt_data_uses_gantt_color`、人工检查 |

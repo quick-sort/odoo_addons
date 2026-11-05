@@ -127,6 +127,48 @@ class TestGanttTree(TransactionCase):
             [self.env.user.display_name],
         )
 
+    def test_get_gantt_data_includes_predecessor_ids(self):
+        project = self.env['project.project'].create({
+            'name': 'Dependency Project',
+            'allow_task_dependencies': True,
+        })
+        predecessor = self._make_task('Predecessor', project, self.start)
+        successor = self._make_task(
+            'Successor', project, self.start + timedelta(days=2)
+        )
+        successor.depend_on_ids = [(6, 0, predecessor.ids)]
+
+        data = self.env['project.task'].get_gantt_data(
+            domain=[('project_id', '=', project.id)],
+            group_by='project_id',
+        )
+        by_name = {t['name']: t for t in data['groups'][0]['tasks']}
+
+        self.assertEqual(
+            by_name['Successor']['predecessor_ids'], predecessor.ids
+        )
+        self.assertEqual(by_name['Predecessor']['predecessor_ids'], [])
+
+    def test_get_gantt_data_uses_gantt_color(self):
+        project = self.env['project.project'].create({'name': 'Color Project'})
+        task = self._make_task('Colored', project, self.start)
+        task.gantt_color = 4
+
+        data = self.env['project.task'].get_gantt_data(
+            domain=[('project_id', '=', project.id)],
+            group_by='project_id',
+        )
+        self.assertEqual(data['groups'][0]['tasks'][0]['color'], 4)
+
+        # No dedicated Gantt color: fall back to the kanban color index.
+        task.gantt_color = 0
+        task.color = 3
+        data = self.env['project.task'].get_gantt_data(
+            domain=[('project_id', '=', project.id)],
+            group_by='project_id',
+        )
+        self.assertEqual(data['groups'][0]['tasks'][0]['color'], 3)
+
     def test_gantt_alias_reads_backing_fields(self):
         project = self.env['project.project'].create({'name': 'Alias Project'})
         task = self._make_task('Aliased', project, self.start)
