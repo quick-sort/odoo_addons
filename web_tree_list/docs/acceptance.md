@@ -18,9 +18,11 @@ Python 侧由 `tests/test_view.py` 锁定 `js_class="tree_list"` 的 arch 可被
    - 验收：demo 数据（Root A → A-Child 1 → Grandchild 1/2 等）在浏览器中呈现
      多级嵌套分组头，点击箭头逐级折叠。
 
-4. **叶子渲染**：叶子记录显示 list 的字段列（name/description），widget/formatter/
-   decoration 正常。
-   - 验收：demo 叶子行正确显示 name；description（optional 列）可显示。
+4. **叶子渲染**：叶子行复用原生 `web.ListRenderer.RecordRow`，显示 list 的字段/
+   widget/按钮组列，行与表头等宽；tree 模式不显示记录选择列（原生选择框组件在递归
+   `t-call` 树里会破坏 Owl 块对账）；点击单元格与普通 list 一致，打开对应记录的 form。
+   - 验收：demo 叶子行正确显示 name；description（optional 列）可显示；行右端与表头
+     对齐；点击叶子行单元格进入该记录的 form 视图。
 
 5. **非 tree 回退**：不按自引用字段分组时，行为与原生 list 一致（编辑/排序/其它
    分组照常）。

@@ -25,10 +25,10 @@
                     </group>
                     <group string="Children">
                         <field name="child_ids">
-                            <tree>
+                            <list>
                                 <field name="name"/>
                                 <field name="sequence"/>
-                            </tree>
+                            </list>
                         </field>
                     </group>
                 </sheet>
