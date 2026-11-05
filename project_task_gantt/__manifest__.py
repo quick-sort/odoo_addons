@@ -2,7 +2,7 @@
 {
     "name": "Project Task Gantt",
     "summary": "Gantt chart view for project tasks",
-    "version": "19.0.1.1.1",
+    "version": "19.0.1.2.0",
     "category": "Productivity",
     "author": "Concept Solutions LLC",
     "website": "https://www.csloman.com",

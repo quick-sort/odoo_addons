@@ -26,6 +26,9 @@ export class GanttController extends Component {
             editable: !this.props.readonly,
             hasCenteredToday: false,
             hasLoadedOnce: false,
+            showDependencies: false,
+            timelineMenuOpen: false,
+            hiddenMarkerKeys: [],
         });
 
         onWillStart(async () => {
@@ -74,6 +77,7 @@ export class GanttController extends Component {
                 this.state.markers = result?.markers || [];
             }
             this.state.hasLoadedOnce = true;
+            this._pruneHiddenMarkerKeys();
             // After first successful load, center on today once
             if (!this.state.hasCenteredToday) {
                 window.dispatchEvent(new CustomEvent('gantt-navigate', { detail: { type: 'today' } }));
@@ -135,6 +139,57 @@ export class GanttController extends Component {
 
     onScaleChange(scale) {
         this.state.scale = scale;
+    }
+
+    markerKey(marker) {
+        return `marker:${marker.date}|${marker.label || ''}`;
+    }
+
+    get timelineMarkerOptions() {
+        return (this.state.markers || []).map((marker) => ({
+            key: this.markerKey(marker),
+            name: marker.label || String(marker.date || ''),
+        }));
+    }
+
+    // Markers are visible by default; the Timeline menu only hides the ones
+    // the user unchecks, so new milestones keep appearing automatically.
+    get visibleMarkers() {
+        const hidden = new Set(this.state.hiddenMarkerKeys);
+        return (this.state.markers || []).filter(
+            (marker) => !hidden.has(this.markerKey(marker))
+        );
+    }
+
+    isMarkerVisible(key) {
+        return !this.state.hiddenMarkerKeys.includes(key);
+    }
+
+    _pruneHiddenMarkerKeys() {
+        const valid = new Set(this.timelineMarkerOptions.map((option) => option.key));
+        this.state.hiddenMarkerKeys = this.state.hiddenMarkerKeys.filter((key) => valid.has(key));
+    }
+
+    toggleDependencies() {
+        this.state.showDependencies = !this.state.showDependencies;
+    }
+
+    toggleTimelineMenu() {
+        this.state.timelineMenuOpen = !this.state.timelineMenuOpen;
+    }
+
+    closeTimelineMenu() {
+        this.state.timelineMenuOpen = false;
+    }
+
+    toggleMarker(key) {
+        this.state.hiddenMarkerKeys = this.state.hiddenMarkerKeys.includes(key)
+            ? this.state.hiddenMarkerKeys.filter((hidden) => hidden !== key)
+            : [...this.state.hiddenMarkerKeys, key];
+    }
+
+    showAllMarkers() {
+        this.state.hiddenMarkerKeys = [];
     }
 
     navigate(type) {

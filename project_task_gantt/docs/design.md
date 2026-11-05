@@ -5,6 +5,7 @@
 | 字段 | 说明 |
 |---|---|
 | `task_start_date` | 唯一的存储日期：Gantt 开始时间，创建时默认当前时间 |
+| `gantt_color` | 存储字段：Gantt 任务条颜色索引（0 = 主题色）；下发为载荷 `color` |
 | `date_deadline` | 核心字段，Gantt 结束时间的唯一来源（不复制、不同步） |
 | `gantt_duration` | 计算字段：`date_deadline` 与 `task_start_date` 相差的天数 |
 | `gantt_date_start` / `gantt_date_stop` | `gantt.mixin` 提供的非存储别名，读写都落到上面两个真实字段 |
@@ -30,6 +31,7 @@
       start_date, end_date,
       progress, color, priority, description,
       parent_id,
+      predecessor_ids: [task_id, ...],
       depth,
       assignees: [display_name, ...],
   }]}],
@@ -47,6 +49,10 @@
 - 无任务时返回 `{groups: [], markers: []}`；异常同样返回空结构。
 - 只返回 `task_start_date` 非空的任务；`date_deadline` 可为空，前端按起始 + 1 天处理。
 - `user_ids` 以 `assignees` 名称数组下发，供左侧列表展示。
+- `depend_on_ids` 以 `predecessor_ids`（前置任务 id 数组）下发，供前端 Dependencies
+  箭头使用；完成-开始关系由 `web_gantt` 统一解释，本模块不另设依赖类型字段。
+- `color` 优先取 `gantt_color`；为 0 时回退核心 `color`（看板颜色索引），两者都
+  未设置时前端使用主题色。
 - `progress` 为 0–100 百分比：`project.task.progress`（hr_timesheet）是「已耗小时 / 分配小时」
   的 0–1 比例，超配时可超过 1.0；`get_gantt_data` 在此统一换算成百分比后下发。超配时值可
   >100，前端进度条按 100% 截断显示，tooltip / CSV 保留真实值。

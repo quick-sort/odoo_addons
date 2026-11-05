@@ -2,6 +2,14 @@
 
 import { Component, onMounted, onWillUnmount, useRef, useState, onWillUpdateProps } from "@odoo/owl";
 
+// Odoo's kanban/tag palette ($o-colors), indexed like the integer `color`
+// field used by project.task. Index 0 means "no explicit color".
+const TASK_COLOR_PALETTE = [
+    null,
+    "#ee2d2d", "#dc8534", "#e8bb1d", "#5794dd", "#9f628f", "#db8865",
+    "#41a9a2", "#304be0", "#ee2f8a", "#61c36e", "#9872e6",
+];
+
 export class GanttRenderer extends Component {
     static template = "web_gantt.GanttRenderer";
     static props = {
@@ -9,6 +17,7 @@ export class GanttRenderer extends Component {
         markers: { type: Array, optional: true },
         scale: { type: String },
         editable: { type: Boolean, optional: true },
+        showDependencies: { type: Boolean, optional: true },
     };
 
     setup() {
@@ -286,6 +295,7 @@ export class GanttRenderer extends Component {
         this.drawGrid(ctx, dates, data, rect);
         this.drawTodayMarker(ctx, dates, rect);
         this.drawTasks(ctx, data, dates, rect);
+        this.drawDependencies(ctx, data, dates, rect);
         this.drawHeader(ctx, dates, rect);
         this.drawMarkers(ctx, dates, rect);
         this.drawSidebar(ctx, data, rect);
@@ -469,66 +479,65 @@ export class GanttRenderer extends Component {
         return { start, end };
     }
 
-    drawGrid(ctx, dates, data, rect) {
-        ctx.strokeStyle = '#e9e9e9';
-        ctx.lineWidth = 1;
-
-        const days = Math.ceil((dates.end - dates.start) / 86400000);
-
-        // Vertical grid lines (dates) with scale support
+    // X positions of the visible date cells for the current scale. Used for
+    // grid lines and header separators so both stay aligned.
+    getScaleBoundaries(dates) {
         const scale = this.props.scale || 'day';
+        const boundaries = [];
+        const push = (date) => {
+            boundaries.push(this.dateToX(date, dates));
+        };
         if (scale === 'day') {
-            for (let i = 0; i <= days; i++) {
-                const x = this.sidebarWidth + i * this.cellWidth - this.state.scrollX;
-                if (x >= this.sidebarWidth && x <= rect.width) {
-                    ctx.beginPath();
-                    ctx.moveTo(x, this.headerHeight);
-                    ctx.lineTo(x, rect.height);
-                    ctx.stroke();
-                }
+            const current = new Date(
+                dates.start.getFullYear(),
+                dates.start.getMonth(),
+                dates.start.getDate()
+            );
+            while (current <= dates.end) {
+                push(current);
+                current.setDate(current.getDate() + 1);
             }
         } else if (scale === 'week') {
-            let current = new Date(dates.start);
+            const current = new Date(dates.start);
             current.setDate(current.getDate() - current.getDay());
             while (current <= dates.end) {
-                const x = this.dateToX(current, dates);
-                if (x >= this.sidebarWidth && x <= rect.width) {
-                    ctx.beginPath();
-                    ctx.moveTo(x, this.headerHeight);
-                    ctx.lineTo(x, rect.height);
-                    ctx.stroke();
-                }
+                push(current);
                 current.setDate(current.getDate() + 7);
             }
         } else if (scale === 'quarter') {
-            let current = new Date(
+            const current = new Date(
                 dates.start.getFullYear(),
                 Math.floor(dates.start.getMonth() / 3) * 3,
                 1
             );
             while (current <= dates.end) {
-                const x = this.dateToX(current, dates);
-                if (x >= this.sidebarWidth && x <= rect.width) {
-                    ctx.beginPath();
-                    ctx.moveTo(x, this.headerHeight);
-                    ctx.lineTo(x, rect.height);
-                    ctx.stroke();
-                }
+                push(current);
                 current.setMonth(current.getMonth() + 3);
             }
-        } else if (scale === 'month') {
-            let current = new Date(dates.start.getFullYear(), dates.start.getMonth(), 1);
+        } else {
+            const current = new Date(dates.start.getFullYear(), dates.start.getMonth(), 1);
             while (current <= dates.end) {
-                const x = this.dateToX(current, dates);
-                if (x >= this.sidebarWidth && x <= rect.width) {
-                    ctx.beginPath();
-                    ctx.moveTo(x, this.headerHeight);
-                    ctx.lineTo(x, rect.height);
-                    ctx.stroke();
-                }
+                push(current);
                 current.setMonth(current.getMonth() + 1);
             }
         }
+        return boundaries;
+    }
+
+    drawGrid(ctx, dates, data, rect) {
+        // Vertical separators between date cells.
+        ctx.strokeStyle = '#ced4da';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (const x of this.getScaleBoundaries(dates)) {
+            if (x >= this.sidebarWidth && x <= rect.width) {
+                ctx.moveTo(x, this.headerHeight);
+                ctx.lineTo(x, rect.height);
+            }
+        }
+        ctx.stroke();
+
+        ctx.strokeStyle = '#e9e9e9';
 
         // Horizontal grid lines (rows: group headers + tasks)
         const rows = this.getRows(data);
@@ -718,11 +727,45 @@ export class GanttRenderer extends Component {
         ctx.restore();
     }
 
+    // Upper header row groups: months for day/week scales, years for
+    // month/quarter scales. Each group is drawn as one merged cell.
+    getHeaderGroups(dates) {
+        const scale = this.props.scale || 'day';
+        const groups = [];
+        if (scale === 'month' || scale === 'quarter') {
+            let current = new Date(dates.start.getFullYear(), 0, 1);
+            while (current <= dates.end) {
+                const next = new Date(current.getFullYear() + 1, 0, 1);
+                groups.push({
+                    start: current,
+                    end: next,
+                    label: String(current.getFullYear()),
+                });
+                current = next;
+            }
+        } else {
+            let current = new Date(dates.start.getFullYear(), dates.start.getMonth(), 1);
+            while (current <= dates.end) {
+                const next = new Date(current.getFullYear(), current.getMonth() + 1, 1);
+                groups.push({
+                    start: current,
+                    end: next,
+                    label: current.toLocaleDateString('en-US', {
+                        month: 'short',
+                        year: 'numeric',
+                    }),
+                });
+                current = next;
+            }
+        }
+        return groups;
+    }
+
     drawHeader(ctx, dates, rect) {
         // Background
         ctx.fillStyle = '#f8f9fa';
         ctx.fillRect(0, 0, rect.width, this.headerHeight);
-        
+
         ctx.strokeStyle = '#dee2e6';
         ctx.lineWidth = 1;
         ctx.strokeRect(0, 0, rect.width, this.headerHeight);
@@ -732,69 +775,78 @@ export class GanttRenderer extends Component {
         ctx.rect(this.sidebarWidth, 0, rect.width - this.sidebarWidth, this.headerHeight);
         ctx.clip();
 
-        // Draw header according to scale
+        const splitY = Math.round(this.headerHeight / 2);
+        const groups = this.getHeaderGroups(dates);
+
+        // Upper row: merged month/year cells, so only the group boundaries
+        // are drawn; the horizontal line separates it from the date cells.
+        ctx.strokeStyle = '#ced4da';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (const group of groups) {
+            const x = this.dateToX(group.start, dates);
+            if (x >= this.sidebarWidth && x <= rect.width) {
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, splitY);
+            }
+        }
+        ctx.moveTo(this.sidebarWidth, splitY);
+        ctx.lineTo(rect.width, splitY);
+        ctx.stroke();
+
+        // Lower row: one separator per date cell.
+        ctx.beginPath();
+        for (const x of this.getScaleBoundaries(dates)) {
+            if (x >= this.sidebarWidth && x <= rect.width) {
+                ctx.moveTo(x, splitY);
+                ctx.lineTo(x, this.headerHeight);
+            }
+        }
+        ctx.stroke();
+
+        // Merged upper-row labels, centered in the visible part of each group.
         ctx.fillStyle = '#495057';
         ctx.font = 'bold 13px Arial';
+        ctx.textBaseline = 'middle';
+        ctx.textAlign = 'center';
+        for (const group of groups) {
+            const startX = this.dateToX(group.start, dates);
+            const endX = this.dateToX(group.end, dates);
+            const left = Math.max(this.sidebarWidth, startX);
+            const right = Math.min(rect.width, endX);
+            if (right <= left) {
+                continue;
+            }
+            const textWidth = ctx.measureText(group.label).width;
+            if (right - left < textWidth + 8) {
+                continue;
+            }
+            ctx.fillText(group.label, (left + right) / 2, splitY / 2);
+        }
+
+        // Lower-row labels for the current scale.
+        ctx.fillStyle = '#6c757d';
+        ctx.font = '11px Arial';
         ctx.textBaseline = 'top';
         ctx.textAlign = 'left';
         const scale = this.props.scale || 'day';
         if (scale === 'week') {
-            let current = new Date(dates.start);
-            while (current <= dates.end) {
-                const monthX = this.dateToX(new Date(current.getFullYear(), current.getMonth(), 1), dates);
-                const monthName = current.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-                if (monthX >= this.sidebarWidth && monthX <= rect.width) {
-                    ctx.fillText(monthName, Math.max(this.sidebarWidth + 5, monthX + 5), 15);
-                }
-                current.setMonth(current.getMonth() + 1);
-            }
-            ctx.font = '11px Arial';
-            ctx.fillStyle = '#6c757d';
             let weekStart = new Date(dates.start);
             weekStart.setDate(weekStart.getDate() - weekStart.getDay());
             while (weekStart <= dates.end) {
                 const weekX = this.dateToX(weekStart, dates);
-                const weekLabel = `W${this.getWeekNumber(weekStart)}`;
-                ctx.fillText(weekLabel, weekX + 5, 50);
+                ctx.fillText(`W${this.getWeekNumber(weekStart)}`, weekX + 5, 50);
                 weekStart.setDate(weekStart.getDate() + 7);
             }
         } else if (scale === 'day') {
-            let current = new Date(dates.start);
-            while (current <= dates.end) {
-                const monthX = this.dateToX(new Date(current.getFullYear(), current.getMonth(), 1), dates);
-                const monthName = current.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-                if (monthX >= this.sidebarWidth && monthX <= rect.width) {
-                    ctx.fillText(monthName, Math.max(this.sidebarWidth + 5, monthX + 5), 15);
-                }
-                current.setMonth(current.getMonth() + 1);
-            }
-            ctx.font = '11px Arial';
-            ctx.fillStyle = '#6c757d';
             let dayCounter = new Date(dates.start);
             const days = Math.ceil((dates.end - dates.start) / 86400000);
             for (let i = 0; i <= days; i++) {
                 const dayX = this.dateToX(dayCounter, dates);
-                const isWeekend = dayCounter.getDay() === 0 || dayCounter.getDay() === 6;
-                if (isWeekend) {
-                    ctx.fillStyle = '#e9ecef';
-                    ctx.fillRect(dayX, this.headerHeight, this.cellWidth, rect.height - this.headerHeight);
-                    ctx.fillStyle = '#6c757d';
-                }
-                const day = dayCounter.getDate();
-                ctx.fillText(day.toString(), dayX + 5, 50);
+                ctx.fillText(dayCounter.getDate().toString(), dayX + 5, 50);
                 dayCounter.setDate(dayCounter.getDate() + 1);
             }
         } else if (scale === 'quarter') {
-            let currentYear = dates.start.getFullYear();
-            while (currentYear <= dates.end.getFullYear()) {
-                const yearX = this.dateToX(new Date(currentYear, 0, 1), dates);
-                if (yearX >= this.sidebarWidth && yearX <= rect.width) {
-                    ctx.fillText(String(currentYear), Math.max(this.sidebarWidth + 5, yearX + 5), 15);
-                }
-                currentYear++;
-            }
-            ctx.font = '11px Arial';
-            ctx.fillStyle = '#6c757d';
             let current = new Date(
                 dates.start.getFullYear(),
                 Math.floor(dates.start.getMonth() / 3) * 3,
@@ -809,21 +861,14 @@ export class GanttRenderer extends Component {
                 current.setMonth(current.getMonth() + 3);
             }
         } else if (scale === 'month') {
-            let currentYear = dates.start.getFullYear();
-            while (currentYear <= dates.end.getFullYear()) {
-                const yearX = this.dateToX(new Date(currentYear, 0, 1), dates);
-                if (yearX >= this.sidebarWidth && yearX <= rect.width) {
-                    ctx.fillText(String(currentYear), Math.max(this.sidebarWidth + 5, yearX + 5), 15);
-                }
-                currentYear++;
-            }
-            ctx.font = '11px Arial';
-            ctx.fillStyle = '#6c757d';
             let current = new Date(dates.start.getFullYear(), dates.start.getMonth(), 1);
             while (current <= dates.end) {
                 const monthX = this.dateToX(current, dates);
-                const monthName = current.toLocaleDateString('en-US', { month: 'short' });
-                ctx.fillText(monthName, monthX + 5, 50);
+                ctx.fillText(
+                    current.toLocaleDateString('en-US', { month: 'short' }),
+                    monthX + 5,
+                    50
+                );
                 current.setMonth(current.getMonth() + 1);
             }
         }
@@ -900,7 +945,7 @@ export class GanttRenderer extends Component {
                 }
 
                 // task color dot
-                ctx.fillStyle = this.getTaskColor();
+                ctx.fillStyle = this.resolveTaskColor(task);
                 ctx.beginPath();
                 ctx.arc(dotX, centerY, dotRadius, 0, Math.PI * 2);
                 ctx.fill();
@@ -970,9 +1015,9 @@ export class GanttRenderer extends Component {
             if (y + this.cellHeight > this.headerHeight && y < rect.height) {
                 const isHovered = this.state.hoveredTask?.id === task.id;
                 const isDragged = this.state.draggedTask?.id === task.id;
-                const themeRgb = this.getThemeColor();
-                const taskColor = this.colorToHex(themeRgb);
-                const trackColor = this.colorToHex(this.lighten(themeRgb, 0.78));
+                const taskRgb = this.hexToRgb(this.resolveTaskColor(task));
+                const taskColor = this.colorToHex(taskRgb);
+                const trackColor = this.colorToHex(this.lighten(taskRgb, 0.78));
 
                 // Task bar shadow
                 if (isHovered || isDragged) {
@@ -1008,7 +1053,7 @@ export class GanttRenderer extends Component {
 
                 // Task name
                 if (width > 40) {
-                    ctx.fillStyle = progressWidth > 4 && this.colorLuminance(themeRgb) <= 0.6
+                    ctx.fillStyle = progressWidth > 4 && this.colorLuminance(taskRgb) <= 0.6
                         ? '#ffffff'
                         : '#343a40';
                     ctx.font = isHovered ? 'bold 11px Arial' : '11px Arial';
@@ -1044,6 +1089,112 @@ export class GanttRenderer extends Component {
         });
 
         ctx.restore();
+    }
+
+    drawDependencies(ctx, data, dates, rect) {
+        if (!this.props.showDependencies) {
+            return;
+        }
+        const rows = this.getRows(data);
+        // A task can appear in several groups (e.g. grouped by assignee); pin
+        // dependencies to its first visible row.
+        const rects = new Map();
+        for (const row of rows) {
+            if (row.type === 'task' && row.task._rect && !rects.has(row.task.id)) {
+                rects.set(row.task.id, row.task._rect);
+            }
+        }
+        if (!rects.size) {
+            return;
+        }
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(this.sidebarWidth, 0, rect.width - this.sidebarWidth, rect.height);
+        ctx.clip();
+        for (const row of rows) {
+            if (row.type !== 'task' || !row.task._rect) {
+                continue;
+            }
+            for (const predecessorId of row.task.predecessor_ids || []) {
+                const from = rects.get(predecessorId);
+                if (from) {
+                    this.drawDependencyArrow(ctx, from, row.task._rect);
+                }
+            }
+        }
+        ctx.restore();
+    }
+
+    drawDependencyArrow(ctx, from, to) {
+        const startX = from.x + from.width;
+        const startY = from.y + from.height / 2;
+        const endX = to.x;
+        const endY = to.y + to.height / 2;
+        const stub = 8;
+        const arrowSize = 5;
+
+        ctx.strokeStyle = '#6c757d';
+        ctx.fillStyle = '#6c757d';
+        ctx.lineWidth = 1.2;
+
+        if (Math.abs(endY - startY) < 1) {
+            // Same row: straight arrow.
+            ctx.beginPath();
+            ctx.moveTo(startX, startY);
+            ctx.lineTo(endX, endY);
+            ctx.stroke();
+            this.drawArrowHead(ctx, endX, endY, endX >= startX ? 'right' : 'left', arrowSize);
+            return;
+        }
+
+        if (endX >= startX + stub * 2) {
+            // Normal finish-to-start: elbow into the successor's start edge.
+            ctx.beginPath();
+            ctx.moveTo(startX, startY);
+            ctx.lineTo(startX + stub, startY);
+            ctx.lineTo(startX + stub, endY);
+            ctx.lineTo(endX, endY);
+            ctx.stroke();
+            this.drawArrowHead(ctx, endX, endY, 'right', arrowSize);
+            return;
+        }
+
+        // Successor starts at or before the predecessor's end: route through
+        // the gap between the two rows, then around to the successor's left
+        // side and enter its start edge from the left.
+        const stubX = startX + stub;
+        const below = to.y > from.y;
+        const gapY = below ? to.y - 4 : to.y + to.height + 4;
+        const entryX = endX - stub;
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        ctx.lineTo(stubX, startY);
+        ctx.lineTo(stubX, gapY);
+        ctx.lineTo(entryX, gapY);
+        ctx.lineTo(entryX, endY);
+        ctx.lineTo(endX, endY);
+        ctx.stroke();
+        this.drawArrowHead(ctx, endX, endY, 'right', arrowSize);
+    }
+
+    drawArrowHead(ctx, x, y, direction, size) {
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        if (direction === 'right') {
+            ctx.lineTo(x - size, y - size * 0.7);
+            ctx.lineTo(x - size, y + size * 0.7);
+        } else if (direction === 'left') {
+            ctx.lineTo(x + size, y - size * 0.7);
+            ctx.lineTo(x + size, y + size * 0.7);
+        } else if (direction === 'down') {
+            ctx.lineTo(x - size * 0.7, y - size);
+            ctx.lineTo(x + size * 0.7, y - size);
+        } else {
+            ctx.lineTo(x - size * 0.7, y + size);
+            ctx.lineTo(x + size * 0.7, y + size);
+        }
+        ctx.closePath();
+        ctx.fill();
     }
 
     drawScrollbar(ctx, rect) {
@@ -1108,8 +1259,30 @@ export class GanttRenderer extends Component {
         return truncated + ellipsis;
     }
 
-    getTaskColor() {
+    // Accept either a hex string or an Odoo color index (0 = theme default).
+    resolveTaskColor(task) {
+        const color = task && task.color;
+        if (typeof color === 'string' &&
+            /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(color)) {
+            return color;
+        }
+        const index = Number.parseInt(color, 10);
+        if (Number.isInteger(index) && index > 0 && TASK_COLOR_PALETTE[index]) {
+            return TASK_COLOR_PALETTE[index];
+        }
         return this.colorToHex(this.getThemeColor());
+    }
+
+    hexToRgb(color) {
+        let value = String(color).replace('#', '');
+        if (value.length === 3) {
+            value = value.split('').map((c) => c + c).join('');
+        }
+        return {
+            r: parseInt(value.slice(0, 2), 16) || 0,
+            g: parseInt(value.slice(2, 4), 16) || 0,
+            b: parseInt(value.slice(4, 6), 16) || 0,
+        };
     }
 
     // Resolve the current theme primary (the "menu color") from CSS variables so
@@ -1189,10 +1362,10 @@ export class GanttRenderer extends Component {
     getTaskAt(x, y) {
         for (const group of this.props.data) {
             for (const task of group.tasks) {
-                if (task._rect && 
-                    x >= task._rect.x && 
+                if (task._rect &&
+                    x >= task._rect.x &&
                     x <= task._rect.x + task._rect.width &&
-                    y >= task._rect.y && 
+                    y >= task._rect.y &&
                     y <= task._rect.y + task._rect.height) {
                     return task;
                 }

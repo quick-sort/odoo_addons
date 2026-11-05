@@ -2,7 +2,7 @@
 {
     "name": "Gantt View",
     "summary": "Generic Gantt chart view",
-    "version": "19.0.0.2.2",
+    "version": "19.0.0.3.0",
     "category": "Productivity",
     "author": "Concept Solutions LLC",
     "website": "https://www.csloman.com",

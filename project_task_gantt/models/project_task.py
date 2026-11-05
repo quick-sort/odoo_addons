@@ -23,6 +23,11 @@ class ProjectTask(models.Model):
         store=True,
         help="Calculated duration between start and end dates"
     )
+    gantt_color = fields.Integer(
+        string='Gantt Color',
+        default=0,
+        help="Color index for this task's Gantt bar; 0 uses the theme color.",
+    )
     task_end_date = fields.Datetime(
         string='End Date',
         compute='_compute_task_end_date',
@@ -114,6 +119,8 @@ class ProjectTask(models.Model):
                 'description',
                 'parent_id',
                 'user_ids',
+                'depend_on_ids',
+                'gantt_color',
                 group_by
             ]
             if 'project_id' not in fields_to_read:
@@ -204,10 +211,13 @@ class ProjectTask(models.Model):
                     'start_date': task['gantt_date_start'].isoformat() if task['gantt_date_start'] else None,
                     'end_date': task['gantt_date_stop'].isoformat() if task['gantt_date_stop'] else None,
                     'progress': self._gantt_progress_pct(task.get('progress')),
-                    'color': task.get('color', 0) or 0,
+                    # Dedicated Gantt color wins; fall back to the task's
+                    # kanban color index when no Gantt color is set.
+                    'color': task.get('gantt_color') or task.get('color', 0) or 0,
                     'priority': task.get('priority', '0'),
                     'description': task.get('description', '') or '',
                     'parent_id': task['parent_id'][0] if task.get('parent_id') else False,
+                    'predecessor_ids': normalize_m2m_ids(task.get('depend_on_ids')),
                     'assignees': [
                         assignee_names.get(user_id, f"ID {user_id}")
                         for user_id in normalize_m2m_ids(task.get('user_ids'))
