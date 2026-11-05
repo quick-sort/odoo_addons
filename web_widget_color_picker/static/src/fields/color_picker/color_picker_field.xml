@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="web_widget_color_picker.CompactColorPickerField">
+        <ColorList canToggle="!props.readonly"
+                   colors="colors"
+                   onColorSelected.bind="onColorSelected"
+                   selectedColor="selectedColor"/>
+    </t>
+</templates>

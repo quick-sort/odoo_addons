@@ -2,12 +2,12 @@
 {
     "name": "Project Task Gantt",
     "summary": "Gantt chart view for project tasks",
-    "version": "19.0.1.2.0",
+    "version": "19.0.1.3.0",
     "category": "Productivity",
     "author": "Concept Solutions LLC",
     "website": "https://www.csloman.com",
     "license": "LGPL-3",
-    "depends": ["project", "web_gantt"],
+    "depends": ["project", "web_gantt", "web_widget_color_picker"],
     "data": [
         "views/project_task_views.xml",
         "views/project_task_gantt_views.xml",

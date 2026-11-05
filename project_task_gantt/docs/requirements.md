@@ -21,7 +21,9 @@
   `depend_on_ids`），由 `web_gantt` 的 Dependencies 按钮绘制完成-开始箭头。
 - 里程碑显隐：milestone 以图内竖向标记线展示，可通过 Timeline 多选下拉框
   控制显隐；默认全部显示。
-- 任务单独配色：`gantt_color` 记录该任务的 Gantt 颜色索引，表单用色板选择；
+- 任务单独配色：`gantt_color` 记录该任务的 Gantt 颜色索引，表单用
+  `web_widget_color_picker` 的 `compact_color_picker` 选择（收起为当前色点，
+  选中即保存）；
   载荷 `color` 优先取它，退回核心 `color`，最终退回主题色。
 
 ## 不做

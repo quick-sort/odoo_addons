@@ -1,4 +1,8 @@
+import ast
 from datetime import date, datetime, timedelta
+from pathlib import Path
+
+from lxml import etree
 
 from odoo.tests.common import TransactionCase, tagged
 
@@ -168,6 +172,25 @@ class TestGanttTree(TransactionCase):
             group_by='project_id',
         )
         self.assertEqual(data['groups'][0]['tasks'][0]['color'], 3)
+
+    def test_gantt_color_uses_compact_color_picker(self):
+        arch = etree.fromstring(
+            self.env.ref('project.view_task_form2').get_combined_arch()
+        )
+        fields = [
+            node for node in arch.iter('field')
+            if node.get('name') == 'gantt_color'
+        ]
+        self.assertTrue(fields, 'Gantt Color field missing from the task form')
+        self.assertTrue(
+            all(node.get('widget') == 'compact_color_picker' for node in fields)
+        )
+
+    def test_depends_on_compact_color_picker_addon(self):
+        manifest = ast.literal_eval(
+            (Path(__file__).resolve().parents[1] / '__manifest__.py').read_text()
+        )
+        self.assertIn('web_widget_color_picker', manifest['depends'])
 
     def test_gantt_alias_reads_backing_fields(self):
         project = self.env['project.project'].create({'name': 'Alias Project'})
