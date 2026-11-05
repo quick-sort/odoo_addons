@@ -19,11 +19,10 @@ class TestProjectTaskPlan(TransactionCase):
             }
         )
 
-    def _task(self, project, name, start=None, end=None, deps=(), lead=0.0, no_auto=False):
+    def _task(self, project, name, start=None, end=None, deps=(), no_auto=False):
         vals = {
             "name": name,
             "project_id": project.id,
-            "lead_time": lead,
             "no_auto_schedule": no_auto,
         }
         if deps:
@@ -40,13 +39,6 @@ class TestProjectTaskPlan(TransactionCase):
         self.assertFalse(project.allow_auto_schedule)
         task = self.env["project.task"].create({"name": "T", "project_id": project.id})
         self.assertFalse(task.no_auto_schedule)
-        self.assertEqual(task.lead_time, 0.0)
-
-    # AC-02
-    def test_lead_time_negative_rejected(self):
-        project = self._project()
-        with self.assertRaises(ValidationError):
-            self._task(project, "T", lead=-1.0)
 
     # AC-03
     def test_predecessor_push_forward_preserves_duration(self):
@@ -81,17 +73,6 @@ class TestProjectTaskPlan(TransactionCase):
 
         self.assertEqual(b.task_start_date, self._dt("2026-01-18 00:00:00"))
         self.assertEqual(b.date_deadline, self._dt("2026-01-23 00:00:00"))
-
-    # AC-06
-    def test_lead_time_applied(self):
-        project = self._project()
-        a = self._task(project, "A", start=self._dt("2026-01-01 00:00:00"), end=self._dt("2026-01-10 00:00:00"))
-        b = self._task(project, "B", start=self._dt("2026-01-13 00:00:00"), end=self._dt("2026-01-18 00:00:00"), deps=[a.id], lead=3.0)
-
-        a.write({"date_deadline": self._dt("2026-01-12 00:00:00")})
-
-        self.assertEqual(b.task_start_date, self._dt("2026-01-15 00:00:00"))
-        self.assertEqual(b.date_deadline, self._dt("2026-01-20 00:00:00"))
 
     # AC-07
     def test_predecessor_without_end_date(self):

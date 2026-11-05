@@ -31,17 +31,16 @@
         <field name="name">Testing</field>
         <field name="project_id" ref="demo_project"/>
         <field name="depend_on_ids" eval="[(6, 0, [ref('demo_task_development')])]"/>
-        <field name="lead_time">1</field>
-        <field name="task_start_date">2026-11-12 00:00:00</field>
-        <field name="date_deadline">2026-11-14 00:00:00</field>
+        <field name="task_start_date">2026-11-11 00:00:00</field>
+        <field name="date_deadline">2026-11-13 00:00:00</field>
     </record>
 
     <record id="demo_task_deployment" model="project.task">
         <field name="name">Deployment</field>
         <field name="project_id" ref="demo_project"/>
         <field name="depend_on_ids" eval="[(6, 0, [ref('demo_task_testing')])]"/>
-        <field name="task_start_date">2026-11-14 00:00:00</field>
-        <field name="date_deadline">2026-11-15 00:00:00</field>
+        <field name="task_start_date">2026-11-13 00:00:00</field>
+        <field name="date_deadline">2026-11-14 00:00:00</field>
     </record>
 
     <record id="demo_task_docs" model="project.task">
