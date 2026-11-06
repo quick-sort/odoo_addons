@@ -5,7 +5,7 @@
         <field name="model">project.task</field>
         <field name="inherit_id" ref="project.view_task_form2"/>
         <field name="arch" type="xml">
-            <xpath expr="//field[@name='tag_ids']" position="after">
+            <xpath expr="//page[@name='extra_info']/group/group[1]" position="inside">
                 <field name="no_auto_schedule"/>
             </xpath>
         </field>

@@ -1,7 +1,7 @@
 {
     "name": "Project Task Plan",
     "summary": "Auto-schedule project tasks based on dependencies",
-    "version": "19.0.1.2.0",
+    "version": "19.0.1.2.1",
     "category": "Project",
     "author": "quick-sort@outlook.com",
     "license": "LGPL-3",
