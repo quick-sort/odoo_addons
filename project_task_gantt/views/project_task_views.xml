@@ -8,7 +8,7 @@
             <xpath expr="//field[@name='tag_ids']" position="after">   
                 <field name="task_start_date"/>
                 <field name="gantt_duration" readonly="1"/>
-                <field name="gantt_color" widget="kanban_color_picker"/>
+                <field name="gantt_color" widget="compact_color_picker"/>
             </xpath>
         </field>
     </record>

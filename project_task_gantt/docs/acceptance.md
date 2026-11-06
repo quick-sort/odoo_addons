@@ -26,3 +26,5 @@
 | AC22 | 依赖数据 | 任务的 `predecessor_ids` 来自 `depend_on_ids`；无依赖时为空数组 | `test_get_gantt_data_includes_predecessor_ids` |
 | AC23 | 依赖展示 | 打开 Dependencies 后，前置任务的完成端连到后继任务的开始端 | 人工检查 |
 | AC24 | 任务配色 | `gantt_color` 非 0 时载荷 `color` 取该值；为 0 时回退核心 `color` | `test_get_gantt_data_uses_gantt_color`、人工检查 |
+| AC25 | 配色控件 | 任务表单的 `gantt_color` 使用 `compact_color_picker`；收起为当前色点，选中即写库 | `test_gantt_color_uses_compact_color_picker`、人工检查 |
+| AC26 | 依赖声明 | manifest 的 `depends` 含 `web_widget_color_picker` | `test_depends_on_compact_color_picker_addon` |

@@ -71,7 +71,13 @@
 - `views/project_task_gantt_views.xml`：`<gantt date_start="gantt_date_start"
   date_stop="gantt_date_stop"/>`，并挂到项目任务与全部任务 action。
 - 表单只新增 Start Date 与 Duration；结束时间即核心 Deadline 字段，不重复展示。
+- 表单的 `gantt_color` 使用 `web_widget_color_picker` 的 `compact_color_picker`：
+  收起态只显示当前色点，选中后立即写库；不占用核心 `color_picker` 注册名。
 - 实际绘制由 `web_gantt` 的自绘渲染器完成。
+
+## 依赖
+
+`project`、`web_gantt`、`web_widget_color_picker`。
 
 ## 被否决的方案
 
