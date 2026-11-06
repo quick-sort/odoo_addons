@@ -165,6 +165,10 @@ export class GanttController extends Component {
         return !this.state.hiddenMarkerKeys.includes(key);
     }
 
+    get allMarkersVisible() {
+        return this.timelineMarkerOptions.length > 0 && this.state.hiddenMarkerKeys.length === 0;
+    }
+
     _pruneHiddenMarkerKeys() {
         const valid = new Set(this.timelineMarkerOptions.map((option) => option.key));
         this.state.hiddenMarkerKeys = this.state.hiddenMarkerKeys.filter((key) => valid.has(key));
@@ -188,8 +192,10 @@ export class GanttController extends Component {
             : [...this.state.hiddenMarkerKeys, key];
     }
 
-    showAllMarkers() {
-        this.state.hiddenMarkerKeys = [];
+    toggleAllMarkers() {
+        this.state.hiddenMarkerKeys = this.allMarkersVisible
+            ? this.timelineMarkerOptions.map((option) => option.key)
+            : [];
     }
 
     navigate(type) {
