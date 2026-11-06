@@ -2,23 +2,21 @@
 
 > 本文是 QC 的唯一依据，`tests/` 里每个用例对应下面一个编号功能点。
 > 记法：A 为前置任务，B/C 为后继；`P → B` 表示 B 依赖 P（`B.depend_on_ids` 含 P）。
+> AC-02（`lead_time` 非负）与 AC-06（`lead_time` 生效）已随 `lead_time` 字段
+> 删除；其余编号保持不变。
 
 ## 字段与约束
 
 - **AC-01 字段存在与默认值**：安装后 `project.project` 有 `allow_auto_schedule`
-  （默认 `False`）；`project.task` 有 `no_auto_schedule`（默认 `False`）与
-  `lead_time`（默认 `0.0`）。
-
-- **AC-02 lead_time 非负约束**：`lead_time` 写入负数时，create/write 抛出
-  `ValidationError`，记录不落库。
+  （默认 `False`）；`project.task` 有 `no_auto_schedule`（默认 `False`）。
 
 ## 排期不变量
 
 > 前置：项目开关 `allow_auto_schedule = True`；任务 B 未开 `no_auto_schedule`，
-> 且有前置 A（`B.depend_on_ids = A`），`B.lead_time = L`。
+> 且有前置 A（`B.depend_on_ids = A`）。
 
 - **AC-03 前置推迟，后继顺延（保持时长）**：把 A 的 `date_deadline` 向后改
-  Δ 天 → B 的 `task_start_date` 变为 `A.date_deadline + L`，B 的
+  Δ 天 → B 的 `task_start_date` 变为 `A.date_deadline`，B 的
   `date_deadline` 变为「新开始 + 原 `gantt_duration`」；B 的 `gantt_duration`
   与改动前一致。
 
@@ -26,10 +24,7 @@
   B 的起止日期按不变量同步前移。
 
 - **AC-05 多前置取最大**：B 有前置 A1、A2（结束日分别为 E1、E2）→
-  `B.task_start_date == max(E1, E2) + L`。
-
-- **AC-06 lead_time 生效**：`B.lead_time = N`（N ≥ 0）→
-  `B.task_start_date == max(前置结束) + N`。
+  `B.task_start_date == max(E1, E2)`。
 
 - **AC-07 前置无结束日**：前置 P 只有 `task_start_date`、`date_deadline` 为空 →
   以 `P.task_start_date` 作为 P 的结束日参与取 max。
@@ -55,7 +50,7 @@
 - **AC-12 传递级联**：A → B → C 链。改 A 的结束日 → B、C 都按不变量顺延
   （C 基于 B 的新结束日）。
 
-- **AC-13 依赖变更触发重算**：给 B 增删前置，或改 `B.lead_time` /
+- **AC-13 依赖变更触发重算**：给 B 增删前置，或改
   `B.no_auto_schedule` → B 自身（及其后继）按不变量重算。
 
 - **AC-14 幂等 / 无重复写回**：单次写操作只触发一轮有界传播，不因递归写回产生
@@ -68,8 +63,7 @@
 - **AC-17 开启批量拉齐**：`allow_auto_schedule = True` 时，项目 Settings 页的
   Auto Schedule 开关旁显示「Schedule」按钮；点击后，项目内所有**未完成**、
   参与排期且日期不符合不变量
-  （`task_start_date ≠ max(前置结束) + lead_time`）的任务被一次性拉齐，且保持
-  各自时长。
+  （`task_start_date ≠ max(前置结束)`）的任务被一次性拉齐，且保持各自时长。
 
 - **AC-18 结果窗口内容**：动作返回 `project.task.plan.result` 窗口，
   `moved_count` 等于实际被调整的任务数；`line_ids` 只含被调整的任务，每条

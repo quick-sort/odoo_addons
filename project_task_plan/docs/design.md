@@ -22,7 +22,6 @@
 |---|---|---|---|---|
 | `project.project` | `allow_auto_schedule` | Boolean | `False` | 项目是否开启自动调整排期 |
 | `project.task` | `no_auto_schedule` | Boolean | `False` | 例外开关：True 则不自动调整此任务 |
-| `project.task` | `lead_time` | Float | `0.0` | 提前期（天），前置结束到本任务开始的最小间隔 |
 
 字段语义：
 
@@ -54,7 +53,7 @@
 对每个参与自动排期的任务 T：
 
 ```
-T.task_start_date == max( P.date_deadline for P in T.depend_on_ids ) + T.lead_time
+T.task_start_date == max( P.date_deadline for P in T.depend_on_ids )
 T.date_deadline   == T.task_start_date + T.gantt_duration
 ```
 
@@ -66,13 +65,12 @@ T.date_deadline   == T.task_start_date + T.gantt_duration
 ## 传播规则
 
 - 触发点：`project.task` 的 `write`（含 create 路径）中，任何影响排期的字段
-  变化——`task_start_date`、`date_deadline`、`depend_on_ids`、`lead_time`、
+  变化——`task_start_date`、`date_deadline`、`depend_on_ids`、
   `no_auto_schedule`。这些「随写随排」的传播是**静默**的（不弹窗，避免每次
   编辑都打断用户）。
 - 被编辑任务本身作为本次编辑的「锚点」，不做回溯调整；只重算其**传递后继**
   （`dependent_ids` 的传递闭包）。例外：当编辑的是 `depend_on_ids` /
-  `lead_time` / `no_auto_schedule`（改变了该任务自身的约束）时，该任务本身
-  也要重算。
+  `no_auto_schedule`（改变了该任务自身的约束）时，该任务本身也要重算。
 - 重算按拓扑序进行，一次事务内收集全部目标值后批量写入；用 context 标记防止
   递归写回导致的重复/无限传播。
 - 不变量天然无环：核心 `_check_no_cyclic_dependencies` 已把依赖强制为 DAG。
@@ -92,9 +90,6 @@ T.date_deadline   == T.task_start_date + T.gantt_duration
 
 - **确定性重算 vs 增量平移**：选确定性重算。每次都按不变量重算目标日，幂等、
   可重入，避免增量平移的累积误差与顺序敏感。
-- **lead_time 单字段 vs 每条依赖边一个 lead**：选单字段（per-task）。简单、
-  符合需求；代价是同一任务对多个前置只有一个滞后量。per-edge 需要新关联表，
-  暂不做，留作扩展。
 - **双向 vs 只向后顺延**：按需求选双向。风险是会把任务提前；用测试锁定行为，
   并在验收里明确「提前」场景。
 - **锚点不回溯**：用户手动改一个任务的日期时，不立即反推覆盖它，只向前传播，
@@ -113,4 +108,4 @@ Gantt 的结束时间就是 `date_deadline`，不存在第二个结束字段。�
    `_inherit` 扩展。
 2. 不绕过 ORM 的依赖成环检测。
 3. 传播必须幂等、可重入安全（同一组写操作重复执行结果一致）。
-4. `lead_time` 必须非负（≥ 0）：负数在 `create`/`write` 时被拒绝，不静默钳制。
+4. 后置任务开始时间严格取前置结束时间的最大值，不额外增加偏移。

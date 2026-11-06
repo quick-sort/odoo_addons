@@ -1,30 +1,21 @@
 from collections import deque
 from datetime import timedelta
 
-from odoo import _, api, fields, models
-from odoo.exceptions import ValidationError
+from odoo import api, fields, models
 
 _SCHEDULE_FIELDS = {
     "task_start_date",
     "date_deadline",
     "depend_on_ids",
-    "lead_time",
     "no_auto_schedule",
 }
-_SELF_CONSTRAINT_FIELDS = {"depend_on_ids", "lead_time", "no_auto_schedule"}
+_SELF_CONSTRAINT_FIELDS = {"depend_on_ids", "no_auto_schedule"}
 
 
 class ProjectTask(models.Model):
     _inherit = "project.task"
 
     no_auto_schedule = fields.Boolean(string="No Auto Schedule", default=False)
-    lead_time = fields.Float(string="Lead Time (Days)", default=0.0, digits=(16, 2))
-
-    @api.constrains("lead_time")
-    def _check_lead_time(self):
-        for task in self:
-            if task.lead_time < 0:
-                raise ValidationError(_("Lead Time cannot be negative."))
 
     def _is_auto_schedulable(self):
         self.ensure_one()
@@ -45,7 +36,7 @@ class ProjectTask(models.Model):
         ]
         if not ends:
             return self.task_start_date, self.date_deadline
-        start = max(ends) + timedelta(days=self.lead_time)
+        start = max(ends)
         return start, start + timedelta(days=(self.gantt_duration or 0.0))
 
     def _propagate_schedule(self, roots):

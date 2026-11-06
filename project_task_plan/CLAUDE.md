@@ -10,4 +10,4 @@
 
 1. 不改核心 `project` / `project_task_gantt` 的字段语义，全部 `_inherit` 扩展。
 2. 排期传播必须幂等、可重入安全（context 标记 `_auto_schedule_guard` 防递归）。
-3. `lead_time` 必须非负，负数拒绝。
+3. 后置任务开始时间严格取前置结束时间的最大值，不额外增加偏移。
