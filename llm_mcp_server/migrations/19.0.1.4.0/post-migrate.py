@@ -1,5 +1,5 @@
-def migrate(cr, installed_version):
-    if not installed_version:
+def migrate(cr, version):
+    if not version:
         return
 
     # ``expose_to_mcp`` is new; ``_auto_init`` backfilled every existing row to
