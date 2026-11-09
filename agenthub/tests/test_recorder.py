@@ -33,7 +33,7 @@ class TestRecorder(common.TransactionCase):
             {
                 "name": "Recorder User",
                 "login": f"recorder_{uuid.uuid4().hex[:8]}",
-                "group_ids": [(6, 0, [self.env.ref("base.group_user").id])],
+                "group_ids": [(6, 0, [self.env.ref("agenthub.group_agenthub_user").id])],
             }
         )
         self.channel = self.Channel.create(

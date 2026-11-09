@@ -122,7 +122,7 @@ class TestAgentDispatch(_DispatchCase):
             {
                 "name": "Relay Probe",
                 "login": "relay_probe_agenthub_test",
-                "group_ids": [(6, 0, [self.env.ref("base.group_user").id])],
+                "group_ids": [(6, 0, [self.env.ref("agenthub.group_agenthub_user").id])],
             }
         )
         relay_agent = self.env["agenthub.agent"].create(

@@ -332,7 +332,7 @@ relay 不查 Odoo thread 表：`(channel, peer, agent)` 已确定唯一 thread�
 - `relay` agent：Odoo 用 service user 记录消息作者与审计；agent-box 通过 relay token 认证，实际 Odoo 权限由 token 对应的 service user 决定。Relay 不得绕过 Odoo 权限。
 - 约束：`user_id` 必须是内部、active 用户；活跃 agent 的 service user 唯一；允许 `user_id == owner_user_id`，但推荐专职 service user。
 - 消息作者：`message_post(author_id=agent.partner_id)`；UI 上 agent 与人类可辨。
-- Record rule：按 `agent_id` / `owner_user_id` 收敛；普通用户只看/管自己的 agent 与 thread，`base.group_system` 看全部。
+- Record rule：按 `agent_id` / `owner_user_id` 收敛；`agenthub.group_agenthub_user` 只看/管自己的 agent 与 thread，`agenthub.group_agenthub_admin` 看全部。
 
 ## 管理 UI、Token 与命令
 
@@ -340,7 +340,7 @@ relay 不查 Odoo thread 表：`(channel, peer, agent)` 已确定唯一 thread�
 - Token：生成时展示一次，存储 `token_hash`；支持轮换。relay 通过配置快照拿到 hash。
 - 新增 `Identities`、`Bindings`、`Commands` 管理入口（或嵌入 agent/channel 表单）。
 - `agenthub.command` 可由 `ir.cron` 创建；表单支持 `reply_mode`。
-- 权限：`agenthub.agent` 对 `base.group_user` 开放 CRUD；record rule 按 `owner_user_id` 隔离，管理员看全部。
+- 权限：`agenthub.agent` 对 `agenthub.group_agenthub_user` 开放 CRUD；record rule 按 `owner_user_id` 隔离，`agenthub.group_agenthub_admin` 看全部。两个组都不默认授予内部用户。
 
 ## 验收与测试边界
 

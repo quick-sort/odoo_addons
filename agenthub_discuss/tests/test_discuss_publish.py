@@ -37,14 +37,14 @@ class TestDiscussPublish(common.TransactionCase):
             {
                 "name": "Discuss User",
                 "login": f"discuss_{uuid.uuid4().hex[:8]}",
-                "group_ids": [(6, 0, [self.env.ref("base.group_user").id])],
+                "group_ids": [(6, 0, [self.env.ref("agenthub.group_agenthub_user").id])],
             }
         )
         self.agent_user = self.env["res.users"].create(
             {
                 "name": "Discuss Agent Service",
                 "login": f"discuss_agent_{uuid.uuid4().hex[:8]}",
-                "group_ids": [(6, 0, [self.env.ref("base.group_user").id])],
+                "group_ids": [(6, 0, [self.env.ref("agenthub.group_agenthub_user").id])],
             }
         )
         self.agent = self.env["agenthub.agent"].create(

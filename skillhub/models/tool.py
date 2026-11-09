@@ -39,7 +39,7 @@ class SkillHubTool(models.AbstractModel):
             raise UserError("The uploaded file is empty.")
         return attachment
 
-    @llm_tool(destructive_hint=False, groups=("base.group_user",))
+    @llm_tool(destructive_hint=False, groups=("skillhub.group_skillhub_user",))
     def skill_publish(
         self,
         attachment_id: int,
@@ -109,7 +109,7 @@ class SkillHubTool(models.AbstractModel):
     @llm_tool(
         read_only_hint=True,
         destructive_hint=False,
-        groups=("base.group_user",),
+        groups=("skillhub.group_skillhub_user",),
     )
     def skill_download(self, skill_id: int) -> dict[str, Any]:
         """Return a temporary download URL for a skill by id. The bytes do not
@@ -122,7 +122,7 @@ class SkillHubTool(models.AbstractModel):
             self.env.user
         ).attachment_get_download_url(skill.attachment_id.id)
 
-    @llm_tool(destructive_hint=False, groups=("base.group_user",))
+    @llm_tool(destructive_hint=False, groups=("skillhub.group_skillhub_user",))
     def skill_share(self, skill_id: int, user_ids: list[int]) -> dict[str, Any]:
         """Share a skill with the given user ids. Only the owner may share."""
         skill = self._get_skill_or_raise(skill_id)
@@ -130,7 +130,7 @@ class SkillHubTool(models.AbstractModel):
         skill.write({"shared_user_ids": [(4, uid) for uid in user_ids]})
         return {"skill_id": skill.id, "shared_user_ids": skill.shared_user_ids.ids}
 
-    @llm_tool(destructive_hint=False, groups=("base.group_user",))
+    @llm_tool(destructive_hint=False, groups=("skillhub.group_skillhub_user",))
     def skill_unshare(self, skill_id: int, user_ids: list[int]) -> dict[str, Any]:
         """Revoke sharing of a skill from the given user ids. Only the owner may
         unshare."""
@@ -139,7 +139,7 @@ class SkillHubTool(models.AbstractModel):
         skill.write({"shared_user_ids": [(3, uid) for uid in user_ids]})
         return {"skill_id": skill.id, "shared_user_ids": skill.shared_user_ids.ids}
 
-    @llm_tool(destructive_hint=True, groups=("base.group_user",))
+    @llm_tool(destructive_hint=True, groups=("skillhub.group_skillhub_user",))
     def skill_archive(self, skill_id: int) -> dict[str, Any]:
         """Archive a skill, hiding it from search. Only the owner may archive."""
         skill = self._get_skill_or_raise(skill_id)

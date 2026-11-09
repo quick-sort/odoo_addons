@@ -103,7 +103,7 @@ class TestRecordBehaviors(common.TransactionCase):
             {
                 "name": label,
                 "login": f"{label.lower().replace(' ', '_')}_{uuid.uuid4().hex[:8]}",
-                "group_ids": [(6, 0, [self.env.ref("base.group_user").id])],
+                "group_ids": [(6, 0, [self.env.ref("agenthub.group_agenthub_user").id])],
             }
         )
 
@@ -211,7 +211,7 @@ class TestAgentIdentity(common.TransactionCase):
             {
                 "name": "Agent Service",
                 "login": "agent_service_agenthub_test",
-                "group_ids": [(6, 0, [cls.env.ref("base.group_user").id])],
+                "group_ids": [(6, 0, [cls.env.ref("agenthub.group_agenthub_user").id])],
             }
         )
 
@@ -270,7 +270,7 @@ class TestAgentIdentity(common.TransactionCase):
             {
                 "name": "Other Service",
                 "login": "other_service_agenthub_test",
-                "group_ids": [(6, 0, [self.env.ref("base.group_user").id])],
+                "group_ids": [(6, 0, [self.env.ref("agenthub.group_agenthub_user").id])],
             }
         )
         self._make_agent(user_id=other_user.id)
@@ -289,7 +289,7 @@ class TestAgentIdentity(common.TransactionCase):
             {
                 "name": "Default Owner",
                 "login": "agenthub_default_owner",
-                "group_ids": [(6, 0, [self.env.ref("base.group_user").id])],
+                "group_ids": [(6, 0, [self.env.ref("agenthub.group_agenthub_user").id])],
             }
         )
         agent = self.Agent.with_user(user).create(
@@ -299,7 +299,7 @@ class TestAgentIdentity(common.TransactionCase):
         self.assertEqual(agent.owner_user_id, user)
 
     def test_user_sees_only_own_agents(self):
-        group_user = self.env.ref("base.group_user")
+        group_user = self.env.ref("agenthub.group_agenthub_user")
         user_a = self.env["res.users"].create(
             {
                 "name": "Owner A",
@@ -358,7 +358,7 @@ class TestRelayModels(common.TransactionCase):
             {
                 "name": "Relay User",
                 "login": f"relay_user_{uuid.uuid4().hex[:8]}",
-                "group_ids": [(6, 0, [self.env.ref("base.group_user").id])],
+                "group_ids": [(6, 0, [self.env.ref("agenthub.group_agenthub_user").id])],
             }
         )
         self.agent = self.Agent.create(

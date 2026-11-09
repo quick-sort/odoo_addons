@@ -59,15 +59,15 @@ skill 的 owner/shared/public 规则，不需要 sudo，也不依赖存储后端
 | owner（create_uid） | 读 / 写 / 删 / 分享 / 下载 |
 | shared_user_ids | 读 + 下载 |
 | is_public | 所有内部用户读 + 下载 |
-| 管理员（`base.group_system`） | 读 / 写全部（`create` / `unlink` 仍由模型 ACL 决定） |
+| 管理员（`skillhub.group_skillhub_admin`） | 读 / 写全部（`create` / `unlink` 仍由模型 ACL 决定） |
 
 - 读 record rule：`owner OR shared OR public`。
 - 写 / 删 / 分享：仅 owner。
-- 管理员放行：一条 `base.group_system` 的组规则（`[(1, '=', 1)]`）。Odoo 对同一
+- 管理员放行：一条 `skillhub.group_skillhub_admin` 的组规则（`[(1, '=', 1)]`）。Odoo 对同一
   操作的组规则取 **OR**，所以普通用户的可见范围不变，管理员能看/改全部。
 
 文件权限不再单独设计：`ir.attachment` 的绑定记录规则与 skill 完全一致。工具向
-`base.group_user` 开放，实际能操作哪条记录仍由 record rules 决定。
+`skillhub.group_skillhub_user` 开放，实际能操作哪条记录仍由 record rules 决定。
 
 ## 工具面（`@llm_tool`，经 `llm_mcp_server` 暴露）
 

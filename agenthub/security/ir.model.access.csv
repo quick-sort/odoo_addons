@@ -1,17 +1,17 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_agenthub_channel,agenthub.channel,model_agenthub_channel,base.group_system,1,1,1,1
-access_agenthub_agent,agenthub.agent,model_agenthub_agent,base.group_system,1,1,1,1
-access_agenthub_agent_user,agenthub.agent.user,model_agenthub_agent,base.group_user,1,1,1,1
-access_agenthub_thread,agenthub.thread,model_agenthub_thread,base.group_user,1,1,1,0
-access_agenthub_thread_manager,agenthub.thread manager,model_agenthub_thread,base.group_system,1,1,1,1
-access_agenthub_identity,agenthub.identity,model_agenthub_identity,base.group_user,1,1,1,1
-access_agenthub_identity_manager,agenthub.identity manager,model_agenthub_identity,base.group_system,1,1,1,1
-access_agenthub_binding,agenthub.binding,model_agenthub_binding,base.group_user,1,1,1,1
-access_agenthub_binding_manager,agenthub.binding manager,model_agenthub_binding,base.group_system,1,1,1,1
-access_agenthub_turn,agenthub.turn,model_agenthub_turn,base.group_user,1,0,0,0
-access_agenthub_turn_manager,agenthub.turn manager,model_agenthub_turn,base.group_system,1,1,1,1
-access_agenthub_command,agenthub.command,model_agenthub_command,base.group_user,1,1,1,1
-access_agenthub_command_manager,agenthub.command manager,model_agenthub_command,base.group_system,1,1,1,1
-access_agenthub_delivery_manager,agenthub.delivery manager,model_agenthub_delivery,base.group_system,1,1,1,1
-access_agenthub_publish_manager,agenthub.publish manager,model_agenthub_publish,base.group_system,1,1,1,1
-access_agenthub_record_cursor_manager,agenthub.record.cursor manager,model_agenthub_record_cursor,base.group_system,1,1,1,1
+access_agenthub_channel,agenthub.channel,model_agenthub_channel,group_agenthub_admin,1,1,1,1
+access_agenthub_agent,agenthub.agent,model_agenthub_agent,group_agenthub_admin,1,1,1,1
+access_agenthub_agent_user,agenthub.agent.user,model_agenthub_agent,group_agenthub_user,1,1,1,1
+access_agenthub_thread,agenthub.thread,model_agenthub_thread,group_agenthub_user,1,1,1,0
+access_agenthub_thread_manager,agenthub.thread manager,model_agenthub_thread,group_agenthub_admin,1,1,1,1
+access_agenthub_identity,agenthub.identity,model_agenthub_identity,group_agenthub_user,1,1,1,1
+access_agenthub_identity_manager,agenthub.identity manager,model_agenthub_identity,group_agenthub_admin,1,1,1,1
+access_agenthub_binding,agenthub.binding,model_agenthub_binding,group_agenthub_user,1,1,1,1
+access_agenthub_binding_manager,agenthub.binding manager,model_agenthub_binding,group_agenthub_admin,1,1,1,1
+access_agenthub_turn,agenthub.turn,model_agenthub_turn,group_agenthub_user,1,0,0,0
+access_agenthub_turn_manager,agenthub.turn manager,model_agenthub_turn,group_agenthub_admin,1,1,1,1
+access_agenthub_command,agenthub.command,model_agenthub_command,group_agenthub_user,1,1,1,1
+access_agenthub_command_manager,agenthub.command manager,model_agenthub_command,group_agenthub_admin,1,1,1,1
+access_agenthub_delivery_manager,agenthub.delivery manager,model_agenthub_delivery,group_agenthub_admin,1,1,1,1
+access_agenthub_publish_manager,agenthub.publish manager,model_agenthub_publish,group_agenthub_admin,1,1,1,1
+access_agenthub_record_cursor_manager,agenthub.record.cursor manager,model_agenthub_record_cursor,group_agenthub_admin,1,1,1,1

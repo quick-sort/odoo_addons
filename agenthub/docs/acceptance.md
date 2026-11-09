@@ -75,7 +75,7 @@
 - [ ] **AC40** `_agent_env()` 返回绑定执行用户的 env：`uid == user_id`、`su == False`；从 `sudo()` 调用时仍 `su == False`。
 - [ ] **AC41** `in_process` agent 的 `reply()` 在 `_agent_env()` 下执行；`relay` agent 的 token 只能访问自己的 inbox，Odoo 权限不被绕过。
 - [ ] **AC42** Discuss 中 agent 的显示身份是 `user_id.partner_id`；消息作者为该 partner；审计可区分人与 agent。
-- [ ] **AC43** record rule：普通用户只能看到 `owner_user_id == 自己` 的 agent 及其 thread；`base.group_system` 看全部。
+- [ ] **AC43** record rule：`agenthub.group_agenthub_user` 只能看到 `owner_user_id == 自己` 的 agent 及其 thread；`agenthub.group_agenthub_admin` 看全部。
 
 ## 10. 管理 UI、Token 与命令
 
