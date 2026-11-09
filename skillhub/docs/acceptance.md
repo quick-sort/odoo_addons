@@ -82,6 +82,6 @@ owner / shared / public 可见；其他用户不可见（record rule）。 — `
 
 ## AC-15 管理员可见全部
 
-管理员（`base.group_system`）不受 owner / shared / public 限制，能看到、编辑并下载
+管理员（`skillhub.group_skillhub_admin`）不受 owner / shared / public 限制，能看到、编辑并下载
 其他人的 skill；普通用户（不带管理员组）仍只看到 owner / shared / public 的记录。 —
 `test_admin_sees_and_can_edit_any_skill` / `test_read_isolation`

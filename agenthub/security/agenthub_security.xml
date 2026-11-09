@@ -1,88 +1,110 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
+    <record id="res_groups_privilege_agenthub" model="res.groups.privilege">
+        <field name="name">Agent Hub</field>
+        <field name="sequence">80</field>
+        <field name="category_id" ref="base.module_category_administration"/>
+    </record>
+
+    <record id="group_agenthub_user" model="res.groups">
+        <field name="name">User</field>
+        <field name="comment">Can use Agent Hub with their own agents, threads and bindings.</field>
+        <field name="sequence">10</field>
+        <field name="privilege_id" ref="res_groups_privilege_agenthub"/>
+        <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+    </record>
+
+    <record id="group_agenthub_admin" model="res.groups">
+        <field name="name">Administrator</field>
+        <field name="comment">Can manage every agent, channel, identity and binding.</field>
+        <field name="sequence">20</field>
+        <field name="privilege_id" ref="res_groups_privilege_agenthub"/>
+        <field name="implied_ids" eval="[(4, ref('group_agenthub_user'))]"/>
+    </record>
+
     <record id="agenthub_agent_rule_own" model="ir.rule">
         <field name="name">Agents: own only</field>
         <field name="model_id" ref="model_agenthub_agent"/>
         <field name="domain_force">[('owner_user_id', '=', user.id)]</field>
-        <field name="groups" eval="[(4, ref('base.group_user'))]"/>
+        <field name="groups" eval="[(4, ref('group_agenthub_user'))]"/>
     </record>
 
     <record id="agenthub_agent_rule_all" model="ir.rule">
         <field name="name">Agents: all (managers)</field>
         <field name="model_id" ref="model_agenthub_agent"/>
         <field name="domain_force">[(1, '=', 1)]</field>
-        <field name="groups" eval="[(4, ref('base.group_system'))]"/>
+        <field name="groups" eval="[(4, ref('group_agenthub_admin'))]"/>
     </record>
 
     <record id="agenthub_thread_rule_own" model="ir.rule">
         <field name="name">Threads: own agents</field>
         <field name="model_id" ref="model_agenthub_thread"/>
         <field name="domain_force">[('agent_id.owner_user_id', '=', user.id)]</field>
-        <field name="groups" eval="[(4, ref('base.group_user'))]"/>
+        <field name="groups" eval="[(4, ref('group_agenthub_user'))]"/>
     </record>
 
     <record id="agenthub_thread_rule_all" model="ir.rule">
         <field name="name">Threads: all (managers)</field>
         <field name="model_id" ref="model_agenthub_thread"/>
         <field name="domain_force">[(1, '=', 1)]</field>
-        <field name="groups" eval="[(4, ref('base.group_system'))]"/>
+        <field name="groups" eval="[(4, ref('group_agenthub_admin'))]"/>
     </record>
 
     <record id="agenthub_identity_rule_own" model="ir.rule">
         <field name="name">Identities: own only</field>
         <field name="model_id" ref="model_agenthub_identity"/>
         <field name="domain_force">[('user_id', '=', user.id)]</field>
-        <field name="groups" eval="[(4, ref('base.group_user'))]"/>
+        <field name="groups" eval="[(4, ref('group_agenthub_user'))]"/>
     </record>
 
     <record id="agenthub_identity_rule_all" model="ir.rule">
         <field name="name">Identities: all (managers)</field>
         <field name="model_id" ref="model_agenthub_identity"/>
         <field name="domain_force">[(1, '=', 1)]</field>
-        <field name="groups" eval="[(4, ref('base.group_system'))]"/>
+        <field name="groups" eval="[(4, ref('group_agenthub_admin'))]"/>
     </record>
 
     <record id="agenthub_binding_rule_own" model="ir.rule">
         <field name="name">Bindings: own only</field>
         <field name="model_id" ref="model_agenthub_binding"/>
         <field name="domain_force">[('user_id', '=', user.id)]</field>
-        <field name="groups" eval="[(4, ref('base.group_user'))]"/>
+        <field name="groups" eval="[(4, ref('group_agenthub_user'))]"/>
     </record>
 
     <record id="agenthub_binding_rule_all" model="ir.rule">
         <field name="name">Bindings: all (managers)</field>
         <field name="model_id" ref="model_agenthub_binding"/>
         <field name="domain_force">[(1, '=', 1)]</field>
-        <field name="groups" eval="[(4, ref('base.group_system'))]"/>
+        <field name="groups" eval="[(4, ref('group_agenthub_admin'))]"/>
     </record>
 
     <record id="agenthub_turn_rule_own" model="ir.rule">
         <field name="name">Turns: own agents</field>
         <field name="model_id" ref="model_agenthub_turn"/>
         <field name="domain_force">[('thread_id.agent_id.owner_user_id', '=', user.id)]</field>
-        <field name="groups" eval="[(4, ref('base.group_user'))]"/>
+        <field name="groups" eval="[(4, ref('group_agenthub_user'))]"/>
     </record>
 
     <record id="agenthub_turn_rule_all" model="ir.rule">
         <field name="name">Turns: all (managers)</field>
         <field name="model_id" ref="model_agenthub_turn"/>
         <field name="domain_force">[(1, '=', 1)]</field>
-        <field name="groups" eval="[(4, ref('base.group_system'))]"/>
+        <field name="groups" eval="[(4, ref('group_agenthub_admin'))]"/>
     </record>
 
     <record id="agenthub_command_rule_own" model="ir.rule">
         <field name="name">Commands: own agents</field>
         <field name="model_id" ref="model_agenthub_command"/>
         <field name="domain_force">[('agent_id.owner_user_id', '=', user.id)]</field>
-        <field name="groups" eval="[(4, ref('base.group_user'))]"/>
+        <field name="groups" eval="[(4, ref('group_agenthub_user'))]"/>
     </record>
 
     <record id="agenthub_command_rule_all" model="ir.rule">
         <field name="name">Commands: all (managers)</field>
         <field name="model_id" ref="model_agenthub_command"/>
         <field name="domain_force">[(1, '=', 1)]</field>
-        <field name="groups" eval="[(4, ref('base.group_system'))]"/>
+        <field name="groups" eval="[(4, ref('group_agenthub_admin'))]"/>
     </record>
 
 </odoo>

@@ -82,6 +82,7 @@
 
     <menuitem id="menu_agenthub_root"
               name="Agent Hub"
+              groups="agenthub.group_agenthub_user"
               sequence="80"/>
     <menuitem id="menu_agenthub_agent"
               name="Agents"

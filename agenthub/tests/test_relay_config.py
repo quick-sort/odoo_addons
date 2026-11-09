@@ -24,7 +24,7 @@ class TestRelayConfigSnapshot(common.TransactionCase):
             {
                 "name": "Config User",
                 "login": f"config_{uuid.uuid4().hex[:8]}",
-                "group_ids": [(6, 0, [self.env.ref("base.group_user").id])],
+                "group_ids": [(6, 0, [self.env.ref("agenthub.group_agenthub_user").id])],
             }
         )
         self.channel = self.env["agenthub.channel"].create(

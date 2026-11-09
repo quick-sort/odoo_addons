@@ -4,6 +4,7 @@
         id="menu_skillhub_root"
         name="Skills Hub"
         web_icon="skillhub,static/description/icon.svg"
+        groups="skillhub.group_skillhub_user"
         sequence="86"
     />
     <menuitem

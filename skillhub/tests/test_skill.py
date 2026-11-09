@@ -21,9 +21,9 @@ class TestSkillHub(TransactionCase):
 
     @classmethod
     def _make_user(cls, login, admin=False):
-        group_ids = [cls.env.ref("base.group_user").id]
+        group_ids = [cls.env.ref("skillhub.group_skillhub_user").id]
         if admin:
-            group_ids.append(cls.env.ref("base.group_system").id)
+            group_ids.append(cls.env.ref("skillhub.group_skillhub_admin").id)
         return cls.env["res.users"].create({
             "name": login,
             "login": login,
@@ -371,7 +371,7 @@ class TestSkillHub(TransactionCase):
         }
         self.assertTrue(expected.issubset(tools))
         for name in expected:
-            self.assertEqual(tools[name]["code_group_xmlids"], '["base.group_user"]', name)
+            self.assertEqual(tools[name]["code_group_xmlids"], '["skillhub.group_skillhub_user"]', name)
 
     def test_guide_contributed(self):
         guide = self.env["llm.tool.guide"].search([("code", "=", "skillhub")])

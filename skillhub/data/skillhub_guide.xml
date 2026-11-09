@@ -7,7 +7,7 @@
         <field name="summary">Skill package registry: publish/search/share/download skill zips. Writes via skill_publish/skill_download/skill_share/skill_unshare/skill_archive; reads via odoo_record_retriever on skillhub.skill.</field>
         <field
             name="allowed_group_ids"
-            eval="[(6, 0, [ref('base.group_user')])]"
+            eval="[(6, 0, [ref('group_skillhub_user')])]"
         />
         <field name="body"><![CDATA[
 SkillHub: registry of skill packages (zip files stored as ir.attachment). Models: skillhub.skill (one skill), skillhub.category (dynamic categories; a skill has one category_id).
