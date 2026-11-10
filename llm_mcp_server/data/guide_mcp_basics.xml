@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  llm_mcp_server: generic usage guide for the built-in Odoo record / method / inspector tools.
+  Place at addons/llm_mcp_server/data/guide_mcp_basics.xml and add it to __manifest__.py "data"
+  (next to the existing guide_file record).
+-->
+<odoo noupdate="0">
+    <record id="guide_mcp_basics" model="llm.tool.guide">
+        <field name="code">mcp_basics</field>
+        <field name="title">MCP Basics (read first)</field>
+        <field name="keyword">basics</field>
+        <field name="allowed_group_ids" eval="[(4, ref('base.group_user'))]"/>
+        <field name="summary">Read before the first call. Parameter names of odoo_record_* tools, return format, selection / x2many write rules, when to stop on errors, read-back and retry discipline, and how to explore an unknown model.</field>
+        <field name="body">
+Generic rules for odoo_record_retriever / creator / updater / unlinker, odoo_model_method_executor and odoo_model_inspector. Module guides (odoo_model_guide_retriever) override this one where they differ.
+
+## Parameters
+- retriever: model, domain, fields, limit, order. Archived records are hidden by default; to include them put ["active","in",[true,false]] in the domain.
+- creator: one record -> fields={...}; batch -> records=[{...}, ...]. Passing "values" fails with "Either fields or records must be provided". Keep batches to about 20 records; a single call with ~75 records times out.
+- updater: domain (required) + values. Passing only ids fails with "domain Field required". To update by id use domain=[["id","=",ID]].
+- unlinker: domain. Irreversible; prefer archiving (active=false) or the business "done / cancel" action.
+- method_executor: model, method, record_ids, args, kwargs. Common: fields_get, search_read, read, message_post, action_feedback.
+  - Do NOT put "context" inside kwargs. search_read / read forward it to an internal method and fail with "_read_format() got an unexpected keyword argument 'context'". Express the intent in the domain instead (e.g. active in [true,false] for archived records).
+- inspector: returns only 30 fields per page and reads ir.model, which non-admin users may not access. For the field list use method_executor method=fields_get.
+
+## Return format
+- Results are a Python repr string (True / False / None, single quotes), not JSON. Parse as a Python literal.
+- many2one -> [id, display_name]; empty value -> False; x2many -> list of ids.
+- create -> {id, display_name, message}; write -> {count, ids, message}; no match -> {"error": "No records found matching the domain"}.
+
+## Errors: when to stop
+- Access errors ("doesn't have 'create' / 'write' access to ...", "only Project/Administrator ...", "You are not allowed to access ...") are permission limits of the API key user. Do not retry, do not try another model or method to get around it. Stop that step, tell the user which record and operation was refused, and continue with the steps that do not depend on it.
+- "Wrong value", "Invalid field", "unexpected keyword argument": fix the call once using fields_get or this guide. If the same error repeats, stop and report the exact error instead of guessing variations.
+- Never retry the same failing call more than twice.
+
+## Before writing
+- Read the field definitions: fields_get with kwargs={"allfields":[...], "attributes":["type","string","selection","relation","required","readonly","store","help"]}.
+- selection fields accept the key only (e.g. "yellow", not "At Risk"). A label fails with "Wrong value for model.field" and the error does not list the options.
+- computed / readonly fields may accept a write and silently drop it. Check readonly / store, then read back.
+- Non-stored fields cannot be used in a domain ("Cannot convert ... to SQL because it is not stored").
+- People: resolve res.users ids first (login / email ilike). Names are often duplicated across records; when a name matches several rows, list them with ids and ask.
+
+## x2many writes
+- Add [[4, ID]], remove [[3, ID]], replace all [[6, 0, [IDS]]].
+- A bare list such as [7] replaces the whole set silently. If the user only says "set X", ask whether to add or replace.
+
+## After writing
+- Always read back what you wrote. A write over several ids can report count=1 and leave others unchanged; write one record per call when it matters.
+- The first read right after a write can return the old value; read again before concluding the write failed.
+- On "Session terminated", "Connection to the MCP server was closed" or "client session is not running", read back first to see whether the write landed, then retry. Never blind-retry a create.
+- Confirm with the user before unlink or any bulk write; list the affected records.
+
+## Environment facts
+- Every call runs as the API key user. All records, chatter and audit entries are attributed to that user, and visibility and permissions are that user's, not the requester's.
+- With a low-privilege user, list queries silently omit records the user cannot see. Report counts as "visible to this account", not as totals.
+- datetime fields are stored in UTC; the API user's timezone may differ from the business timezone. Tell the user to check dates in the UI.
+- Counts may differ from the UI: menu actions carry their own domain (ir.actions.act_window.domain) and archived records are hidden. Add the same domain when the user wants "what I see in the list".
+- Polymorphic links differ by model: mail.activity uses res_model_id (ir.model id) + res_id; ir.attachment uses res_model (char) + res_id. For files use the file guide.
+
+## Exploring an unknown model
+1. odoo_model_guide_retriever() - read the module guide if there is one.
+2. fields_get on the model, limited with allfields.
+3. Read 3-5 sample records.
+4. If allowed: retriever model=ir.model domain=[["model","ilike","KEYWORD"]] fields=["model","name"], and ir.actions.act_window domain=[["res_model","=",MODEL]] fields=["name","domain","context"]. Access may be denied for non-admin users; then skip this step.
+5. Try writes on test data and read back before touching real data.
+</field>
+        <field name="active" eval="True"/>
+    </record>
+</odoo>
