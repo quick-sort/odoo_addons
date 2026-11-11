@@ -44,6 +44,7 @@
         "data/ir_config_parameter.xml",
         "data/ir_cron_data.xml",
         "data/llm_tool_guide_data.xml",
+        "data/guide_mcp_basics.xml",
         "views/mcp_hub_menus.xml",
         "views/llm_mcp_server_config_views.xml",
         "views/llm_mcp_session_views.xml",
