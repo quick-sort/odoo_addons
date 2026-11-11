@@ -3,34 +3,26 @@
 
     <t t-name="web_tree_list.Rows">
         <t t-if="isTreeMode">
-            <t t-foreach="treeRoots" t-as="record" t-key="record.resId">
-                <t t-call="web_tree_list.Node">
-                    <t t-set="record" t-value="record"/>
-                    <t t-set="depth" t-value="0"/>
+            <!-- Flat pre-order rows: every row is a sibling, so Owl never has to
+                 reconcile a recursive t-call tree while mounting the field
+                 components of leaf rows. -->
+            <t t-foreach="treeRows" t-as="row" t-key="row.key">
+                <t t-if="row.group">
+                    <t t-call="web_tree_list.GroupRow">
+                        <t t-set="group" t-value="row.group"/>
+                        <t t-set="depth" t-value="row.depth"/>
+                    </t>
                 </t>
-            </t>
-        </t>
-        <t t-else="">
-            <t t-call="web.ListRenderer.Rows"/>
-        </t>
-    </t>
-
-    <t t-name="web_tree_list.Node">
-        <t t-if="isTreeParent(record)">
-            <t t-set="group" t-value="getTreeGroup(record)"/>
-            <t t-call="web_tree_list.GroupRow"/>
-            <t t-if="!group.isFolded">
-                <t t-foreach="group.list.records" t-as="childRecord" t-key="childRecord.resId">
-                    <t t-call="web_tree_list.Node">
-                        <t t-set="record" t-value="childRecord"/>
-                        <t t-set="depth" t-value="depth + 1"/>
-                        <t t-set="groupId" t-value="group.id"/>
+                <t t-else="">
+                    <t t-call="web_tree_list.LeafRow">
+                        <t t-set="record" t-value="row.record"/>
+                        <t t-set="groupId" t-value="row.groupId"/>
                     </t>
                 </t>
             </t>
         </t>
         <t t-else="">
-            <t t-call="web_tree_list.LeafRow"/>
+            <t t-call="web.ListRenderer.Rows"/>
         </t>
     </t>
 

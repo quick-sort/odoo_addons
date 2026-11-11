@@ -9,11 +9,11 @@ Controller、buttonTemplate、props）沿用 list。
   注册到 `views` registry 的 `tree_list` 键。
 - `tree_list_model.js`：`TreeListModel extends RelationalModel`。检测 tree 模式；
   tree 模式下加载 "false 组"（`parent_id=false` 的记录）作为树根，并暴露
-  `treeRoots` / `treeParentMap`。
-- `tree_list_renderer.js`：`TreeListRenderer extends ListRenderer`。tree 模式用自定义
-  `Rows` 模板递归渲染，非 tree 模式回退到原生 `web.ListRenderer.Rows`。
-- `tree_list_renderer.xml`：`Rows`（分支）、`Node`（递归）、`GroupRow`（缩进折叠头）、
-  `LeafRow`（叶子字段行）四个模板。
+  `treeRows`（预序扁平化的可见行）/ `treeParentMap`。
+- `tree_list_renderer.js`：`TreeListRenderer extends ListRenderer`。tree 模式渲染
+  `treeRows` 的扁平兄弟行，非 tree 模式回退到原生 `web.ListRenderer.Rows`。
+- `tree_list_renderer.xml`：`Rows`（分支）、`GroupRow`（缩进折叠头）、
+  `LeafRow`（叶子字段行）三个模板。
 
 ## 关键机制
 
@@ -30,7 +30,13 @@ Controller、buttonTemplate、props）沿用 list。
 
 - 根 = false 组懒加载出的记录；
 - 对某记录，`treeParentMap.has(record.resId)` 判它是否也是父（即存在对应 `Group`）；
-- 是父 → 渲染分组头，展开后递归其 `group.list.records`；否则 → 叶子行。
+- 是父且已展开 → 继续下钻其 `group.list.records`；折叠则不再下钻。
+
+`treeRows` 把这个自顶向下的遍历**扁平化成预序数组**（每项 `{record, group, depth}`），
+模板只做一层 `t-foreach` 渲染兄弟行。**不要改回递归 `t-call`**：叶子行会挂载字段
+组件（活动、头像、状态选择等），在高复杂度列表（如 project.task）里 Owl 对递归
+`t-call` 树的块对账会静默失败——父分组点开后子行进不了 DOM，表现为"只能看到根、
+点不开"。扁平化后与原生 list 的兄弟行结构一致，组件挂载正常。
 
 因此无需 `id:array_agg` 额外读组，也无需服务端新方法；折叠与子记录懒加载全部复用
 list 原生的 `Group.isFolded` / `Group.toggle()`。
