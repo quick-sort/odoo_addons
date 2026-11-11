@@ -43,9 +43,15 @@ export class GanttRenderer extends Component {
         this.baseCellHeight = 32;
         this.headerHeight = 80;
         this.sidebarWidth = 250;
+        this.minSidebarWidth = 120;
+        this.maxSidebarWidth = 600;
         this.scrollbarWidth = 10;
         this.minCellWidth = 20;
         this.maxCellWidth = 100;
+        // Active sidebar resize gesture: {startClientX, startWidth} or null.
+        this._sidebarResize = null;
+        // Set when a resize gesture ends, to swallow the trailing click.
+        this._suppressClick = false;
         this.scrollbarMetrics = null;
         this.scrollbarRect = null;
         this._scrollbarDragOffset = 0;
@@ -824,18 +830,21 @@ export class GanttRenderer extends Component {
             ctx.fillText(group.label, (left + right) / 2, splitY / 2);
         }
 
-        // Lower-row labels for the current scale.
+        // Lower-row labels for the current scale, centered in each cell
+        // (both horizontally and within the lower header band).
         ctx.fillStyle = '#6c757d';
         ctx.font = '11px Arial';
-        ctx.textBaseline = 'top';
-        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.textAlign = 'center';
+        const labelY = splitY + (this.headerHeight - splitY) / 2;
+        const centerOf = (cellX) => cellX + this.cellWidth / 2;
         const scale = this.props.scale || 'day';
         if (scale === 'week') {
             let weekStart = new Date(dates.start);
             weekStart.setDate(weekStart.getDate() - weekStart.getDay());
             while (weekStart <= dates.end) {
                 const weekX = this.dateToX(weekStart, dates);
-                ctx.fillText(`W${this.getWeekNumber(weekStart)}`, weekX + 5, 50);
+                ctx.fillText(`W${this.getWeekNumber(weekStart)}`, centerOf(weekX), labelY);
                 weekStart.setDate(weekStart.getDate() + 7);
             }
         } else if (scale === 'day') {
@@ -843,7 +852,7 @@ export class GanttRenderer extends Component {
             const days = Math.ceil((dates.end - dates.start) / 86400000);
             for (let i = 0; i <= days; i++) {
                 const dayX = this.dateToX(dayCounter, dates);
-                ctx.fillText(dayCounter.getDate().toString(), dayX + 5, 50);
+                ctx.fillText(dayCounter.getDate().toString(), centerOf(dayX), labelY);
                 dayCounter.setDate(dayCounter.getDate() + 1);
             }
         } else if (scale === 'quarter') {
@@ -856,7 +865,7 @@ export class GanttRenderer extends Component {
                 const quarterX = this.dateToX(current, dates);
                 if (quarterX >= this.sidebarWidth && quarterX <= rect.width) {
                     const quarter = Math.floor(current.getMonth() / 3) + 1;
-                    ctx.fillText(`Q${quarter}`, Math.max(this.sidebarWidth + 5, quarterX + 5), 50);
+                    ctx.fillText(`Q${quarter}`, centerOf(quarterX), labelY);
                 }
                 current.setMonth(current.getMonth() + 3);
             }
@@ -866,8 +875,8 @@ export class GanttRenderer extends Component {
                 const monthX = this.dateToX(current, dates);
                 ctx.fillText(
                     current.toLocaleDateString('en-US', { month: 'short' }),
-                    monthX + 5,
-                    50
+                    centerOf(monthX),
+                    labelY
                 );
                 current.setMonth(current.getMonth() + 1);
             }
@@ -1442,6 +1451,18 @@ export class GanttRenderer extends Component {
             return;
         }
 
+        // Grab the divider between the sidebar and the timeline to resize the
+        // sidebar. Checked before the sidebar click handling below so the
+        // handle works from both sides of the boundary.
+        if (Math.abs(x - this.sidebarWidth) <= 6) {
+            this._sidebarResize = {
+                startClientX: e.clientX,
+                startWidth: this.sidebarWidth,
+            };
+            this.canvasRef.el.style.cursor = 'col-resize';
+            return;
+        }
+
         // The left sidebar opens the task form on click (see onClick); it is
         // not a drag/pan surface.
         if (x < this.sidebarWidth) {
@@ -1485,12 +1506,54 @@ export class GanttRenderer extends Component {
             return;
         }
 
+        if (this._sidebarResize) {
+            const delta = e.clientX - this._sidebarResize.startClientX;
+            const maxWidth = Math.max(
+                this.minSidebarWidth,
+                Math.min(this.maxSidebarWidth, rect.width * 0.7)
+            );
+            this.sidebarWidth = Math.round(
+                Math.max(
+                    this.minSidebarWidth,
+                    Math.min(maxWidth, this._sidebarResize.startWidth + delta)
+                )
+            );
+            this.clampScrollIntoView();
+            this.scheduleRedraw();
+            return;
+        }
+
+        // The resize handle covers both sides of the divider.
+        if (Math.abs(x - this.sidebarWidth) <= 6) {
+            this.canvasRef.el.style.cursor = 'col-resize';
+            this.state.tooltip.visible = false;
+            if (this.state.hoveredTask) {
+                this.state.hoveredTask = null;
+                this.scheduleRedraw();
+            }
+            return;
+        }
+
         if (x < this.sidebarWidth) {
             const row = this.getRowAtY(y);
             const caret = row && row._caretRect;
             const overCaret = !!caret && x >= caret.x && x <= caret.x + caret.width;
             this.canvasRef.el.style.cursor = overCaret ? 'pointer' : 'default';
-            this.state.tooltip.visible = false;
+            // Sidebar labels are truncated to fit; show the full text of the
+            // hovered row in a tooltip.
+            if (row && y >= this.headerHeight) {
+                this.state.tooltip = {
+                    visible: true,
+                    content:
+                        row.type === 'group'
+                            ? `${row.group.name} (${row.group.tasks.length})`
+                            : row.task.name,
+                    x,
+                    y,
+                };
+            } else {
+                this.state.tooltip.visible = false;
+            }
             if (this.state.hoveredTask) {
                 this.state.hoveredTask = null;
                 this.scheduleRedraw();
@@ -1576,6 +1639,15 @@ export class GanttRenderer extends Component {
     }
 
     onMouseUp(e) {
+        if (this._sidebarResize) {
+            this._sidebarResize = null;
+            // The browser fires a click after mouseup; swallow it so the row
+            // under the divider does not also open the task form.
+            this._suppressClick = true;
+            this.canvasRef.el.style.cursor = 'default';
+            this.scheduleRedraw();
+            return;
+        }
         if (this.state.scrollbarDragging) {
             this.state.scrollbarDragging = false;
             this.canvasRef.el.style.cursor = 'default';
@@ -1603,6 +1675,10 @@ export class GanttRenderer extends Component {
     }
 
     onClick(e) {
+        if (this._suppressClick) {
+            this._suppressClick = false;
+            return;
+        }
         const rect = this.canvasRef.el.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
@@ -1764,6 +1840,7 @@ export class GanttRenderer extends Component {
     }
 
     onMouseLeave() {
+        this._sidebarResize = null;
         this.state.draggedTask = null;
         this.state.isPanning = false;
         this.state.scrollbarDragging = false;
