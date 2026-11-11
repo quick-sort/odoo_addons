@@ -54,4 +54,29 @@ export class TreeListModel extends RelationalModel {
         const falseGroup = this.root.groups.find((group) => group.value === false);
         return falseGroup ? falseGroup.list.records : [];
     }
+
+    /**
+     * The visible tree flattened in pre-order: one entry per rendered row.
+     * Rendering a flat sibling list (instead of a recursive t-call tree) keeps
+     * Owl's block reconciliation happy when leaf rows mount field components.
+     * `group` is set for rows that are also parent groups (group headers),
+     * otherwise null (leaf record rows). Collapsed groups stop the descent.
+     */
+    get treeRows() {
+        const parentMap = this.treeParentMap;
+        const rows = [];
+        const addNode = (record, depth, groupId) => {
+            const group = parentMap.get(record.resId);
+            rows.push({ key: record.resId, record, group, depth, groupId });
+            if (group && !group.isFolded) {
+                for (const child of group.list.records) {
+                    addNode(child, depth + 1, group.id);
+                }
+            }
+        };
+        for (const record of this.treeRoots) {
+            addNode(record, 0, false);
+        }
+        return rows;
+    }
 }

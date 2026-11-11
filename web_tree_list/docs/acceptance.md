@@ -17,10 +17,14 @@ Python 侧由 `tests/test_view.py` 锁定 `js_class="tree_list"` 的 arch 可被
 3. **多级折叠**：分组头按父树深度缩进、可逐级展开/折叠，≥3 层可见（根→子→孙）。
    - 验收：demo 数据（Root A → A-Child 1 → Grandchild 1/2 等）在浏览器中呈现
      多级嵌套分组头，点击箭头逐级折叠。
+   - 复杂列表回归：在含活动/头像/状态选择等字段组件的列表（如 `project.task`
+     按 Parent Task 分组）中，父分组点开后子行必须实际进入 DOM；不得出现"分组
+     状态已展开（`isFolded=false`、子记录已加载）但表格仍只有根行"——这是 Owl
+     对递归 `t-call` 树做块对账时的静默失败，渲染必须走扁平兄弟行。
 
 4. **叶子渲染**：叶子行复用原生 `web.ListRenderer.RecordRow`，显示 list 的字段/
-   widget/按钮组列，行与表头等宽；tree 模式不显示记录选择列（原生选择框组件在递归
-   `t-call` 树里会破坏 Owl 块对账）；点击单元格与普通 list 一致，打开对应记录的 form。
+   widget/按钮组列，行与表头等宽；tree 模式不显示记录选择列（只读契约）；点击
+   单元格与普通 list 一致，打开对应记录的 form。
    - 验收：demo 叶子行正确显示 name；description（optional 列）可显示；行右端与表头
      对齐；点击叶子行单元格进入该记录的 form 视图。
 

@@ -1,6 +1,6 @@
 {
     "name": "Tree List View Demo",
-    "version": "19.0.1.0.1",
+    "version": "19.0.1.0.2",
     "category": "Web",
     "summary": "Demo model and views for the web_tree_list recursive list view",
     "depends": ["web_tree_list"],
