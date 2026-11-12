@@ -1,0 +1,42 @@
+.o_list_renderer {
+    --o-tree-indent: 18px;
+
+    // Every tree row (parent or leaf) indents its first cell by its depth, so
+    // leaves line up with the parent rows at the same level. The extra indent
+    // leaves room for the expand arrow on parent rows (and aligns leaf text
+    // with parent text). Deeper levels may squeeze the first column; accepted.
+    tr.o_tree_node > td:first-child {
+        position: relative;
+        padding-left: calc(
+            var(--o-tree-depth, 0) * var(--o-tree-indent) + var(--o-tree-indent)
+        );
+    }
+
+    // The expand arrow is drawn before the first cell content; only clicks on
+    // this glyph toggle the group (see TreeListRenderer.onCellClicked).
+    tr.o_tree_parent > td:first-child::before {
+        content: "\f0da"; // fa-caret-right
+        font-family: "FontAwesome";
+        position: absolute;
+        top: 50%;
+        left: calc(var(--o-tree-depth, 0) * var(--o-tree-indent));
+        width: var(--o-tree-indent);
+        transform: translateY(-50%);
+        text-align: center;
+        line-height: 1;
+        font-size: 13px;
+        color: inherit;
+        cursor: pointer;
+        user-select: none;
+    }
+
+    tr.o_tree_parent.o_tree_open > td:first-child::before {
+        content: "\f0d7"; // fa-caret-down
+    }
+
+    @for $i from 0 through 20 {
+        tr.o_tree_depth_#{$i} {
+            --o-tree-depth: #{$i};
+        }
+    }
+}

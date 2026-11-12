@@ -11,9 +11,12 @@ Controller、buttonTemplate、props）沿用 list。
   tree 模式下加载 "false 组"（`parent_id=false` 的记录）作为树根，并暴露
   `treeRows`（预序扁平化的可见行）/ `treeParentMap`。
 - `tree_list_renderer.js`：`TreeListRenderer extends ListRenderer`。tree 模式渲染
-  `treeRows` 的扁平兄弟行，非 tree 模式回退到原生 `web.ListRenderer.Rows`。
-- `tree_list_renderer.xml`：`Rows`（分支）、`GroupRow`（缩进折叠头）、
-  `LeafRow`（叶子字段行）三个模板。
+  `treeRows` 的扁平兄弟行；负责行深度 class、折叠箭头点击判定，非 tree 模式回退到
+  原生 `web.ListRenderer.Rows`。
+- `tree_list_renderer.xml`：`Rows`（分支）、`LeafRow`（记录行）两个模板。
+  **父/子节点同一行模板**（原生 `RecordRow`），所有列信息一致。
+- `tree_list.scss`：按深度给首列加缩进；父节点首列用 `::before` 画折叠箭头，
+  箭头命中区以外的点击仍走原生行行为（打开表单）。
 
 ## 关键机制
 
@@ -40,6 +43,16 @@ Controller、buttonTemplate、props）沿用 list。
 
 因此无需 `id:array_agg` 额外读组，也无需服务端新方法；折叠与子记录懒加载全部复用
 list 原生的 `Group.isFolded` / `Group.toggle()`。
+
+### 行渲染与交互
+
+- 父节点与叶子节点都用原生 `RecordRow` 渲染，列信息完全一致；父节点显示的是该
+  记录自身的字段值（不使用 read_group 的聚合值）。
+- 首列按 depth 缩进，叶子与同层父节点的文字对齐；父节点在缩进区用 `::before`
+  画 `▸` / `▾`。
+- 只有箭头命中区（按 depth 计算的水平区间）触发 `Group.toggle()`；首列其它区域
+  和其它列保持原生行为（打开记录），即"点击不再作用于整行"。
+- 折叠状态仍由 `Group.isFolded` 驱动，行 class 由 `getRowClass` 注入。
 
 ## 被否决的方案
 

@@ -5,43 +5,19 @@
         <t t-if="isTreeMode">
             <!-- Flat pre-order rows: every row is a sibling, so Owl never has to
                  reconcile a recursive t-call tree while mounting the field
-                 components of leaf rows. -->
+                 components of leaf rows. Parent and leaf rows share the same
+                 RecordRow layout; depth indentation and the expand arrow are
+                 added by tree_list.scss. -->
             <t t-foreach="treeRows" t-as="row" t-key="row.key">
-                <t t-if="row.group">
-                    <t t-call="web_tree_list.GroupRow">
-                        <t t-set="group" t-value="row.group"/>
-                        <t t-set="depth" t-value="row.depth"/>
-                    </t>
-                </t>
-                <t t-else="">
-                    <t t-call="web_tree_list.LeafRow">
-                        <t t-set="record" t-value="row.record"/>
-                        <t t-set="groupId" t-value="row.groupId"/>
-                    </t>
+                <t t-call="web_tree_list.LeafRow">
+                    <t t-set="record" t-value="row.record"/>
+                    <t t-set="groupId" t-value="row.groupId"/>
                 </t>
             </t>
         </t>
         <t t-else="">
             <t t-call="web.ListRenderer.Rows"/>
         </t>
-    </t>
-
-    <t t-name="web_tree_list.GroupRow">
-        <tr t-attf-class="{{group.count > 0 ? 'o_group_has_content' : ''}} o_group_header {{!group.isFolded ? 'o_group_open' : ''}} cursor-pointer"
-            t-att-data-group-id="group.id"
-            t-on-click="(ev) => this.onTreeGroupHeaderClicked(ev, group)">
-            <th tabindex="-1"
-                t-attf-class="o_group_name fs-6 fw-bold {{!group.isFolded ? 'text-black' : 'text-body'}}"
-                t-att-colspan="getGroupNameCellColSpan(group)">
-                <div class="d-flex align-items-center">
-                    <span t-attf-class="o_group_caret fa fa-fw {{group.isFolded ? 'fa-caret-right' : 'fa-caret-down'}} me-1"
-                        t-attf-style="--o-list-group-level: {{depth}}"/>
-                    <t t-esc="group.displayName"/> (<t t-esc="group.count"/>)
-                </div>
-            </th>
-            <th t-if="hasOpenFormViewColumn" class="p-0"/>
-            <th t-if="hasActionsColumn" class="p-0"/>
-        </tr>
     </t>
 
     <t t-name="web_tree_list.LeafRow">
