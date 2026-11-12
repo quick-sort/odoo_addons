@@ -1,6 +1,6 @@
 {
     "name": "Tree List View",
-    "version": "19.0.1.0.2",
+    "version": "19.0.1.0.3",
     "category": "Web",
     "summary": "Recursive multi-level collapsible list view for self-referencing many2one fields",
     "depends": ["web"],
