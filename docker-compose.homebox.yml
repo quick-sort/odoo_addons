@@ -1,0 +1,106 @@
+# Home server ("homebox") deployment: stock odoo:19.0 image, this repository
+# bind-mounted into the addons path -- no image build (contrast with
+# docker-compose.yml, which bakes the repo into an image for another host).
+#
+# External infrastructure (managed by the homebox_config repo, network `main`):
+#   - postgresql  pgvector:pg18 container, db `odoo`, user odoo / postgres
+#   - nginx       dataset.lan -> odoo:8069 (conf untouched, container name kept)
+#
+# Stack:
+#   deps  one-shot: merges every addon's requirements.txt into the named
+#         volume `python-deps` (odoo reads it via PYTHONPATH). pip's
+#         cryptography/cffi are removed afterwards -- a pip-installed
+#         cryptography breaks the image's pyOpenSSL pairing (same lesson as
+#         the Dockerfile / CI).
+#   odoo  long-running: repo mounted at /opt/odoo_addons (in odoo.homebox.conf
+#         addons_path), reuses the pre-existing odoo_data volume (filestore)
+#         and the /mnt/dataset host directory.
+#
+# Daily update from the repo root:
+#   git pull && ./scripts/deploy_homebox.sh
+# (a plain `up -d` does NOT restart odoo when only the bind-mounted code
+# changed -- the deploy script restarts it explicitly).
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "50m"
+    max-file: "5"
+
+services:
+  deps:
+    image: odoo:19.0
+    user: root
+    restart: "no"
+    environment:
+      PIP_INDEX_URL: https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple/
+    volumes:
+      - .:/src:ro
+      - python-deps:/opt/python-deps
+    command:
+      - sh
+      - -c
+      - |
+        set -e
+        # Aggregate every addon's requirements.txt. psycopg2 is filtered out:
+        # the odoo image ships it as a Debian package and the sdist build
+        # fails in-container (same SKIP set as scripts/ci_requirements.py).
+        find /src -maxdepth 2 -name requirements.txt -exec cat {} + \
+          | grep -v '^#' | grep -v '^$$' | grep -vE '^psycopg2' | sort -u > /tmp/all.txt
+        echo "==> installing $$(wc -l < /tmp/all.txt) packages into /opt/python-deps"
+        pip3 install --no-cache-dir --break-system-packages \
+          --target /opt/python-deps -r /tmp/all.txt
+        rm -rf /opt/python-deps/cryptography* /opt/python-deps/cffi*
+        echo "==> python deps ready"
+    networks:
+      - main
+    logging: *default-logging
+
+  odoo:
+    image: odoo:19.0
+    restart: unless-stopped
+    container_name: odoo
+    init: true
+    stop_grace_period: 60s
+    depends_on:
+      deps:
+        condition: service_completed_successfully
+    environment:
+      # Consumed by the odoo image entrypoint. db_host comes from
+      # odoo.homebox.conf (the entrypoint lets the config file win over these
+      # env vars); the password is absent from the conf, so PASSWORD/PGPASSWORD
+      # inject it -- PGPASSWORD also covers `docker exec odoo odoo ...`.
+      HOST: postgresql
+      PORT: "5432"
+      USER: odoo
+      PASSWORD: postgres
+      PGPASSWORD: postgres
+      PYTHONPATH: /opt/python-deps
+    volumes:
+      - .:/opt/odoo_addons:ro
+      - python-deps:/opt/python-deps
+      - odoo-data:/var/lib/odoo
+      - /mnt/dataset:/var/lib/odoo/filestore/datasets
+      - ./odoo.homebox.conf:/etc/odoo/odoo.conf:ro
+    healthcheck:
+      # start-period covers a long first boot (module loading on 136 modules).
+      test: ["CMD", "python3", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8069/web/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      start_period: 5m
+      retries: 3
+    networks:
+      - main
+    logging: *default-logging
+
+volumes:
+  python-deps:
+    name: odoo_python_deps
+  odoo-data:
+    name: odoo_data
+    external: true
+
+networks:
+  main:
+    name: main
+    external: true
