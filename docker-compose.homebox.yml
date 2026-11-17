@@ -29,7 +29,9 @@ x-logging: &default-logging
 
 services:
   deps:
-    image: odoo:19.0
+    # Pinned to the same build as the odoo service: pip must install for the
+    # exact interpreter that runs Odoo. Keep the two tags in sync.
+    image: odoo:19.0-20260908
     user: root
     restart: "no"
     environment:
@@ -57,7 +59,10 @@ services:
     logging: *default-logging
 
   odoo:
-    image: odoo:19.0
+    # Pinned (not the floating odoo:19.0 tag) to the build the repo's CI and
+    # Dockerfile test against: odoo:19.0-20260908. Bump deliberately, then
+    # check module loading after the container recreates.
+    image: odoo:19.0-20260908
     restart: unless-stopped
     container_name: odoo
     init: true
